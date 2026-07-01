@@ -36,10 +36,10 @@ const COLOR = {
 };
 
 const RULES = {
-  startCurrency: 200,
+  startCurrency: 150,
   startLives: 20,
-  upgradeCost: [0, 55, 85],
-  earnPerWave: 45,
+  upgradeCost: [0, 70, 100],
+  earnPerWave: 40,
 };
 
 const TOWER_TYPES = [
@@ -62,10 +62,10 @@ const TOWER_TYPES = [
 const TOWER_BY_ID = Object.fromEntries(TOWER_TYPES.map((t) => [t.id, t]));
 
 const ENEMY_TYPES = {
-  mote:   { name: "Mote",   color: "#c86bff", edge: "#e4c2ff", hpMul: 1.0,  speedMul: 1.0, radius: 12, reward: 6 },
-  runner: { name: "Runner", color: "#ff8f6b", edge: "#ffd0bf", hpMul: 0.6,  speedMul: 1.7, radius: 9,  reward: 7 },
-  brute:  { name: "Brute",  color: "#8b7bd8", edge: "#c7bdf0", hpMul: 2.6,  speedMul: 0.7, radius: 17, reward: 12 },
-  swarm:  { name: "Swarm",  color: "#6bffb0", edge: "#c2ffe0", hpMul: 0.28, speedMul: 1.2, radius: 7,  reward: 3 },
+  mote:   { name: "Mote",   color: "#c86bff", edge: "#e4c2ff", hpMul: 1.0,  speedMul: 1.0, radius: 12, reward: 5 },
+  runner: { name: "Runner", color: "#ff8f6b", edge: "#ffd0bf", hpMul: 0.6,  speedMul: 1.7, radius: 9,  reward: 5 },
+  brute:  { name: "Brute",  color: "#8b7bd8", edge: "#c7bdf0", hpMul: 2.6,  speedMul: 0.7, radius: 17, reward: 9 },
+  swarm:  { name: "Swarm",  color: "#6bffb0", edge: "#c2ffe0", hpMul: 0.28, speedMul: 1.2, radius: 7,  reward: 2 },
 };
 
 /* =========================================================================
@@ -136,16 +136,16 @@ function pointAtDistance(dist) {
    ========================================================================= */
 
 const WAVES = [
-  { hp: 70,  speed: 50, interval: 1.05, comp: [["mote", 6]] },
-  { hp: 85,  speed: 52, interval: 1.0,  comp: [["mote", 6], ["runner", 3]] },
-  { hp: 100, speed: 54, interval: 0.95, comp: [["mote", 8], ["runner", 4]] },
-  { hp: 120, speed: 55, interval: 0.85, comp: [["mote", 8], ["swarm", 8]] },
-  { hp: 140, speed: 57, interval: 0.85, comp: [["mote", 8], ["runner", 5], ["brute", 1]] },
-  { hp: 160, speed: 59, interval: 0.8,  comp: [["swarm", 14], ["runner", 5]] },
-  { hp: 185, speed: 61, interval: 0.75, comp: [["mote", 10], ["brute", 2], ["runner", 5]] },
-  { hp: 210, speed: 63, interval: 0.72, comp: [["runner", 10], ["brute", 3]] },
-  { hp: 240, speed: 65, interval: 0.68, comp: [["mote", 12], ["swarm", 12], ["brute", 3]] },
-  { hp: 290, speed: 69, interval: 0.6,  comp: [["brute", 6], ["runner", 10], ["mote", 8]] },
+  { hp: 75,  speed: 50, interval: 1.0,  comp: [["mote", 7]] },
+  { hp: 90,  speed: 53, interval: 0.95, comp: [["mote", 6], ["runner", 4]] },
+  { hp: 110, speed: 55, interval: 0.9,  comp: [["mote", 7], ["runner", 5], ["swarm", 4]] },
+  { hp: 135, speed: 57, interval: 0.85, comp: [["mote", 8], ["swarm", 9], ["runner", 4]] },
+  { hp: 160, speed: 59, interval: 0.8,  comp: [["mote", 8], ["runner", 6], ["brute", 2]] },
+  { hp: 190, speed: 61, interval: 0.76, comp: [["swarm", 14], ["runner", 6], ["brute", 2]] },
+  { hp: 220, speed: 63, interval: 0.72, comp: [["mote", 9], ["brute", 3], ["runner", 7]] },
+  { hp: 255, speed: 65, interval: 0.68, comp: [["runner", 10], ["brute", 3], ["swarm", 9]] },
+  { hp: 295, speed: 67, interval: 0.63, comp: [["mote", 11], ["swarm", 12], ["brute", 4]] },
+  { hp: 340, speed: 69, interval: 0.56, comp: [["brute", 6], ["runner", 12], ["mote", 9]] },
 ];
 function buildSpawnQueue(wave) {
   const q = [];
@@ -229,7 +229,7 @@ const game = {
   selectedType: "arrow",
   towers: [], enemies: [], projectiles: [], particles: [],
   spawnQueue: [], spawnTimer: 0, waveHp: 0, waveSpeed: 0, waveInterval: 1,
-  killed: 0, coreHurtFlash: 0, elapsed: 0, fps: 0,
+  killed: 0, coreHurtFlash: 0, shake: 0, elapsed: 0, fps: 0,
   pointer: { x: -1, y: -1 },
   message: "", messageTimer: 0,
   lastRun: null, // { won, wave, killed, essence } — shown on the summary
@@ -411,6 +411,7 @@ function startGameLoop() {
 function update(step) {
   game.elapsed += step;
   if (game.coreHurtFlash > 0) game.coreHurtFlash -= step;
+  if (game.shake > 0) game.shake = Math.max(0, game.shake - step * 24);
   if (game.messageTimer > 0) game.messageTimer -= step;
   if (game.phase === "menu") { updateParticles(step); return; }
 
@@ -445,7 +446,7 @@ function moveEnemies(step) {
     const p = pointAtDistance(e.dist);
     e.x = p.x; e.y = p.y;
     if (e.hurtFlash > 0) e.hurtFlash -= step;
-    if (e.dist >= PATH_LENGTH) { e.reachedCore = true; game.lives = Math.max(0, game.lives - 1); game.coreHurtFlash = 0.35; }
+    if (e.dist >= PATH_LENGTH) { e.reachedCore = true; game.lives = Math.max(0, game.lives - 1); game.coreHurtFlash = 0.35; game.shake = 6; }
   }
   game.enemies = game.enemies.filter((e) => !e.reachedCore);
 }
@@ -502,8 +503,12 @@ function applyDamage(enemy, dmg) {
     game.killed++;
     game.currency += enemy.reward;
     spawnKillBurst(enemy.x, enemy.y, ENEMY_TYPES[enemy.typeId].color);
+    spawnFloatText(enemy.x, enemy.y - 14, "+" + enemy.reward, COLOR.gold);
     audio.kill();
-  } else { audio.hit(); }
+  } else {
+    spawnHitSpark(enemy.x, enemy.y);
+    audio.hit();
+  }
 }
 
 function checkWaveEnd() {
@@ -543,11 +548,19 @@ function spawnUpgradeSparkles(t) {
   spawnRing(t.x, t.y, COLOR.upgradeSpark, 42, 0.5);
   for (let i = 0; i < 16; i++) { const a = (Math.PI * 2 * i) / 16, sp = 70 + Math.random() * 60; game.particles.push({ type: "spark", x: t.x, y: t.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r: 2 + Math.random() * 2, life: 0.5 + Math.random() * 0.3, maxLife: 0.8, color: COLOR.upgradeSpark }); }
 }
+// A tiny, cheap spark on a non-lethal hit — quick readable feedback without the weight of a kill burst.
+function spawnHitSpark(x, y) {
+  for (let i = 0; i < 3; i++) { const a = Math.random() * Math.PI * 2, sp = 30 + Math.random() * 40; game.particles.push({ type: "spark", x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r: 1.5, life: 0.15, maxLife: 0.15, color: "#ffffff" }); }
+}
+function spawnFloatText(x, y, text, color) {
+  game.particles.push({ type: "text", x, y, vy: -34, text, color, life: 0.7, maxLife: 0.7 });
+}
 function updateParticles(step) {
   for (const p of game.particles) {
     p.life -= step;
     if (p.type === "spark") { p.x += p.vx * step; p.y += p.vy * step; p.vx *= 0.92; p.vy *= 0.92; }
     else if (p.type === "ring") { const k = 1 - p.life / p.maxLife; p.r = 4 + (p.maxR - 4) * k; }
+    else if (p.type === "text") { p.y += p.vy * step; p.vy *= 0.9; }
   }
   game.particles = game.particles.filter((p) => p.life > 0);
 }
@@ -559,6 +572,11 @@ function updateParticles(step) {
 function render() {
   const ctx = game.ctx;
   if (game.phase === "menu") { drawMenu(ctx); drawMuteButton(ctx); return; }
+  const shaking = game.shake > 0.05;
+  if (shaking) {
+    ctx.save();
+    ctx.translate((Math.random() - 0.5) * game.shake, (Math.random() - 0.5) * game.shake);
+  }
   drawBackground(ctx);
   drawPath(ctx);
   drawSlots(ctx);
@@ -568,6 +586,7 @@ function render() {
   drawProjectiles(ctx);
   drawTowers(ctx);
   drawParticles(ctx);
+  if (shaking) ctx.restore();
   drawToolbar(ctx);
   drawStartButton(ctx);
   drawHUD(ctx);
@@ -755,6 +774,48 @@ function drawTowerShape(ctx, shape, x, y, r) {
   else { ctx.rect(x - r * 0.85, y - r * 0.85, r * 1.7, r * 1.7); }
 }
 
+// Extra in-play ornamentation per tower type, layered on top of the base silhouette
+// (kept out of drawTowerShape so small toolbar/hub cards stay clean and legible).
+function drawTowerDetail(ctx, typeId, x, y, r, def, t) {
+  ctx.save();
+  ctx.strokeStyle = "#0b0e14"; ctx.globalAlpha = 0.75;
+  if (typeId === "arrow") {
+    // A nested inner diamond facet, like a drawn bowstring notch.
+    ctx.lineWidth = 1.3; ctx.beginPath();
+    const ir = r * 0.5;
+    ctx.moveTo(x, y - ir); ctx.lineTo(x + ir, y); ctx.lineTo(x, y + ir); ctx.lineTo(x - ir, y); ctx.closePath();
+    ctx.stroke();
+  } else if (typeId === "cannon") {
+    // A short stubby barrel + a darker base ring, like a turret housing.
+    ctx.globalAlpha = 0.9; ctx.fillStyle = "#5a2f10";
+    ctx.fillRect(x - r * 0.28, y - r * 1.35, r * 0.56, r * 0.7);
+    ctx.globalAlpha = 0.5; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(x, y, r * 0.55, 0, Math.PI * 2); ctx.stroke();
+  } else if (typeId === "frost") {
+    // Small crystal spikes at alternating hex vertices, like rime forming on the tower.
+    ctx.globalAlpha = 0.85; ctx.strokeStyle = "#eaffff"; ctx.lineWidth = 1.2;
+    for (let i = 0; i < 6; i += 2) {
+      const a = (Math.PI / 3) * i - Math.PI / 6;
+      const px = x + Math.cos(a) * r, py = y + Math.sin(a) * r;
+      const tx = x + Math.cos(a) * (r + 5), ty = y + Math.sin(a) * (r + 5);
+      ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(tx, ty); ctx.stroke();
+    }
+  } else if (typeId === "sniper") {
+    // A scope: thin barrel line from the apex + a small ringed lens.
+    ctx.globalAlpha = 0.9; ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.moveTo(x, y - r * 0.7); ctx.lineTo(x, y - r * 1.5); ctx.stroke();
+    ctx.beginPath(); ctx.arc(x, y - r * 1.5, 2.2, 0, Math.PI * 2); ctx.stroke();
+  } else if (typeId === "zap") {
+    // A small jagged bolt etched into the housing.
+    ctx.globalAlpha = 0.85; ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.moveTo(x - r * 0.15, y - r * 0.55); ctx.lineTo(x + r * 0.2, y - r * 0.1);
+    ctx.lineTo(x - r * 0.1, y - r * 0.1); ctx.lineTo(x + r * 0.15, y + r * 0.55);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
 function drawTowers(ctx) {
   for (const t of game.towers) {
     const def = TOWER_BY_ID[t.typeId];
@@ -764,6 +825,7 @@ function drawTowers(ctx) {
     ctx.beginPath(); ctx.arc(t.x, t.y, radius + 10, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
     ctx.fillStyle = def.color; drawTowerShape(ctx, def.shape, t.x, t.y, radius); ctx.fill();
     ctx.strokeStyle = "#eaf2ff"; ctx.lineWidth = 2; ctx.stroke();
+    drawTowerDetail(ctx, t.typeId, t.x, t.y, radius, def, t);
     for (let i = 0; i < t.maxLevel; i++) { ctx.beginPath(); ctx.arc(t.x - 8 + i * 8, t.y - radius - 9, 3, 0, Math.PI * 2); ctx.fillStyle = i < t.level ? COLOR.upgradeSpark : "#39404f"; ctx.fill(); }
     if (distance(game.pointer, t) <= 18 && t.level < t.maxLevel) { ctx.fillStyle = game.currency >= RULES.upgradeCost[t.level] ? COLOR.good : COLOR.bad; ctx.font = "11px system-ui, sans-serif"; ctx.textAlign = "center"; ctx.fillText("upgrade " + RULES.upgradeCost[t.level], t.x, t.y - radius - 17); }
   }
@@ -773,6 +835,7 @@ function drawParticles(ctx) {
   for (const p of game.particles) {
     ctx.globalAlpha = Math.max(0, p.life / p.maxLife); ctx.fillStyle = p.color;
     if (p.type === "ring") { ctx.strokeStyle = p.color; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.stroke(); }
+    else if (p.type === "text") { ctx.font = "bold 12px system-ui, sans-serif"; ctx.textAlign = "center"; ctx.fillText(p.text, p.x, p.y); ctx.textAlign = "left"; }
     else { ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill(); }
   }
   ctx.globalAlpha = 1;
@@ -810,12 +873,42 @@ function drawStartButton(ctx) {
   ctx.textBaseline = "alphabetic";
 }
 
+// A small warded-shield glyph for lives — echoes the core's hexagon shape (defense, not just health).
+function drawHeartIcon(ctx, x, y, color) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(0, -8); ctx.lineTo(6, -5); ctx.lineTo(6, 2); ctx.lineTo(0, 8); ctx.lineTo(-6, 2); ctx.lineTo(-6, -5);
+  ctx.closePath(); ctx.fill();
+  ctx.globalAlpha = 0.55; ctx.fillStyle = "#0b0e14";
+  ctx.beginPath(); ctx.arc(0, -1, 2.4, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+// A faceted essence-shard glyph for currency — a small cut gem instead of a flat diamond.
+function drawCurrencyIcon(ctx, x, y, color) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(0, -8); ctx.lineTo(5, -3); ctx.lineTo(3, 8); ctx.lineTo(-3, 8); ctx.lineTo(-5, -3);
+  ctx.closePath(); ctx.fill();
+  ctx.globalAlpha = 0.5; ctx.strokeStyle = "#0b0e14"; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(0, -8); ctx.lineTo(0, 8); ctx.moveTo(-5, -3); ctx.lineTo(5, -3); ctx.stroke();
+  ctx.restore();
+}
+
 function drawHUD(ctx) {
   ctx.textAlign = "left"; ctx.textBaseline = "top";
-  ctx.fillStyle = "rgba(0,0,0,0.4)"; ctx.fillRect(6, 6, 320, 26);
+  const lowLives = game.lives > 0 && game.lives <= game.maxLives * 0.25;
+  const pulse = lowLives ? 0.5 + 0.5 * Math.sin(game.elapsed * 9) : 0;
+  ctx.fillStyle = lowLives ? `rgba(255,${60 - Math.round(30 * pulse)},${60 - Math.round(30 * pulse)},0.4)` : "rgba(0,0,0,0.4)";
+  ctx.fillRect(6, 6, 320, 26);
   ctx.font = "bold 14px system-ui, sans-serif";
-  ctx.fillStyle = COLOR.bad; ctx.fillText("♥ " + game.lives, 14, 11);
-  ctx.fillStyle = COLOR.gold; ctx.fillText("◆ " + game.currency, 74, 11);
+  drawHeartIcon(ctx, 14, 17, lowLives && pulse > 0.5 ? "#ffffff" : COLOR.bad);
+  ctx.fillStyle = lowLives && pulse > 0.5 ? "#ffffff" : COLOR.bad; ctx.fillText("" + game.lives, 26, 11);
+  drawCurrencyIcon(ctx, 76, 17, COLOR.gold);
+  ctx.fillStyle = COLOR.gold; ctx.fillText("" + game.currency, 88, 11);
   ctx.fillStyle = COLOR.ink; ctx.fillText("Wave " + Math.min(game.waveIndex + 1, WAVES.length) + "/" + WAVES.length, 160, 11);
   ctx.fillStyle = COLOR.muted; ctx.font = "12px system-ui, sans-serif"; ctx.fillText(game.phase === "wave" ? "defending…" : "prep", 262, 12);
   ctx.textBaseline = "alphabetic";

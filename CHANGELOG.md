@@ -6,6 +6,40 @@ Format is deliberately simple and plain-language.
 ## [Unreleased]
 
 ### Added
+- **Overnight polish pass** — a full headless run-through (via a script driven
+  in a real browser context, stepping `update()`/`render()` through complete
+  10-wave runs) confirmed the v1 build with no bugs found, then:
+  - **Balance retune.** The old curve let even a 3-tower, no-upgrade build hold
+    all 20 lives through wave 9 — all the tension was dumped onto wave 10.
+    Lowered `startCurrency` (200→150), raised `upgradeCost` (55/85→70/100),
+    lowered `earnPerWave` (45→40) and per-enemy currency rewards (mote 6→5,
+    runner 7→5, brute 12→9, swarm 3→2), and steepened the `WAVES` hp/count/
+    speed curve so difficulty escalates across the whole run instead of just
+    the finale. Verified: a genuinely good build (a handful of well-chosen
+    towers, upgraded rather than spread thin across every slot) wins with real
+    tension (finishes around 8/20 lives); a weak build (one un-upgraded tower,
+    or no towers at all) loses by wave 3.
+  - **Juice.** Non-lethal hits now spawn a quick white spark; kills show a
+    floating "+currency" popup; the core flashes *and* the screen shakes
+    briefly when an enemy reaches it; the HUD lives readout pulses red when
+    lives drop to 25% or below.
+  - **Mobile landscape fix.** `#game-canvas` only capped width, not height, so
+    rotating to landscape overflowed the short viewport. It's now bound by
+    *both* dimensions (width-driven in portrait/tall views, height-driven in
+    short landscape, via a media query — never both at once, which is what
+    was silently stretching the canvas out of its 16:9 ratio during testing).
+    Verified at 375×812, 812×375, 844×390, and a 768×1024/1024×768 tablet with
+    no overflow or distortion in any of them.
+  - **New HUD icons.** The plain ◆/♥ glyphs in `drawHUD` are now small original
+    canvas-drawn icons — a warded-shield glyph for lives, a faceted essence
+    shard for currency — instead of generic symbol characters.
+  - **Richer tower art.** Each of the 5 tower types now has a small original
+    ornamental detail layered onto its base shape when placed in-run (arrow's
+    nested facet, cannon's stubby barrel, frost's rime spikes, sniper's scope,
+    zap's etched bolt), so they read as more than flat silhouettes while
+    staying distinct and cheap to draw. Toolbar/hub cards keep the plain
+    shapes so they stay legible at small size.
+  File: `main.js`, `style.css`.
 - **Deck / collection + meta-progression + polish** (Stage 3; Issues #8, #13, #14)
   — completes the v1 loop. New **hub / start screen** showing your card collection
   and an **Essence shop**. Finishing a run earns **Essence** (more for going
