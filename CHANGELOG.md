@@ -5,6 +5,21 @@ Format is deliberately simple and plain-language.
 
 ## [Unreleased]
 
+### Fixed
+- **iPhone landscape clipping.** On a real iPhone in Safari, rotating to
+  landscape clipped the top and bottom of the game off-screen — the previous
+  fix relied on a flexbox percentage-height chain (`canvas { height: 100% }`
+  inside a `100dvh` flex column) that desktop browsers resolve but iOS Safari
+  does not, and `dvh` let the canvas size into the strip Safari's floating
+  toolbars sit over. Reworked so the canvas sizes ITSELF from the viewport:
+  `width: min(100%, (100svh − chrome) * 16 / 9)` with height derived from the
+  locked 16:9 ratio — no flex height chain, and `svh` (viewport *with* Safari's
+  bars showing) guarantees nothing hides behind the toolbars. Both orientations
+  now fit fully and switch cleanly on rotation; also added left/right
+  safe-area-inset padding for the landscape notch. File: `style.css`.
+  (Note: a web page can't force/lock orientation in iOS Safari, so the phone's
+  own rotation is the switch — but portrait and landscape both work now.)
+
 ### Added
 - **Overnight polish pass** — a full headless run-through (via a script driven
   in a real browser context, stepping `update()`/`render()` through complete
