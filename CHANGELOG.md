@@ -6,6 +6,15 @@ Format is deliberately simple and plain-language.
 ## [Unreleased]
 
 ### Added
+- **Content & depth — tower/enemy variety + per-type upgrades** (Stage 2; Issues
+  #10, #11, #12). **5 tower types** with genuinely different behaviors, chosen
+  from a new bottom **toolbar**: Arrow (balanced single-target), Cannon (splash
+  AoE), Frost (slows enemies it hits), Sniper (long range / big hits / slow fire),
+  Zap (cheap, fast, weak). **4 enemy types** that waves now mix: Mote (basic),
+  Runner (fast, frail), Brute (slow, tanky), Swarm (tiny, many). **Upgrades scale
+  each tower's identity** (Frost slows harder, Cannon's splash radius grows, Sniper
+  reaches further, etc.). Each tower type also has its own shot sound. Balance is
+  still first-pass. File: `main.js` (+ label updates in `index.html`).
 - **Core loop — a full playable round** (Stage 1 of finishing the build; covers
   the heart of Issues #4–#7 + #9). Turns the feel-prototype into a real game:
   **build** towers on fixed slots and **upgrade** them by spending **currency**;

@@ -1,12 +1,12 @@
 <!DOCTYPE html>
 <!--
   Deckbound — a tower-defense deckbuilder.
-  Core loop — a full playable round.
+  Tower & enemy variety + per-type upgrades (Stage 2).
 
-  Build towers on the slots (spending currency), upgrade them, and survive 10
-  escalating waves defending the core. Win by surviving; lose if too many enemies
-  reach the core. Still to come: tower/enemy variety, real upgrade paths, a
-  deck/hand, and meta-progression. main.js holds the game logic.
+  Pick from 5 tower types (Arrow, Cannon/splash, Frost/slow, Sniper, Zap) in the
+  bottom toolbar, build them on slots, and upgrade them — each upgrade scales that
+  tower's identity. Survive 10 waves of mixed enemy types (Mote, Runner, Brute,
+  Swarm). Still to come: a deck/hand and meta-progression. main.js holds the logic.
 
   Plain HTML + CSS + JavaScript for now. We can add Phaser 3 later if the
   real-time action needs it (see GAME_BRIEF.md).
@@ -44,7 +44,7 @@
 
   <!-- Footer: a quiet status line we can use while building. -->
   <footer class="site-footer">
-    <span>Core loop — build, upgrade, survive 10 waves.</span>
+    <span>5 tower types · 4 enemy types · per-type upgrades.</span>
   </footer>
 
   <!-- The game code. 'defer' means it runs after the page has loaded. -->
