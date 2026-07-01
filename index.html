@@ -1,11 +1,11 @@
 <!DOCTYPE html>
 <!--
-  Deckbound — a tower-defense deckbuilder.
-  Task 1: the project skeleton.
+  Deckbound — a tower-defense deckbuilder (v1).
 
-  This is intentionally the SIMPLEST possible starting point:
-  a titled page with a game-canvas placeholder. There is NO game logic yet.
-  Later tasks (map, enemies, waves, towers, cards...) build on top of this.
+  Full loop: from the hub, spend Essence to unlock towers/perks (saved between
+  runs), then Start Run — build & upgrade from your deck of 5 tower types, and
+  survive 10 waves of mixed enemies defending the core. Win or lose, you earn
+  Essence and get stronger over time. All game logic lives in main.js.
 
   Plain HTML + CSS + JavaScript for now. We can add Phaser 3 later if the
   real-time action needs it (see GAME_BRIEF.md).
@@ -33,17 +33,17 @@
   <!-- Main play area. Everything the game draws will go on this canvas. -->
   <main class="stage">
     <!--
-      The <canvas> is where all game graphics will be drawn later.
-      Its internal drawing size is set in main.js; CSS controls how big it
-      looks on screen. For now it just shows a placeholder message.
+      The <canvas> is where all game graphics are drawn. Its internal drawing
+      size (800x450) is fixed here; CSS controls how big it looks on screen.
+      main.js draws the path, the core, and the running game loop onto it.
     -->
     <canvas id="game-canvas" width="800" height="450"
-            aria-label="Deckbound game area (placeholder)"></canvas>
+            aria-label="Deckbound game area: the level path and the core"></canvas>
   </main>
 
   <!-- Footer: a quiet status line we can use while building. -->
   <footer class="site-footer">
-    <span>Skeleton build — no game logic yet.</span>
+    <span>v1 — hub, deck, meta-progression, 10 waves.</span>
   </footer>
 
   <!-- The game code. 'defer' means it runs after the page has loaded. -->
