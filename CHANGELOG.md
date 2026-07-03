@@ -45,6 +45,13 @@ Format is deliberately simple and plain-language.
   sim can't model). Files: `data/balance.json`, `main.js`, `tools/balance_sim.py`.
 
 ### Changed
+- **Cache-busting on deploy.** `tools/gen_balance.py` now also stamps a short
+  content-hash version onto `index.html`'s script tags (`main.js?v=…`,
+  `balance.data.js?v=…`). GitHub Pages serves assets with a fixed ~10-minute
+  cache and no header override, so without this a browser could keep running an
+  old `main.js` (or mix a new page with a stale script) after a deploy. The hash
+  changes only when a file's contents change — no manual version bumping. (The
+  query is ignored by the `file://` resolver, so double-click play is unaffected.)
 - **The map is now data-driven.** The path and tower slots moved out of hardcoded
   arrays in `main.js` into `data/balance.json` (`map.path`, `map.slots`,
   `map.coreRadius`). The game builds `PATH`/`SLOTS`/`CORE` from that data, so a
