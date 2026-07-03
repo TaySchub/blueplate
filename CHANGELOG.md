@@ -6,6 +6,23 @@ Format is deliberately simple and plain-language.
 ## [Unreleased]
 
 ### Changed
+- **Art deep-dive: all 5 customers + 4 foods redrawn** (Developer hat). Every
+  tower is now a fully-drawn seated-diner mascot with its own body and props
+  (still canvas-only, signature color kept as the at-a-glance ID), and every
+  enemy is a food-forward, faceless dish designed to read on the belt at ~15px:
+  - **Customers** (`drawCustomer`, now dispatched to a per-id mascot; the shared
+    legacy glyph is gone): **The Regular** (raised fork), **Big Appetite** (round
+    glutton holding a plate), **The Photographer** (beret + camera, flash on
+    fire), **The Milkshake Slurper** (soda-jerk sipping a shake — renamed from
+    Chopstick Sensei; the long slurp-straw is reserved for the attack pass), and
+    **The Kids' Table** (a huddle of party-hat kids).
+  - **Foods** (`drawFood`): **Hot Dog** (renamed from Chicken Nugget), **Slider**,
+    **Tough Steak**, **Fry Swarm** — silhouette-first, sized by HP, with grounding
+    shadows; distinct in both shape and color.
+  - Two **display-name** changes only (sniper → *The Milkshake Slurper*, mote →
+    *Hot Dog*) in `data/balance.json` + `docs/FRANCHISE_BACKBONE.md`; ran
+    `gen_balance.py`. **No IDs, balance numbers, gameplay, map, or the `audio`
+    object touched.** `balance_sim.py`: reference **55.5% (BALANCED)**, unchanged.
 - **Audio warmth pass** (Developer hat). Feedback was that "pretty much every
   sound kind of has a robotic sound to it" — the Phase 4 audio reskin got the
   *themes* right but the raw oscillators/white-noise still sounded synthetic.
