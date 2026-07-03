@@ -238,18 +238,35 @@ const audio = {
     src.connect(g).connect(this.ctx.destination);
     src.start(t0);
   },
+  // Attack = a bite/chomp, one flavor per customer (kept distinct + randomized so
+  // a stream never feels repetitive). A "chomp" reads as a quick downward pitch
+  // sweep (jaws closing) plus a short noise transient.
   shoot(typeId) {
+    const r = 1 + (Math.random() * 0.14 - 0.07); // ±7% pitch wobble
     switch (typeId) {
-      case "cannon": this.tone(160, 0.12, "square", 0.09, 90); this.noiseBurst(0.08, 0.08); break;
-      case "frost": this.tone(720, 0.1, "sine", 0.05, 900); break;
-      case "sniper": this.tone(300, 0.14, "sawtooth", 0.07, 140); break;
-      case "zap": this.tone(880, 0.04, "square", 0.03, 700); break;
-      default: this.tone(520, 0.07, "square", 0.05, 380);
+      case "cannon": this.tone(230 * r, 0.16, "sawtooth", 0.10, 70); this.noiseBurst(0.12, 0.11); break; // Big Appetite — deep inhaling gulp
+      case "frost": this.noiseBurst(0.03, 0.09); this.tone(950 * r, 0.06, "square", 0.04, 1300); break;  // The Photographer — shutter click + cold nibble
+      case "sniper": this.tone(540 * r, 0.09, "triangle", 0.07, 240); this.noiseBurst(0.02, 0.05); break; // Chopstick Sensei — crisp pluck/snap
+      case "zap": this.tone(720 * r, 0.045, "square", 0.03, 360); break;                                  // The Kids' Table — tiny fast nibble
+      default: this.tone(360 * r, 0.09, "square", 0.05, 150); this.noiseBurst(0.05, 0.06);                // The Regular — steady fork-stab bite
     }
   },
-  hit() { this.tone(240, 0.05, "triangle", 0.04); },
-  kill() { const start = 600 + Math.random() * 500; this.tone(start, 0.18, "sawtooth", 0.16, 90); this.noiseBurst(0.16, 0.2); },
-  upgrade() { this.tone(440, 0.1, "triangle", 0.18); setTimeout(() => this.tone(660, 0.1, "triangle", 0.18), 70); setTimeout(() => this.tone(880, 0.14, "triangle", 0.2), 140); },
+  hit() { this.tone(520 + Math.random() * 140, 0.04, "triangle", 0.035); }, // light fork *tink* on a non-lethal bite
+  kill() { // a satisfying crunch + gulp as a dish is eaten
+    const start = 340 + Math.random() * 160;
+    this.tone(start, 0.2, "sawtooth", 0.15, 70);                    // swallow-down gulp
+    this.noiseBurst(0.18, 0.22);                                    // crunch
+    setTimeout(() => this.tone(110, 0.12, "sine", 0.12, 60), 55);   // low "gulp" tail
+  },
+  // A dish clatters into the trash + a sad little descending trombone — a wasted meal.
+  leak() {
+    this.noiseBurst(0.14, 0.18);
+    [330, 262, 208, 165].forEach((f, i) => setTimeout(() => this.tone(f, 0.18, "sawtooth", 0.13, f * 0.94), i * 95));
+  },
+  upgrade() { // "Order up!" — a bright diner service-bell ding-ding
+    const ding = () => { this.tone(1320, 0.5, "sine", 0.15); this.tone(1980, 0.4, "sine", 0.05); };
+    ding(); setTimeout(ding, 140);
+  },
   build() { this.tone(300, 0.09, "sine", 0.16, 460); },
   deny() { this.tone(180, 0.12, "sawtooth", 0.12, 120); },
   waveStart() { this.tone(330, 0.16, "triangle", 0.16, 500); },
@@ -531,7 +548,7 @@ function moveEnemies(step) {
     const p = pointAtDistance(e.dist);
     e.x = p.x; e.y = p.y;
     if (e.hurtFlash > 0) e.hurtFlash -= step;
-    if (e.dist >= PATH_LENGTH) { e.reachedCore = true; game.lives = Math.max(0, game.lives - 1); game.coreHurtFlash = 0.35; game.shake = 6; }
+    if (e.dist >= PATH_LENGTH) { e.reachedCore = true; game.lives = Math.max(0, game.lives - 1); game.coreHurtFlash = 0.35; game.shake = 6; audio.leak(); }
   }
   game.enemies = game.enemies.filter((e) => !e.reachedCore);
 }

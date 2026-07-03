@@ -6,6 +6,23 @@ Format is deliberately simple and plain-language.
 ## [Unreleased]
 
 ### Added
+- **Re-theme, Phase 4 — audio reskin** (Developer hat; Issue #37). The procedural
+  Web Audio (generated in code, no files, no deps) now sounds like the diner.
+  **No gameplay/balance change** — the sim still reads **55.5% (BALANCED)**.
+  - **Attacks are bites/chomps**, one flavor per customer (per-type distinction +
+    ±7% pitch randomization kept): deep inhaling gulp (Big Appetite), shutter-click
+    nibble (The Photographer), crisp pluck (Chopstick Sensei), tiny fast nibble
+    (The Kids' Table), steady fork-stab (The Regular).
+  - **Kill = a satisfying crunch + gulp** (swallow-down sweep + a low tail).
+  - **Leak = a clatter + a sad descending 'trombone' blip** — a new `audio.leak()`
+    fired when a dish reaches the trash chute (the flash + shake already there).
+  - **Upgrade = an "order up!" service-bell ding-ding** (bell-like).
+  - Non-lethal hit = a light fork *tink*. The **mute toggle + first-tap unlock are
+    unchanged**.
+  - Verified in a browser: no JS errors; the AudioContext runs and every sound
+    generates without throwing; `audio.leak()` fires exactly once on a real leak
+    (lives decrement correctly). Actual sound to be confirmed on-device (the
+    preview can't capture audio). Files: `main.js` (+ `index.html` cache-bust).
 - **Re-theme, Phase 3 — Map 1: the conveyor belt** (Developer hat; Issue #35).
   Map 1 now reads as an American diner: food leaves the **kitchen** (spawn), rides
   a **conveyor belt** past the tables, and any dish reaching the **trash chute** is
