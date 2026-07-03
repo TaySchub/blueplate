@@ -6,6 +6,29 @@ Format is deliberately simple and plain-language.
 ## [Unreleased]
 
 ### Added
+- **Re-theme, Phase 2 — art reskin** (Developer hat; Issue #33). All-new
+  canvas art for the restaurant theme — original, cheap shapes, one readable
+  identity feature each. **No gameplay, no balance numbers, no internal IDs, no
+  dependencies**; the reference board still reads **55.5% (BALANCED)** (the sim
+  reads only `data/balance.json`, which is untouched).
+  - **Enemies are now food** (`drawFood`): Chicken Nugget (golden blob, googly
+    eyes, legs), The Slider (bun/patty/bun burger with motion lines), Tough Steak
+    (dark slab, grill marks, thick outline — reads as the big one), Fry Swarm (a
+    scatter of yellow sticks). Enemy colors are now food colors; **radii are kept**
+    because they already echo real HP (steak > nugget > slider > fries).
+  - **Towers are now seated customers** (`drawCustomer`): The Regular (raised
+    fork), Big Appetite (open mouth), The Photographer (camera + a flash burst
+    when firing), Chopstick Sensei (glasses + chopsticks), The Kids' Table (party
+    hat). Upgrades add a napkin/bib (Entrée) and a chef's-kiss sparkle (Dessert),
+    reusing the existing grow/glow/pips.
+  - **Core → trash chute/bin** (lid, ridges, "TRASH"); the leak flash + screen
+    shake are kept.
+  - **HUD icons:** lives → a star-rating glyph; currency → a tip coin ($).
+  - **Kill juice → CHOMP:** a bite-flash pop + scattering crumbs; the kill popup
+    is now "+$N tip". The non-lethal white spark (fork tink) is kept.
+  - Removed the now-unused geometric `drawTowerShape`/`drawTowerDetail` and the
+    dead `shape` field. Verified all 5 customers + 4 foods read distinctly at
+    desktop and iPhone (375px) size. Files: `main.js` (+ `index.html` cache-bust).
 - **Re-theme, Phase 1 — text & label reskin** (Developer hat; Issue #31). Every
   player-facing string now reads as the restaurant theme; **no gameplay, no
   balance numbers, no internal IDs changed** — the reference board still reads

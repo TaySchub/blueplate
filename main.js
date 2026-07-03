@@ -61,15 +61,15 @@ const RULES = {
   earlyCallWindow: BAL.economy.earlyCallWindow || 1,
 };
 
-// Per-tower ART only (shapes/colors). Combat stats + upgrade deltas AND the
-// display name/blurb now come from BAL.towers (data/balance.json), so a theme
-// reskin is a JSON edit — no code change.
+// Per-tower ART only (customer glyph color + glow). Each tower is drawn as a
+// seated customer keyed by id in drawCustomer(); combat stats + display
+// name/blurb come from BAL.towers (data/balance.json).
 const TOWER_ART = {
-  arrow:  { shape: "diamond",  color: "#6ea8fe", glow: "#3f6bb0" },
-  cannon: { shape: "circle",   color: "#ff9d5c", glow: "#b5561f" },
-  frost:  { shape: "hex",      color: "#7fe0ff", glow: "#2b8fb5" },
-  sniper: { shape: "triangle", color: "#c8a8ff", glow: "#7a4fd0" },
-  zap:    { shape: "square",   color: "#ffe08a", glow: "#b59a2b" },
+  arrow:  { color: "#6ea8fe", glow: "#3f6bb0" },
+  cannon: { color: "#ff9d5c", glow: "#b5561f" },
+  frost:  { color: "#7fe0ff", glow: "#2b8fb5" },
+  sniper: { color: "#c8a8ff", glow: "#7a4fd0" },
+  zap:    { color: "#ffe08a", glow: "#b59a2b" },
 };
 // Upgrade levels 1→2→3 are presented as a three-course meal (display only; the
 // underlying level numbers are unchanged).
@@ -79,13 +79,15 @@ const TOWER_ORDER = ["arrow", "cannon", "frost", "sniper", "zap"];
 const TOWER_TYPES = TOWER_ORDER.map((id) => ({ id, ...BAL.towers[id], ...TOWER_ART[id] }));
 const TOWER_BY_ID = Object.fromEntries(TOWER_TYPES.map((t) => [t.id, t]));
 
-// Per-enemy ART (colors/radius). hpMul/speedMul/reward AND the display name
-// come from BAL.enemyTypes (data/balance.json).
+// Per-enemy ART (food colors/radius). hpMul/speedMul/reward AND the display name
+// come from BAL.enemyTypes (data/balance.json). Radii are kept as-is because they
+// already echo real HP (brute > mote > runner > swarm); each enemy is drawn as
+// its dish in drawFood(), and color keeps them distinct at a glance.
 const ENEMY_ART = {
-  mote:   { color: "#c86bff", edge: "#e4c2ff", radius: 12 },
-  runner: { color: "#ff8f6b", edge: "#ffd0bf", radius: 9 },
-  brute:  { color: "#8b7bd8", edge: "#c7bdf0", radius: 17 },
-  swarm:  { color: "#6bffb0", edge: "#c2ffe0", radius: 7 },
+  mote:   { color: "#e3a93f", edge: "#8a6016", radius: 12 },  // Chicken Nugget — golden
+  runner: { color: "#c9772f", edge: "#6e3d17", radius: 9 },   // The Slider — burger
+  brute:  { color: "#7c3b2c", edge: "#3e1a12", radius: 17 },  // Tough Steak — dark slab
+  swarm:  { color: "#f2ca3c", edge: "#a37e17", radius: 7 },   // Fry Swarm — bright yellow
 };
 const ENEMY_TYPES = Object.fromEntries(
   Object.entries(BAL.enemyTypes).map(([id, stats]) => [id, { ...ENEMY_ART[id], ...stats }])
@@ -609,7 +611,7 @@ function applyDamage(enemy, dmg) {
     game.currency += enemy.reward;
     game.score += enemy.reward;
     spawnKillBurst(enemy.x, enemy.y, ENEMY_TYPES[enemy.typeId].color);
-    spawnFloatText(enemy.x, enemy.y - 14, "+" + enemy.reward, COLOR.gold);
+    spawnFloatText(enemy.x, enemy.y - 14, "+$" + enemy.reward + " tip", COLOR.gold);
     audio.kill();
   } else {
     spawnHitSpark(enemy.x, enemy.y);
@@ -652,9 +654,15 @@ function endRun(won) {
    ------------------------------------------------------------------------- */
 
 function spawnRing(x, y, color, maxR, life) { game.particles.push({ type: "ring", x, y, r: 4, maxR, life, maxLife: life, color }); }
+// CHOMP! A dish gets eaten: a quick bite-flash pop + scattering crumbs (in the
+// dish's own color plus warm crumb tones).
 function spawnKillBurst(x, y, color) {
-  spawnRing(x, y, color, 28, 0.32);
-  for (let i = 0; i < 11; i++) { const a = Math.random() * Math.PI * 2, sp = 60 + Math.random() * 120; game.particles.push({ type: "spark", x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r: 2 + Math.random() * 2, life: 0.4 + Math.random() * 0.3, maxLife: 0.7, color }); }
+  spawnRing(x, y, "#fff2c8", 26, 0.22);
+  const crumbs = ["#e8c58a", "#c98a45", color];
+  for (let i = 0; i < 10; i++) {
+    const a = Math.random() * Math.PI * 2, sp = 60 + Math.random() * 130;
+    game.particles.push({ type: "spark", x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r: 1.6 + Math.random() * 2, life: 0.35 + Math.random() * 0.3, maxLife: 0.65, color: crumbs[i % crumbs.length] });
+  }
 }
 function spawnUpgradeSparkles(t) {
   spawnRing(t.x, t.y, COLOR.upgradeSpark, 42, 0.5);
@@ -753,10 +761,9 @@ function drawMenu(ctx) {
     roundRect(ctx, dx, 168, 64, 78, 8); ctx.fill();
     ctx.strokeStyle = def.color; ctx.lineWidth = 1.5;
     roundRect(ctx, dx, 168, 64, 78, 8); ctx.stroke();
-    ctx.fillStyle = def.color;
-    drawTowerShape(ctx, def.shape, dx + 32, 196, 12); ctx.fill();
+    drawCustomer(ctx, def.id, dx + 32, 199, 11, def.color);
     ctx.fillStyle = COLOR.ink; ctx.font = "bold 9px system-ui, sans-serif"; ctx.textAlign = "center";
-    ctx.fillText(def.name, dx + 32, 226);
+    ctx.fillText(fitText(ctx, def.name, 60), dx + 32, 226);
     ctx.fillStyle = COLOR.gold; ctx.font = "10px system-ui, sans-serif";
     ctx.fillText("◆" + def.cost, dx + 32, 240);
     ctx.textAlign = "left";
@@ -856,30 +863,105 @@ function drawTowerRanges(ctx) {
   }
 }
 
+// The trash chute (was the Wellspring core): a bin any dish reaching it clatters
+// into. The pulsing danger halo + the hurt flash on a leak are kept.
 function drawCore(ctx) {
   const hurt = game.coreHurtFlash > 0;
   const pulse = 0.5 + 0.5 * Math.sin(game.elapsed * 2);
-  ctx.strokeStyle = hurt ? COLOR.coreHurt : COLOR.core; ctx.globalAlpha = 0.15 + 0.25 * pulse; ctx.lineWidth = 3;
-  ctx.beginPath(); ctx.arc(CORE.x, CORE.y, CORE.radius + 8 + pulse * 6, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 1;
-  ctx.fillStyle = hurt ? COLOR.coreHurt : COLOR.core;
-  ctx.beginPath();
-  for (let i = 0; i < 6; i++) { const angle = (Math.PI / 3) * i - Math.PI / 6; const px = CORE.x + Math.cos(angle) * CORE.radius, py = CORE.y + Math.sin(angle) * CORE.radius; i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py); }
-  ctx.closePath(); ctx.fill();
+  const col = hurt ? COLOR.coreHurt : COLOR.core;
+  const x = CORE.x, y = CORE.y, R = CORE.radius;
+  // Danger halo.
+  ctx.strokeStyle = col; ctx.globalAlpha = 0.15 + 0.25 * pulse; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.arc(x, y, R + 8 + pulse * 6, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 1;
+  // Bin body (a trapezoid, wider at the top).
+  const topW = R * 1.6, botW = R * 1.15, topY = y - R * 0.5, botY = y + R * 1.05;
+  ctx.fillStyle = hurt ? "#5a2626" : "#2b3346";
+  ctx.beginPath(); ctx.moveTo(x - topW / 2, topY); ctx.lineTo(x + topW / 2, topY); ctx.lineTo(x + botW / 2, botY); ctx.lineTo(x - botW / 2, botY); ctx.closePath();
+  ctx.fill(); ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.stroke();
+  // Vertical ridges.
+  ctx.strokeStyle = "rgba(255,255,255,0.10)"; ctx.lineWidth = 1.5;
+  for (const f of [-0.3, 0, 0.3]) { ctx.beginPath(); ctx.moveTo(x + f * topW, topY + 3); ctx.lineTo(x + f * botW, botY - 3); ctx.stroke(); }
+  // Lid + handle.
+  const lidW = topW * 1.14, lidH = R * 0.32, lidY = topY - R * 0.34;
+  ctx.fillStyle = hurt ? COLOR.coreHurt : "#3a465e";
+  roundRect(ctx, x - lidW / 2, lidY, lidW, lidH, 3); ctx.fill();
+  ctx.strokeStyle = col; ctx.lineWidth = 2; roundRect(ctx, x - lidW / 2, lidY, lidW, lidH, 3); ctx.stroke();
+  ctx.fillStyle = col; ctx.fillRect(x - R * 0.12, lidY - R * 0.2, R * 0.24, R * 0.22);
+  // Label.
   ctx.fillStyle = COLOR.ink; ctx.font = "bold 12px system-ui, sans-serif"; ctx.textAlign = "center";
-  ctx.fillText("TRASH", CORE.x, CORE.y + CORE.radius + 16);
+  ctx.fillText("TRASH", x, botY + 15);
+}
+
+// Two googly eyes — the panicky-food identity feature.
+function drawGooglyEyes(ctx, x, y, er) {
+  ctx.fillStyle = "#ffffff";
+  ctx.beginPath(); ctx.arc(x - er, y, er, 0, Math.PI * 2); ctx.arc(x + er, y, er, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = "#0b0e14"; ctx.lineWidth = 0.8;
+  ctx.beginPath(); ctx.arc(x - er, y, er, 0, Math.PI * 2); ctx.arc(x + er, y, er, 0, Math.PI * 2); ctx.stroke();
+  ctx.fillStyle = "#0b0e14";
+  ctx.beginPath(); ctx.arc(x - er, y + er * 0.3, er * 0.5, 0, Math.PI * 2); ctx.arc(x + er, y + er * 0.3, er * 0.5, 0, Math.PI * 2); ctx.fill();
+}
+
+// Each enemy is a runaway dish — cheap shapes + one identity feature, distinct in
+// silhouette and color. `hurt` flashes the fill white on a non-lethal hit.
+function drawFood(ctx, typeId, x, y, r, color, edge, hurt) {
+  ctx.save();
+  ctx.lineJoin = "round";
+  const fill = hurt ? "#ffffff" : color;
+  if (typeId === "mote") {
+    // Chicken Nugget — a lumpy golden blob on tiny legs, googly eyes.
+    ctx.strokeStyle = edge; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(x - r * 0.35, y + r * 0.65); ctx.lineTo(x - r * 0.35, y + r * 1.15);
+    ctx.moveTo(x + r * 0.35, y + r * 0.65); ctx.lineTo(x + r * 0.35, y + r * 1.15); ctx.stroke();
+    ctx.fillStyle = fill; ctx.beginPath();
+    ctx.arc(x - r * 0.45, y - r * 0.05, r * 0.68, 0, Math.PI * 2);
+    ctx.arc(x + r * 0.45, y + r * 0.05, r * 0.62, 0, Math.PI * 2);
+    ctx.arc(x, y + r * 0.35, r * 0.6, 0, Math.PI * 2);
+    ctx.arc(x, y - r * 0.1, r * 0.85, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(x, y - r * 0.1, r * 0.85, 0, Math.PI * 2); ctx.stroke();
+    if (!hurt) drawGooglyEyes(ctx, x, y - r * 0.15, Math.max(1.4, r * 0.26));
+  } else if (typeId === "runner") {
+    // The Slider — a small burger side-on (bun / patty / bun) with motion lines.
+    const w = r * 2.2, h = r * 1.7;
+    ctx.strokeStyle = "rgba(255,255,255,0.45)"; ctx.lineWidth = 1.3;
+    ctx.beginPath(); ctx.moveTo(x - w * 0.95, y - h * 0.15); ctx.lineTo(x - w * 0.55, y - h * 0.15);
+    ctx.moveTo(x - w * 1.0, y + h * 0.2); ctx.lineTo(x - w * 0.5, y + h * 0.2); ctx.stroke();
+    ctx.strokeStyle = edge; ctx.lineWidth = 1.5;
+    ctx.fillStyle = hurt ? "#fff" : "#dc9a55";  // top bun
+    ctx.beginPath(); ctx.moveTo(x - w / 2, y - h * 0.08); ctx.quadraticCurveTo(x, y - h * 0.95, x + w / 2, y - h * 0.08); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = hurt ? "#fff" : "#5f3416"; ctx.fillRect(x - w / 2, y - h * 0.08, w, h * 0.3);  // patty
+    ctx.strokeRect(x - w / 2, y - h * 0.08, w, h * 0.3);
+    ctx.fillStyle = hurt ? "#fff" : "#cd8f4a";  // bottom bun
+    ctx.beginPath(); ctx.moveTo(x - w / 2, y + h * 0.22); ctx.quadraticCurveTo(x, y + h * 0.6, x + w / 2, y + h * 0.22); ctx.closePath(); ctx.fill(); ctx.stroke();
+  } else if (typeId === "brute") {
+    // Tough Steak — a wide dark slab, grill marks, thick outline (reads as the big one).
+    const w = r * 2.1, h = r * 1.45;
+    ctx.fillStyle = fill; roundRect(ctx, x - w / 2, y - h / 2, w, h, r * 0.5); ctx.fill();
+    ctx.strokeStyle = edge; ctx.lineWidth = 3; roundRect(ctx, x - w / 2, y - h / 2, w, h, r * 0.5); ctx.stroke();
+    ctx.strokeStyle = "rgba(0,0,0,0.45)"; ctx.lineWidth = 2;
+    for (const f of [-0.3, 0, 0.3]) { ctx.beginPath(); ctx.moveTo(x + f * w - h * 0.3, y - h * 0.32); ctx.lineTo(x + f * w + h * 0.3, y + h * 0.32); ctx.stroke(); }
+  } else if (typeId === "swarm") {
+    // Fry Swarm — a scatter of thin yellow sticks.
+    ctx.strokeStyle = edge; ctx.lineWidth = 1;
+    ctx.fillStyle = fill;
+    const fry = (fx, fy, ang) => { ctx.save(); ctx.translate(fx, fy); ctx.rotate(ang); ctx.fillRect(-r * 0.26, -r * 0.9, r * 0.5, r * 1.9); ctx.strokeRect(-r * 0.26, -r * 0.9, r * 0.5, r * 1.9); ctx.restore(); };
+    fry(x - r * 0.5, y, -0.35); fry(x + r * 0.15, y - r * 0.2, 0.18); fry(x + r * 0.55, y + r * 0.15, 0.55); fry(x - r * 0.05, y + r * 0.3, -0.05);
+  } else {
+    ctx.fillStyle = fill; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = edge; ctx.lineWidth = 2; ctx.stroke();
+  }
+  ctx.restore();
 }
 
 function drawEnemies(ctx) {
   for (const e of game.enemies) {
     const et = ENEMY_TYPES[e.typeId];
-    if (e.slowTimer > 0) { ctx.strokeStyle = COLOR.frostAura; ctx.globalAlpha = 0.6; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(e.x, e.y, e.radius + 4, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 1; }
-    ctx.fillStyle = e.hurtFlash > 0 ? "#ffffff" : et.color;
-    ctx.beginPath(); ctx.arc(e.x, e.y, e.radius, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = et.edge; ctx.lineWidth = 2; ctx.stroke();
+    if (e.slowTimer > 0) { ctx.strokeStyle = COLOR.frostAura; ctx.globalAlpha = 0.6; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(e.x, e.y, e.radius + 5, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 1; }
+    drawFood(ctx, e.typeId, e.x, e.y, e.radius, et.color, et.edge, e.hurtFlash > 0);
     if (e.hp < e.maxHp) {
       const w = Math.max(18, e.radius * 2), frac = Math.max(0, e.hp / e.maxHp);
-      ctx.fillStyle = "rgba(0,0,0,0.5)"; ctx.fillRect(e.x - w / 2, e.y - e.radius - 9, w, 4);
-      ctx.fillStyle = COLOR.good; ctx.fillRect(e.x - w / 2, e.y - e.radius - 9, w * frac, 4);
+      ctx.fillStyle = "rgba(0,0,0,0.5)"; ctx.fillRect(e.x - w / 2, e.y - e.radius - 11, w, 4);
+      ctx.fillStyle = COLOR.good; ctx.fillRect(e.x - w / 2, e.y - e.radius - 11, w * frac, 4);
     }
   }
 }
@@ -888,54 +970,81 @@ function drawProjectiles(ctx) {
   for (const p of game.projectiles) { ctx.fillStyle = p.color || COLOR.projectile; ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2); ctx.fill(); }
 }
 
-function drawTowerShape(ctx, shape, x, y, r) {
+// A little 4-point sparkle (camera flash / chef's-kiss shine).
+function drawSpark4(ctx, x, y, s) {
   ctx.beginPath();
-  if (shape === "diamond") { ctx.moveTo(x, y - r); ctx.lineTo(x + r, y); ctx.lineTo(x, y + r); ctx.lineTo(x - r, y); ctx.closePath(); }
-  else if (shape === "circle") { ctx.arc(x, y, r, 0, Math.PI * 2); }
-  else if (shape === "hex") { for (let i = 0; i < 6; i++) { const a = (Math.PI / 3) * i - Math.PI / 6; const px = x + Math.cos(a) * r, py = y + Math.sin(a) * r; i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py); } ctx.closePath(); }
-  else if (shape === "triangle") { ctx.moveTo(x, y - r); ctx.lineTo(x + r * 0.9, y + r * 0.7); ctx.lineTo(x - r * 0.9, y + r * 0.7); ctx.closePath(); }
-  else { ctx.rect(x - r * 0.85, y - r * 0.85, r * 1.7, r * 1.7); }
+  ctx.moveTo(x, y - s); ctx.lineTo(x + s * 0.28, y - s * 0.28); ctx.lineTo(x + s, y);
+  ctx.lineTo(x + s * 0.28, y + s * 0.28); ctx.lineTo(x, y + s); ctx.lineTo(x - s * 0.28, y + s * 0.28);
+  ctx.lineTo(x - s, y); ctx.lineTo(x - s * 0.28, y - s * 0.28); ctx.closePath(); ctx.fill();
 }
 
-// Extra in-play ornamentation per tower type, layered on top of the base silhouette
-// (kept out of drawTowerShape so small toolbar/hub cards stay clean and legible).
-function drawTowerDetail(ctx, typeId, x, y, r, def, t) {
+// A seated diner customer (the tower). Cheap glyph: head + shoulders in the
+// customer's color plus one identity feature. Upgrade level adds a napkin/bib
+// (Lv2) and a chef's-kiss sparkle (Lv3); `firing` triggers the Photographer flash.
+function drawCustomer(ctx, typeId, cx, cy, r, color, opts = {}) {
+  const level = opts.level || 1, firing = !!opts.firing;
+  const dark = "#0b0e14";
   ctx.save();
-  ctx.strokeStyle = "#0b0e14"; ctx.globalAlpha = 0.75;
-  if (typeId === "arrow") {
-    // A nested inner diamond facet, like a drawn bowstring notch.
-    ctx.lineWidth = 1.3; ctx.beginPath();
-    const ir = r * 0.5;
-    ctx.moveTo(x, y - ir); ctx.lineTo(x + ir, y); ctx.lineTo(x, y + ir); ctx.lineTo(x - ir, y); ctx.closePath();
-    ctx.stroke();
-  } else if (typeId === "cannon") {
-    // A short stubby barrel + a darker base ring, like a turret housing.
-    ctx.globalAlpha = 0.9; ctx.fillStyle = "#5a2f10";
-    ctx.fillRect(x - r * 0.28, y - r * 1.35, r * 0.56, r * 0.7);
-    ctx.globalAlpha = 0.5; ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.arc(x, y, r * 0.55, 0, Math.PI * 2); ctx.stroke();
-  } else if (typeId === "frost") {
-    // Small crystal spikes at alternating hex vertices, like rime forming on the tower.
-    ctx.globalAlpha = 0.85; ctx.strokeStyle = "#eaffff"; ctx.lineWidth = 1.2;
-    for (let i = 0; i < 6; i += 2) {
-      const a = (Math.PI / 3) * i - Math.PI / 6;
-      const px = x + Math.cos(a) * r, py = y + Math.sin(a) * r;
-      const tx = x + Math.cos(a) * (r + 5), ty = y + Math.sin(a) * (r + 5);
-      ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(tx, ty); ctx.stroke();
-    }
-  } else if (typeId === "sniper") {
-    // A scope: thin barrel line from the apex + a small ringed lens.
-    ctx.globalAlpha = 0.9; ctx.lineWidth = 1.4;
-    ctx.beginPath(); ctx.moveTo(x, y - r * 0.7); ctx.lineTo(x, y - r * 1.5); ctx.stroke();
-    ctx.beginPath(); ctx.arc(x, y - r * 1.5, 2.2, 0, Math.PI * 2); ctx.stroke();
-  } else if (typeId === "zap") {
-    // A small jagged bolt etched into the housing.
-    ctx.globalAlpha = 0.85; ctx.lineWidth = 1.4;
-    ctx.beginPath();
-    ctx.moveTo(x - r * 0.15, y - r * 0.55); ctx.lineTo(x + r * 0.2, y - r * 0.1);
-    ctx.lineTo(x - r * 0.1, y - r * 0.1); ctx.lineTo(x + r * 0.15, y + r * 0.55);
-    ctx.stroke();
+  ctx.lineJoin = "round";
+  const headR = r * 0.6, headY = cy - r * 0.28, shoulderY = headY + headR * 0.75;
+  // Shoulders / body.
+  ctx.fillStyle = color; ctx.strokeStyle = dark; ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(cx - r, cy + r);
+  ctx.quadraticCurveTo(cx - r, shoulderY, cx, shoulderY);
+  ctx.quadraticCurveTo(cx + r, shoulderY, cx + r, cy + r);
+  ctx.closePath(); ctx.fill(); ctx.stroke();
+  // Napkin / bib on the first upgrade.
+  if (level >= 2) {
+    ctx.fillStyle = "#f2f6ff";
+    ctx.beginPath(); ctx.moveTo(cx - r * 0.55, shoulderY + r * 0.05); ctx.lineTo(cx + r * 0.55, shoulderY + r * 0.05); ctx.lineTo(cx, cy + r * 0.72); ctx.closePath();
+    ctx.fill(); ctx.strokeStyle = dark; ctx.lineWidth = 1; ctx.stroke();
   }
+  // Head.
+  ctx.fillStyle = color; ctx.strokeStyle = dark; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.arc(cx, headY, headR, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  const eyeY = headY - headR * 0.05, eyeDx = headR * 0.4, eyeR = Math.max(1, headR * 0.16);
+  const drawEyes = () => { ctx.fillStyle = dark; ctx.beginPath(); ctx.arc(cx - eyeDx, eyeY, eyeR, 0, Math.PI * 2); ctx.arc(cx + eyeDx, eyeY, eyeR, 0, Math.PI * 2); ctx.fill(); };
+  ctx.strokeStyle = dark; ctx.fillStyle = dark; ctx.lineWidth = 1.4;
+  if (typeId === "arrow") {
+    // The Regular — eyes + a raised fork.
+    drawEyes();
+    const fx = cx + r * 0.9, fTop = headY - r * 1.05;
+    ctx.strokeStyle = "#dfe6f2"; ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.moveTo(fx, fTop + r * 0.45); ctx.lineTo(fx, headY + r * 0.1); ctx.stroke();
+    ctx.lineWidth = 1.2;
+    for (const dx of [-r * 0.18, 0, r * 0.18]) { ctx.beginPath(); ctx.moveTo(fx + dx, fTop); ctx.lineTo(fx + dx, fTop + r * 0.5); ctx.stroke(); }
+  } else if (typeId === "cannon") {
+    // Big Appetite — small eyes above a wide open mouth.
+    ctx.fillStyle = dark;
+    ctx.beginPath(); ctx.arc(cx - eyeDx, eyeY - headR * 0.28, eyeR * 0.85, 0, Math.PI * 2); ctx.arc(cx + eyeDx, eyeY - headR * 0.28, eyeR * 0.85, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#3a1010"; ctx.beginPath(); ctx.ellipse(cx, headY + headR * 0.38, headR * 0.5, headR * 0.42, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = dark; ctx.lineWidth = 1; ctx.stroke();
+  } else if (typeId === "frost") {
+    // The Photographer — eyes + a camera held up; a flash burst when firing.
+    drawEyes();
+    const camW = r * 0.95, camH = r * 0.68, camY = headY - r * 0.05;
+    ctx.fillStyle = "#20262f"; roundRect(ctx, cx - camW / 2, camY - camH / 2, camW, camH, r * 0.14); ctx.fill();
+    ctx.strokeStyle = dark; ctx.lineWidth = 1; ctx.stroke();
+    ctx.fillStyle = "#bfe4ff"; ctx.beginPath(); ctx.arc(cx, camY, camH * 0.3, 0, Math.PI * 2); ctx.fill();
+    if (firing) { ctx.fillStyle = "#ffffff"; drawSpark4(ctx, cx + camW * 0.65, camY - camH * 0.75, r * 0.55); }
+  } else if (typeId === "sniper") {
+    // Chopstick Sensei — glasses glint + chopsticks reaching out.
+    ctx.strokeStyle = "#eaf2ff"; ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.arc(cx - eyeDx, eyeY, eyeR * 1.6, 0, Math.PI * 2); ctx.arc(cx + eyeDx, eyeY, eyeR * 1.6, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx - eyeDx + eyeR * 1.6, eyeY); ctx.lineTo(cx + eyeDx - eyeR * 1.6, eyeY); ctx.stroke();
+    ctx.strokeStyle = "#caa46a"; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(cx + r * 0.4, headY + r * 0.15); ctx.lineTo(cx + r * 1.3, headY - r * 0.55);
+    ctx.moveTo(cx + r * 0.4, headY + r * 0.4); ctx.lineTo(cx + r * 1.3, headY - r * 0.2); ctx.stroke();
+  } else if (typeId === "zap") {
+    // The Kids' Table — a party hat on an excitable little customer.
+    drawEyes();
+    ctx.fillStyle = "#ff6bd0"; ctx.strokeStyle = dark; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(cx, headY - headR * 2.1); ctx.lineTo(cx - headR * 0.75, headY - headR * 0.7); ctx.lineTo(cx + headR * 0.75, headY - headR * 0.7); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "#ffe08a"; ctx.beginPath(); ctx.arc(cx, headY - headR * 2.1, Math.max(1.3, r * 0.16), 0, Math.PI * 2); ctx.fill();
+  }
+  // Chef's-kiss shine at max level.
+  if (level >= 3) { ctx.fillStyle = "#fff2b0"; drawSpark4(ctx, cx + r * 0.95, headY - r * 0.95, r * 0.42); }
   ctx.restore();
 }
 
@@ -946,11 +1055,10 @@ function drawTowers(ctx) {
     const glowStrength = 0.12 + idx * 0.12 + Math.max(0, t.upgradeFlash);
     ctx.globalAlpha = Math.min(0.6, glowStrength); ctx.fillStyle = def.glow;
     ctx.beginPath(); ctx.arc(t.x, t.y, radius + 10, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
-    ctx.fillStyle = def.color; drawTowerShape(ctx, def.shape, t.x, t.y, radius); ctx.fill();
-    ctx.strokeStyle = "#eaf2ff"; ctx.lineWidth = 2; ctx.stroke();
-    drawTowerDetail(ctx, t.typeId, t.x, t.y, radius, def, t);
-    for (let i = 0; i < t.maxLevel; i++) { ctx.beginPath(); ctx.arc(t.x - 8 + i * 8, t.y - radius - 9, 3, 0, Math.PI * 2); ctx.fillStyle = i < t.level ? COLOR.upgradeSpark : "#39404f"; ctx.fill(); }
-    if (distance(game.pointer, t) <= 18 && t.level < t.maxLevel) { ctx.fillStyle = game.currency >= RULES.upgradeCost[t.level] ? COLOR.good : COLOR.bad; ctx.font = "11px system-ui, sans-serif"; ctx.textAlign = "center"; ctx.fillText("next course " + RULES.upgradeCost[t.level], t.x, t.y - radius - 17); }
+    const justFired = t.cdTimer > t.cooldown - 0.14;
+    drawCustomer(ctx, t.typeId, t.x, t.y, radius, def.color, { level: t.level, firing: justFired });
+    for (let i = 0; i < t.maxLevel; i++) { ctx.beginPath(); ctx.arc(t.x - 8 + i * 8, t.y - radius - 16, 3, 0, Math.PI * 2); ctx.fillStyle = i < t.level ? COLOR.upgradeSpark : "#39404f"; ctx.fill(); }
+    if (distance(game.pointer, t) <= 18 && t.level < t.maxLevel) { ctx.fillStyle = game.currency >= RULES.upgradeCost[t.level] ? COLOR.good : COLOR.bad; ctx.font = "11px system-ui, sans-serif"; ctx.textAlign = "center"; ctx.fillText("next course " + RULES.upgradeCost[t.level], t.x, t.y - radius - 24); }
   }
 }
 
@@ -973,8 +1081,8 @@ function drawToolbar(ctx) {
     ctx.fillStyle = selected ? "#26324a" : "#1b2230"; roundRect(ctx, r.x, r.y, r.w, r.h, 6); ctx.fill();
     ctx.lineWidth = selected ? 2 : 1; ctx.strokeStyle = selected ? def.color : (hover ? "#4a5670" : "#2a3242"); roundRect(ctx, r.x, r.y, r.w, r.h, 6); ctx.stroke();
     ctx.globalAlpha = affordable ? 1 : 0.4;
-    ctx.fillStyle = def.color; drawTowerShape(ctx, def.shape, r.x + 15, r.y + r.h / 2, 9); ctx.fill();
-    ctx.fillStyle = COLOR.ink; ctx.font = "bold 9px system-ui, sans-serif"; ctx.textAlign = "left"; ctx.fillText(def.name, r.x + 28, r.y + 17);
+    drawCustomer(ctx, def.id, r.x + 15, r.y + r.h / 2, 8, def.color);
+    ctx.fillStyle = COLOR.ink; ctx.font = "bold 9px system-ui, sans-serif"; ctx.textAlign = "left"; ctx.fillText(fitText(ctx, def.name, r.w - 30), r.x + 28, r.y + 17);
     ctx.fillStyle = affordable ? COLOR.gold : COLOR.bad; ctx.font = "11px system-ui, sans-serif"; ctx.fillText("◆" + def.cost, r.x + 28, r.y + 33);
     ctx.globalAlpha = 1;
   }
@@ -1058,28 +1166,32 @@ function drawSelectedTowerPanel(ctx) {
   ctx.textBaseline = "alphabetic"; ctx.textAlign = "left";
 }
 
-// A small warded-shield glyph for lives — echoes the core's hexagon shape (defense, not just health).
-function drawHeartIcon(ctx, x, y, color) {
+// A star-rating glyph for the restaurant's Health Rating (was a shield/heart).
+function drawRatingIcon(ctx, x, y, color) {
   ctx.save();
   ctx.translate(x, y);
   ctx.fillStyle = color;
   ctx.beginPath();
-  ctx.moveTo(0, -8); ctx.lineTo(6, -5); ctx.lineTo(6, 2); ctx.lineTo(0, 8); ctx.lineTo(-6, 2); ctx.lineTo(-6, -5);
+  for (let i = 0; i < 10; i++) {
+    const rad = i % 2 === 0 ? 8 : 3.4;
+    const a = -Math.PI / 2 + i * Math.PI / 5;
+    const px = Math.cos(a) * rad, py = Math.sin(a) * rad;
+    i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+  }
   ctx.closePath(); ctx.fill();
-  ctx.globalAlpha = 0.55; ctx.fillStyle = "#0b0e14";
-  ctx.beginPath(); ctx.arc(0, -1, 2.4, 0, Math.PI * 2); ctx.fill();
+  ctx.globalAlpha = 0.4; ctx.strokeStyle = "#0b0e14"; ctx.lineWidth = 0.8; ctx.stroke();
   ctx.restore();
 }
-// A faceted essence-shard glyph for currency — a small cut gem instead of a flat diamond.
+// A tip coin for the in-run currency (Tips, $).
 function drawCurrencyIcon(ctx, x, y, color) {
   ctx.save();
   ctx.translate(x, y);
   ctx.fillStyle = color;
-  ctx.beginPath();
-  ctx.moveTo(0, -8); ctx.lineTo(5, -3); ctx.lineTo(3, 8); ctx.lineTo(-3, 8); ctx.lineTo(-5, -3);
-  ctx.closePath(); ctx.fill();
-  ctx.globalAlpha = 0.5; ctx.strokeStyle = "#0b0e14"; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(0, -8); ctx.lineTo(0, 8); ctx.moveTo(-5, -3); ctx.lineTo(5, -3); ctx.stroke();
+  ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = "#8a6a12"; ctx.lineWidth = 1.2;
+  ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI * 2); ctx.stroke();
+  ctx.fillStyle = "#6f5410"; ctx.font = "bold 11px system-ui, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillText("$", 0, 1);
   ctx.restore();
 }
 
@@ -1090,7 +1202,7 @@ function drawHUD(ctx) {
   ctx.fillStyle = lowLives ? `rgba(255,${60 - Math.round(30 * pulse)},${60 - Math.round(30 * pulse)},0.4)` : "rgba(0,0,0,0.4)";
   ctx.fillRect(6, 6, game.endless ? 408 : 320, 26);
   ctx.font = "bold 14px system-ui, sans-serif";
-  drawHeartIcon(ctx, 14, 17, lowLives && pulse > 0.5 ? "#ffffff" : COLOR.bad);
+  drawRatingIcon(ctx, 14, 17, lowLives && pulse > 0.5 ? "#ffffff" : COLOR.bad);
   ctx.fillStyle = lowLives && pulse > 0.5 ? "#ffffff" : COLOR.bad; ctx.fillText("" + game.lives, 26, 11);
   drawCurrencyIcon(ctx, 76, 17, COLOR.gold);
   ctx.fillStyle = COLOR.gold; ctx.fillText("" + game.currency, 88, 11);
@@ -1143,4 +1255,14 @@ function roundRect(ctx, x, y, w, h, r) {
   ctx.beginPath(); ctx.moveTo(x + r, y);
   ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
   ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+
+// Trim a label with an ellipsis so it fits maxWidth on the tiny cards (the
+// themed customer names are longer than the old Arrow/Cannon ones). Set the
+// font before calling. Full names still show in the toolbar blurb + in-run panel.
+function fitText(ctx, text, maxWidth) {
+  if (ctx.measureText(text).width <= maxWidth) return text;
+  let s = text;
+  while (s.length > 1 && ctx.measureText(s + "…").width > maxWidth) s = s.slice(0, -1);
+  return s + "…";
 }
