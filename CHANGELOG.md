@@ -5,6 +5,36 @@ Format is deliberately simple and plain-language.
 
 ## [Unreleased]
 
+### Changed
+- **Audio warmth pass** (Developer hat). Feedback was that "pretty much every
+  sound kind of has a robotic sound to it" — the Phase 4 audio reskin got the
+  *themes* right but the raw oscillators/white-noise still sounded synthetic.
+  Same 100% procedural Web Audio, no files, no libraries — just better synthesis:
+  - New shared helpers in the `audio` object: `env()` (soft-attack, click-free
+    exponential-release gain envelope — the #1 fix for "robotic," since hard
+    gain jumps/stops are what read as digital clicks) and `voice()` (2–3
+    slightly detuned oscillators layered through a lowpass filter, with
+    optional vibrato/pitch drift and a filter-cutoff sweep). `tone()` now
+    delegates to `voice()` so every caller gets the envelope for free.
+  - `noiseBurst()` now runs white noise through a bandpass/lowpass filter
+    (instead of raw broadband noise) for organic chomp/crunch/clatter
+    transients instead of "static."
+  - Every effect rebuilt on these helpers: attacks (bite/chomp per customer —
+    cannon=deep gulp, frost=shutter-click nibble, sniper=crisp pluck,
+    zap=tiny nibble, default=fork-stab), kill (crunch + gulp), leak (clatter +
+    descending "trombone," now with a touch of vibrato), upgrade ("order up!"
+    bell), hit (light fork tink), build/deny/waveStart/buy/win/lose. Same
+    per-type distinction and pitch randomization as before — only the timbre
+    changed.
+  - **No gameplay/balance change** — sim still reads **55.5% (BALANCED)**. Mute
+    toggle and first-tap unlock behave exactly as before (verified: zero
+    oscillators created while muted; no throw when not yet unlocked).
+  - Verified structurally in a browser: no JS console errors, AudioContext
+    reaches `"running"` after unlock, and every `audio.*` effect method runs
+    without throwing. Actual sound quality still needs on-device confirmation
+    from the developer — the preview tooling can't play audio. Files:
+    `main.js` (+ `index.html` cache-bust).
+
 ### Added
 - **Re-theme, Phase 5 — file follow-up design** (Game Designer hat; file-only, no
   build). Closes out the retheme by recording future work: filed **Issue #39 —
