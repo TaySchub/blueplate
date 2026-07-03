@@ -6,6 +6,26 @@ Format is deliberately simple and plain-language.
 ## [Unreleased]
 
 ### Added
+- **Re-theme, Phase 0 — docs only** (Game Designer hat; Issue #29). Starts
+  re-skinning the game from the arcane-wardens / Wellspring / Blight placeholder
+  to **hungry restaurant customers vs. runaway food** (the towers are seated diner
+  customers; the enemies are dishes escaping down a conveyor belt to the trash
+  chute). This phase changes **documentation only** — no gameplay, no balance
+  numbers, and no internal IDs (`arrow`/`mote`/etc.) change; the reference board
+  still reads 55.5% (BALANCED) in `tools/balance_sim.py`. Changes:
+  - New `deckbound-retheme-prompt.md` at the repo root — the authoritative
+    retheme spec (naming map, hard invariants, phased plan).
+  - Rewrote the **Theme** section of `GAME_BRIEF.md` (that section only, which the
+    brief marks as swappable) to the restaurant theme.
+  - New `docs/FRANCHISE_BACKBONE.md` — core relationship, through-line, cast table
+    (5 towers + 4 enemies with personalities), threat definition, core verb
+    (**CHOMP**), and tone rules.
+  - Updated `README.md`'s one-liner to mention the theme.
+  - **Developer deviation from the spec:** the spec said to *park* the old theme
+    in `docs/ideas-parked.md` ("parked, not deleted"); per developer direction the
+    old theme was **removed** instead, so it is dropped rather than parked.
+  Files: `deckbound-retheme-prompt.md`, `GAME_BRIEF.md`, `docs/FRANCHISE_BACKBONE.md`,
+  `README.md`.
 - **Larger map, generated waves, and endless groundwork** (developer-approved
   post-v1 addition, beyond the frozen v1 scope).
   - **Bigger map**: a longer, more-winding single map — a six-lane serpentine

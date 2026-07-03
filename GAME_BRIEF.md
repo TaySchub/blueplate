@@ -32,7 +32,7 @@ You **lose** when too many enemies reach your core; you **win** by surviving all
 - **Players:** single-player for v1. (Local co-op is a possible later addition; real-time online multiplayer is out of scope.)
 
 ## Theme (open — swap anytime, doesn't affect the build)
-Placeholder: arcane wardens defending a **Wellspring** from waves of a spreading **Blight** — flexible enough for many tower and enemy types, and easily reskinned. Theme is not a blocker; pick or change it whenever.
+**Hungry customers vs. runaway food:** the towers are seated diner customers and the enemies are dishes trying to escape down a conveyor belt before they're eaten. Map 1 is an American diner — food leaves the kitchen (spawn), rides the belt past the tables (tower slots), and any dish that reaches the trash chute (the core) is wasted, dropping the restaurant's Health Rating (lives). General-audience, Saturday-morning-cartoon tone; original content only. This replaces the earlier arcane-wardens / Wellspring / Blight placeholder under this section's own "swap anytime" clause — genre, pillars, core loop, and milestone scope are unchanged. Full theme detail: `docs/FRANCHISE_BACKBONE.md`.
 
 ## First version ("done") — the milestone
 A deployable build, openable on a Mac or iPhone via the GitHub Pages link, playable end to end:

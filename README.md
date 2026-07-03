@@ -1,7 +1,9 @@
 # Deckbound
 
-A tower-defense deckbuilder: draw tower cards, place them along a fixed path,
-and survive escalating waves — then collect and upgrade new cards between runs.
+A tower-defense deckbuilder themed **hungry customers vs. runaway food**: seat
+restaurant customers (your tower cards) along a diner conveyor belt and eat the
+dishes trying to escape to the trash chute — surviving escalating waves, then
+collecting and upgrading new customers between runs.
 
 - **What it is / the vision:** see [`GAME_BRIEF.md`](GAME_BRIEF.md) (the frozen spec).
 - **How we work / the rules:** see [`PROJECT.md`](PROJECT.md).
