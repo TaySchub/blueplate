@@ -40,10 +40,12 @@ session, confirm non-trivial work (`PROJECT.md` §5); during an unattended run,
 ## Where things live (so you route and scope correctly)
 
 - Game code: `index.html`, `main.js`, `style.css` (+ future `src/`).
-- Tunable numbers: `tools/balance_sim.py` reads `data/balance.json`. **The game
-  does not yet** — its numbers are hardcoded in `main.js`. Making `balance.json`
-  the real single source of truth (game + sim) is a pending decision; until
-  then, gameplay numbers live in `main.js`.
+- Tunable numbers: `data/balance.json` is the single source of truth for
+  difficulty & economy (tower stats + upgrades, enemy types, waves, economy).
+  `tools/balance_sim.py` reads it directly; the game reads it via the generated
+  `balance.data.js` — **run `python3 tools/gen_balance.py` after editing the
+  JSON.** Art and level geometry stay in `main.js`. Changing gameplay numbers
+  anywhere else is a bug.
 - The Issue backlog is the single roadmap. Don't create a parallel board.
 
 ## Sequencing rule while the game is one file

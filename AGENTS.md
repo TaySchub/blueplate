@@ -33,11 +33,13 @@ mirrors `PROJECT.md` §9).
   types, 10 waves, upgrades, and localStorage meta-progression. Still a single
   file; splitting it into `src/` modules is the first refactor (see `CLAUDE.md`).
 - `style.css` — styling.
-- `data/balance.json` — tunable-numbers file (tower/enemy/wave/economy stats).
-  **`tools/balance_sim.py` reads it. The game does *not* — `main.js` currently
-  uses its own hardcoded constants (`RULES`, `TOWER_TYPES`, `ENEMY_TYPES`,
-  `WAVES`).** Wiring the game to read this file (to make it a true single source
-  of truth) is a pending decision. (New — see the runbook.)
+- `data/balance.json` — **single source of truth for difficulty & economy
+  numbers** (tower stats + upgrade deltas, enemy types, the 10-wave table, and
+  the economy). `tools/balance_sim.py` reads it directly; the game reads it via
+  the generated `balance.data.js` (`window.BALANCE`). **After editing it, run
+  `python3 tools/gen_balance.py`** to regenerate the mirror. Art (colors/shapes)
+  and level geometry (path, slots) stay in `main.js`. Rule: if the balance sim
+  needs a number, it lives here.
 
 **Law / specs (read-only unless the developer says otherwise):**
 - `GAME_BRIEF.md` — frozen vision + the v1 "done" definition. Source of truth.
