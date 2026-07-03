@@ -139,7 +139,15 @@ the map (`path` + tower `slots`). To change the game:
 **Why the extra step?** When you double-click `index.html`, the browser blocks
 it from reading the JSON directly (a security rule for local files), so
 `gen_balance.py` copies the numbers into `balance.data.js`, which the game
-loads. Always re-run it after editing the JSON, and commit both files together.
+loads. It also stamps a small cache-busting version onto `index.html`'s script
+tags (`main.js?v=…`) so a fresh deploy shows up for players instead of GitHub
+Pages' ~10-minute cached copy. So run `gen_balance.py` before deploying after
+**any** code change (including `main.js`), and commit `balance.data.js` +
+`index.html` together.
+
+> Instant testing tip: GitHub Pages still caches the page itself for ~10 min, so
+> right after a deploy, open the site in a **private/incognito tab** to see the
+> new build immediately.
 
 **Check difficulty without playing 100 games:**
 
