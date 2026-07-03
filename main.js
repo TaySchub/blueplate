@@ -113,15 +113,12 @@ function deckTypes() {
    2) LEVEL
    ========================================================================= */
 
-const PATH = [
-  { x: -30, y: 100 }, { x: 170, y: 100 }, { x: 170, y: 300 }, { x: 400, y: 300 },
-  { x: 400, y: 110 }, { x: 640, y: 110 }, { x: 640, y: 280 }, { x: 760, y: 280 },
-];
-const CORE = { x: PATH[PATH.length - 1].x, y: PATH[PATH.length - 1].y, radius: 24 };
-const SLOTS = [
-  { x: 300, y: 220 }, { x: 520, y: 195 }, { x: 110, y: 220 },
-  { x: 300, y: 55 }, { x: 700, y: 190 }, { x: 470, y: 340 },
-];
+// Map geometry (path + tower slots) comes from data/balance.json via BAL.map,
+// so a map can be redesigned by editing data — no code change. The core sits at
+// the end of the path.
+const PATH = BAL.map.path;
+const CORE = { x: PATH[PATH.length - 1].x, y: PATH[PATH.length - 1].y, radius: BAL.map.coreRadius };
+const SLOTS = BAL.map.slots;
 
 function distance(a, b) { return Math.hypot(b.x - a.x, b.y - a.y); }
 const SEGMENT_LENGTHS = PATH.slice(1).map((p, i) => distance(PATH[i], p));

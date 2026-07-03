@@ -18,10 +18,12 @@ What it models (and what it doesn't):
     towers target the frontmost enemy in range and fire every cooldown for
     `damage` (splash hits all within splash px; slow reduces speed). Kills pay
     the enemy's reward; enemies reaching the lane's end cost a life.
-  - The MAP (lane length, tower slot positions) is a sim-side abstraction of the
-    real fixed map — that geometry lives in main.js, not balance.json. The sim
-    is a directional difficulty gauge for a fixed reference strategy, not a
-    pixel-perfect replica.
+  - The MAP (path polyline + tower slot positions) is read from balance.json
+    too, so the sim plays the SAME map the game does: enemies march the real path
+    by arc-length and towers fire from the real 2-D slot positions using 2-D
+    range. Redesign the map in balance.json and the sim tracks it automatically.
+    It's still a directional difficulty gauge for a fixed reference strategy, not
+    a per-frame replica.
   - The reference strategy builds its board over the early waves, then spends
     spare currency upgrading towers (cheapest upgrade first, up to level 3),
     mirroring how the game actually plays. Tower stats AND upgrade deltas ('up')
@@ -36,16 +38,12 @@ Run from the repo root:
 from __future__ import annotations
 import argparse
 import json
+import math
 import random
 from statistics import median
 
 TARGET_WIN_RATE = (0.45, 0.60)
-
-# --- Sim-side map abstraction (the real fixed map geometry lives in main.js) ---
-SIM_TRACK = 1350.0          # lane length in px (approximates the real path)
 DT = 1.0 / 30.0             # simulation timestep in seconds
-# Six tower slots spread along the lane, mirroring the game's 6 slots.
-SLOT_POS = [200.0, 400.0, 600.0, 800.0, 1000.0, 1200.0]
 
 # Reference build strategies (which tower goes in each slot, in build order).
 # Only the base-unlocked towers (no sniper, which needs an Essence unlock).
@@ -62,10 +60,34 @@ def load_config(path: str) -> dict:
     with open(path) as f:
         cfg = json.load(f)
     cfg.pop("_note", None)
-    for key in ("economy", "enemyTypes", "towers", "waves"):
+    for key in ("economy", "enemyTypes", "towers", "waves", "map"):
         if key not in cfg:
             raise SystemExit(f"balance config missing '{key}': {path}")
     return cfg
+
+
+def build_path(cfg: dict) -> dict:
+    """Precompute the path polyline + segment lengths from the map. Total length
+    is the enemy travel distance (the game's PATH_LENGTH)."""
+    pts = [(p["x"], p["y"]) for p in cfg["map"]["path"]]
+    seg = [math.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1])
+           for i in range(len(pts) - 1)]
+    return {"pts": pts, "seg": seg, "total": sum(seg)}
+
+
+def point_at(path: dict, dist: float) -> tuple[float, float]:
+    """2-D position at arc-length `dist` along the path — mirrors main.js
+    pointAtDistance()."""
+    if dist <= 0:
+        return path["pts"][0]
+    rem = dist
+    for i, seglen in enumerate(path["seg"]):
+        if rem <= seglen:
+            t = rem / seglen if seglen else 0.0
+            a, b = path["pts"][i], path["pts"][i + 1]
+            return (a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t)
+        rem -= seglen
+    return path["pts"][-1]
 
 
 def build_spawn_queue(wave: dict, rng: random.Random) -> list[str]:
@@ -76,8 +98,11 @@ def build_spawn_queue(wave: dict, rng: random.Random) -> list[str]:
     return q
 
 
-def simulate_wave(towers: list[dict], wave: dict, cfg: dict, rng: random.Random) -> tuple[int, int]:
-    """Play one wave on the lane. Return (leaked, currency_earned)."""
+def simulate_wave(towers: list[dict], wave: dict, cfg: dict, rng: random.Random,
+                  path: dict) -> tuple[int, int]:
+    """Play one wave on the real map. Enemies march the path by arc-length;
+    towers fire from their 2-D slot positions using 2-D range. Mirrors the
+    game's spawn/target/move loop. Return (leaked, currency_earned)."""
     enemy_types = cfg["enemyTypes"]
     queue = build_spawn_queue(wave, rng)
     enemies: list[dict] = []
@@ -102,24 +127,29 @@ def simulate_wave(towers: list[dict], wave: dict, cfg: dict, rng: random.Random)
             # smooth gauge instead of a 0%/100% cliff.
             hp = wave["hp"] * et["hpMul"] * rng.uniform(0.85, 1.15)
             enemies.append({
-                "kind": kind, "pos": 0.0, "hp": hp,
+                "kind": kind, "dist": 0.0, "x": 0.0, "y": 0.0, "hp": hp,
                 "speed": wave["speed"] * et["speedMul"],
                 "reward": et["reward"], "slow_timer": 0.0, "slow_factor": 1.0,
             })
+
+        # cache each enemy's 2-D position for this tick
+        for e in enemies:
+            e["x"], e["y"] = point_at(path, e["dist"])
 
         # towers fire
         for t in towers:
             t["cd"] -= DT
             if t["cd"] > 0:
                 continue
-            in_range = [e for e in enemies if abs(e["pos"] - t["pos"]) <= t["range"]]
+            in_range = [e for e in enemies
+                        if math.hypot(e["x"] - t["x"], e["y"] - t["y"]) <= t["range"]]
             if not in_range:
                 continue
-            target = max(in_range, key=lambda e: e["pos"])  # frontmost
+            target = max(in_range, key=lambda e: e["dist"])  # frontmost on path
             t["cd"] = t["cooldown"]
             if t["behavior"] == "splash":
                 for e in enemies:
-                    if abs(e["pos"] - target["pos"]) <= t.get("splash", 0):
+                    if math.hypot(e["x"] - target["x"], e["y"] - target["y"]) <= t.get("splash", 0):
                         e["hp"] -= t["damage"]
             else:
                 target["hp"] -= t["damage"]
@@ -136,7 +166,7 @@ def simulate_wave(towers: list[dict], wave: dict, cfg: dict, rng: random.Random)
                 survivors.append(e)
         enemies = survivors
 
-        # move
+        # move along the path
         still_on = []
         for e in enemies:
             speed = e["speed"]
@@ -145,8 +175,8 @@ def simulate_wave(towers: list[dict], wave: dict, cfg: dict, rng: random.Random)
                 e["slow_timer"] -= DT
                 if e["slow_timer"] <= 0:
                     e["slow_factor"] = 1.0
-            e["pos"] += speed * DT
-            if e["pos"] >= SIM_TRACK:
+            e["dist"] += speed * DT
+            if e["dist"] >= path["total"]:
                 leaked += 1
             else:
                 still_on.append(e)
@@ -159,9 +189,9 @@ def simulate_wave(towers: list[dict], wave: dict, cfg: dict, rng: random.Random)
 MAX_LEVEL = 3  # matches the game's tower maxLevel
 
 
-def make_tower(kind: str, pos: float, cfg: dict) -> dict:
+def make_tower(kind: str, x: float, y: float, cfg: dict) -> dict:
     spec = cfg["towers"][kind]
-    return {"kind": kind, "pos": pos, "cd": 0.0, "level": 1,
+    return {"kind": kind, "x": x, "y": y, "cd": 0.0, "level": 1,
             "range": spec["range"], "damage": spec["damage"],
             "cooldown": spec["cooldown"], "behavior": spec["behavior"],
             "splash": spec.get("splash", 0), "slowDur": spec.get("slowDur", 0.0),
@@ -203,6 +233,8 @@ def play_game(build: list[str], cfg: dict, seed: int) -> tuple[bool, int]:
     """Play a full run with an economy-limited build-only strategy."""
     rng = random.Random(seed)
     econ = cfg["economy"]
+    slots = cfg["map"]["slots"]
+    path = build_path(cfg)
     currency = econ["startCurrency"]
     lives = econ["startLives"]
     towers: list[dict] = []
@@ -210,18 +242,18 @@ def play_game(build: list[str], cfg: dict, seed: int) -> tuple[bool, int]:
 
     for wi, wave in enumerate(cfg["waves"]):
         # prep: fill the next slots we can afford, in build order
-        while next_slot < len(SLOT_POS) and next_slot < len(build):
+        while next_slot < len(slots) and next_slot < len(build):
             kind = build[next_slot]
             cost = cfg["towers"][kind]["cost"]
             if currency < cost:
                 break
             currency -= cost
-            towers.append(make_tower(kind, SLOT_POS[next_slot], cfg))
+            towers.append(make_tower(kind, slots[next_slot]["x"], slots[next_slot]["y"], cfg))
             next_slot += 1
         # spend spare currency upgrading existing towers
         currency = buy_upgrades(towers, currency, econ["upgradeCost"])
 
-        leaked, earned = simulate_wave(towers, wave, cfg, rng)
+        leaked, earned = simulate_wave(towers, wave, cfg, rng, path)
         currency += earned + econ["earnPerWave"]
         lives -= leaked
         if lives <= 0:

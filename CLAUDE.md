@@ -41,11 +41,12 @@ session, confirm non-trivial work (`PROJECT.md` §5); during an unattended run,
 
 - Game code: `index.html`, `main.js`, `style.css` (+ future `src/`).
 - Tunable numbers: `data/balance.json` is the single source of truth for
-  difficulty & economy (tower stats + upgrades, enemy types, waves, economy).
-  `tools/balance_sim.py` reads it directly; the game reads it via the generated
-  `balance.data.js` — **run `python3 tools/gen_balance.py` after editing the
-  JSON.** Art and level geometry stay in `main.js`. Changing gameplay numbers
-  anywhere else is a bug.
+  difficulty, economy, and the map (tower stats + upgrades, enemy types, waves,
+  economy, and the map's `path` + `slots`). `tools/balance_sim.py` reads it
+  directly; the game reads it via the generated `balance.data.js` — **run
+  `python3 tools/gen_balance.py` after editing the JSON.** Only art (colors/
+  shapes) stays in `main.js`. Changing gameplay numbers or the map anywhere else
+  is a bug.
 - The Issue backlog is the single roadmap. Don't create a parallel board.
 
 ## Sequencing rule while the game is one file

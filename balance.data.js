@@ -1,7 +1,7 @@
 // AUTO-GENERATED from data/balance.json by tools/gen_balance.py.
 // Do NOT edit by hand — edit data/balance.json and re-run the generator.
 window.BALANCE = {
-  "_note": "Single source of truth for DIFFICULTY & ECONOMY numbers. tools/balance_sim.py reads this file directly; the game reads it via the generated balance.data.js (run tools/gen_balance.py after editing). Art (colors/shapes/blurbs) and level geometry (path, slots) live in main.js, not here. Rule: if the balance sim needs a number to compute win-rate, it belongs in this file \u2014 including per-tower upgrade deltas ('up').",
+  "_note": "Single source of truth for DIFFICULTY, ECONOMY, and MAP GEOMETRY. tools/balance_sim.py reads this file directly; the game reads it via the generated balance.data.js (run tools/gen_balance.py after editing). Only pure art (colors/shapes/blurbs) stays in main.js. Rule: if the balance sim needs a number to compute win-rate, it belongs in this file \u2014 including per-tower upgrade deltas ('up') and the map (path + slots).",
   "target_win_rate": [
     0.45,
     0.6
@@ -15,6 +15,69 @@ window.BALANCE = {
       70,
       100
     ]
+  },
+  "map": {
+    "path": [
+      {
+        "x": -30,
+        "y": 100
+      },
+      {
+        "x": 170,
+        "y": 100
+      },
+      {
+        "x": 170,
+        "y": 300
+      },
+      {
+        "x": 400,
+        "y": 300
+      },
+      {
+        "x": 400,
+        "y": 110
+      },
+      {
+        "x": 640,
+        "y": 110
+      },
+      {
+        "x": 640,
+        "y": 280
+      },
+      {
+        "x": 760,
+        "y": 280
+      }
+    ],
+    "slots": [
+      {
+        "x": 300,
+        "y": 220
+      },
+      {
+        "x": 520,
+        "y": 195
+      },
+      {
+        "x": 110,
+        "y": 220
+      },
+      {
+        "x": 300,
+        "y": 55
+      },
+      {
+        "x": 700,
+        "y": 190
+      },
+      {
+        "x": 470,
+        "y": 340
+      }
+    ],
+    "coreRadius": 24
   },
   "enemyTypes": {
     "mote": {

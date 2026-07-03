@@ -6,6 +6,16 @@ Format is deliberately simple and plain-language.
 ## [Unreleased]
 
 ### Changed
+- **The map is now data-driven.** The path and tower slots moved out of hardcoded
+  arrays in `main.js` into `data/balance.json` (`map.path`, `map.slots`,
+  `map.coreRadius`). The game builds `PATH`/`SLOTS`/`CORE` from that data, so a
+  map can be redesigned by editing JSON — no code change. `tools/balance_sim.py`
+  now reads the same map and simulates combat on the real path (enemies march by
+  arc-length; towers fire from real 2-D slot positions using 2-D range), so its
+  win-rate tracks whatever map you build. The shipped map is unchanged and still
+  reads BALANCED (~60%). Only pure art (colors/shapes) remains in `main.js`.
+  Files: `data/balance.json`, `main.js`, `balance.data.js` (generated),
+  `tools/balance_sim.py`.
 - **Balance is now a real single source of truth.** Difficulty & economy numbers
   (tower stats + upgrade deltas, enemy types, the 10-wave table, and the economy)
   moved out of hardcoded constants in `main.js` into `data/balance.json`. The

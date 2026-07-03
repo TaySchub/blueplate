@@ -21,7 +21,7 @@ If double-clicking ever misbehaves, run a tiny local web server instead. Open
 the **Terminal** app and paste:
 
 ```bash
-cd ~/Library/Mobile\ Documents/com~apple~CloudDocs/GameStudio
+cd path/to/deckbound   # this folder — tip: type "cd " then drag it from Finder into Terminal
 python3 -m http.server 8000
 ```
 
@@ -31,6 +31,10 @@ Terminal to stop the server.
 ---
 
 ## Part 2 — Connect this folder to GitHub (one time)
+
+> **Already done?** If your `deckbound` repo is already on GitHub (it is, if
+> you're reading this there), this one-time setup is complete — skip to Part 4 to
+> work on the game. This section is kept as a record of how it was wired up.
 
 ### Step 2a — Install the GitHub CLI (`gh`)
 
@@ -62,7 +66,7 @@ and push. Run these from inside this folder. (The first two lines set who your
 commits show as — use your own name/email.)
 
 ```bash
-cd ~/Library/Mobile\ Documents/com~apple~CloudDocs/GameStudio
+cd path/to/deckbound   # this folder (the one with index.html)
 
 git config --global user.name  "Your Name"
 git config --global user.email "you@example.com"
@@ -70,7 +74,7 @@ git config --global user.email "you@example.com"
 git init
 git branch -M main
 git add .
-git commit -m "Initial commit: skeleton, docs, and Studio Feed workflow"
+git commit -m "Initial commit: game, docs, and Studio Feed workflow"
 
 # This line auto-fills your GitHub username from your gh login, so you don't
 # have to type it. It links this folder to your empty deckbound repo and pushes.
@@ -115,3 +119,35 @@ After a minute your game is at `https://YOUR-USERNAME.github.io/deckbound/`,
 openable on your Mac and iPhone.
 
 That's Task 2. We'll pause here for your OK before touching any of it.
+
+---
+
+## Part 4 — Tuning the game & editing maps
+
+All the game's numbers **and** the map live in one file: `data/balance.json` —
+tower stats, enemy types, the 10 waves, the economy (starting money/lives), and
+the map (`path` + tower `slots`). To change the game:
+
+1. Edit a value in `data/balance.json` — e.g. an enemy's `hpMul`, a tower's
+   `damage`, or a point in `map.path` to reshape the track.
+2. Run the generator so the game picks it up:
+   ```bash
+   python3 tools/gen_balance.py
+   ```
+3. Refresh the game in your browser. Done.
+
+**Why the extra step?** When you double-click `index.html`, the browser blocks
+it from reading the JSON directly (a security rule for local files), so
+`gen_balance.py` copies the numbers into `balance.data.js`, which the game
+loads. Always re-run it after editing the JSON, and commit both files together.
+
+**Check difficulty without playing 100 games:**
+
+```bash
+python3 tools/balance_sim.py
+```
+
+It plays the game headlessly and reports a win-rate — aim for the
+`target_win_rate` band (45–60%) set in the same file. Colors, shapes, and art
+aren't in `balance.json`; those live in `main.js` (and `style.css` for the page
+around the game).
