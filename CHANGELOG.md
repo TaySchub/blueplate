@@ -6,6 +6,13 @@ Format is deliberately simple and plain-language.
 ## [Unreleased]
 
 ### Added
+- **Re-theme, Phase 5 — file follow-up design** (Game Designer hat; file-only, no
+  build). Closes out the retheme by recording future work: filed **Issue #39 —
+  "Map 2: the Pizzeria + Pizza Supreme (splitter enemy)"** (the franchise's first
+  new mechanic — spawn-on-death, needs an engine + sim + balance pass), and parked
+  three later restaurant concepts (seafood shack / drive-thru / buffet) in
+  `docs/ideas-parked.md`. No gameplay change. (The optional internal-ID→themed-name
+  migration was deferred.) File: `docs/ideas-parked.md`.
 - **Re-theme, Phase 4 — audio reskin** (Developer hat; Issue #37). The procedural
   Web Audio (generated in code, no files, no deps) now sounds like the diner.
   **No gameplay/balance change** — the sim still reads **55.5% (BALANCED)**.

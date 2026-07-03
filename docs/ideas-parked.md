@@ -8,4 +8,16 @@ Format: one bullet per idea, dated, with a sentence of why it's parked.
 
 ## Parked
 
-_(nothing parked yet)_
+### Future restaurants (roster-per-map expansion — recorded, not built)
+
+The franchise pattern is one restaurant per map, each with its own enemy roster
+(see `docs/FRANCHISE_BACKBONE.md`). Map 2 (the Pizzeria + splitter) is filed as a
+real feature Issue; these later restaurants are parked here as concepts only:
+
+- **2026-07-03 — Seafood shack.** Roster headlined by an **armored Lobster Deluxe**
+  as the tank enemy (a shell that soaks damage). Parked: a later restaurant, needs
+  its own roster + balance pass; not v1 scope.
+- **2026-07-03 — Drive-thru.** A **short, fast single lane** — a speed-focused map
+  variant. Parked: a later map layout, out of the current single-map v1 scope.
+- **2026-07-03 — Buffet.** A **multi-lane** map (food comes down several belts at
+  once). Parked: multi-lane is a bigger engine + balance change; well beyond v1.
