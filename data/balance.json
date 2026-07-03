@@ -1,0 +1,16 @@
+{
+  "_note": "Single source of truth for tunable numbers. BOTH the game and tools/balance_sim.py read this file — never hard-code balance values elsewhere. Wave count/scaling are placeholders per GAME_BRIEF's open decisions (target ~10 waves for v1); the Designer freezes them during Core issues #4/#5 using the sim's verdict.",
+  "target_win_rate": [0.45, 0.60],
+  "track_length": 40,
+  "starting_lives": 38,
+  "waves": 12,
+  "base_enemies_per_wave": 4,
+  "enemy_hp_base": 7,
+  "enemy_hp_growth": 1.14,
+  "enemy_speed": 1.0,
+  "towers": {
+    "arrow":  { "damage": 9,  "range": 6, "cooldown": 1 },
+    "cannon": { "damage": 27, "range": 4, "cooldown": 3 },
+    "frost":  { "damage": 0,  "range": 5, "cooldown": 1, "slow": 0.5 }
+  }
+}
