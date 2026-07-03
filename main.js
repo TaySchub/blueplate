@@ -31,7 +31,6 @@ const VIEW = { w: 800, h: 450 };
 
 const COLOR = {
   bg: "#10131a", grid: "#1b2130",
-  pathEdge: "#2b3346", pathFill: "#3b4a6b", pathCenter: "#55b3ff",
   core: "#6ea8fe", coreHurt: "#ff6b6b",
   ink: "#e8ecf3", muted: "#8b94a7",
   gold: "#ffe08a", good: "#7dff9b", bad: "#ff6b6b",
@@ -699,6 +698,7 @@ function render() {
   }
   drawBackground(ctx);
   drawPath(ctx);
+  drawKitchenDoor(ctx);
   drawSlots(ctx);
   drawTowerRanges(ctx);
   drawCore(ctx);
@@ -823,21 +823,63 @@ function drawMenu(ctx) {
 /* ---- In-run drawing ---- */
 
 function drawBackground(ctx) {
+  // American-diner floor: a low-contrast checkerboard so the belt, customers, and
+  // food stay the things that pop.
   ctx.fillStyle = COLOR.bg; ctx.fillRect(0, 0, VIEW.w, VIEW.h);
-  ctx.strokeStyle = COLOR.grid; ctx.lineWidth = 1;
-  const gap = 50; ctx.beginPath();
-  for (let x = gap; x < VIEW.w; x += gap) { ctx.moveTo(x, 0); ctx.lineTo(x, TOOLBAR.y); }
-  for (let y = gap; y < TOOLBAR.y; y += gap) { ctx.moveTo(0, y); ctx.lineTo(VIEW.w, y); }
-  ctx.stroke();
+  const tile = 45;
+  ctx.fillStyle = "#141a24";
+  for (let gy = 0; gy < TOOLBAR.y; gy += tile)
+    for (let gx = 0; gx < VIEW.w; gx += tile)
+      if (((gx / tile) + (gy / tile)) & 1) ctx.fillRect(gx, gy, tile, tile);
+  // A booth/table pad under each seat — set dressing behind the seated customers.
+  for (const s of SLOTS) {
+    ctx.fillStyle = "#1b222d"; roundRect(ctx, s.x - 21, s.y - 15, 42, 30, 7); ctx.fill();
+    ctx.strokeStyle = "#262f3d"; ctx.lineWidth = 1.5; roundRect(ctx, s.x - 21, s.y - 15, 42, 30, 7); ctx.stroke();
+  }
 }
 
+// The conveyor belt the food rides from the kitchen to the trash chute. Metal
+// rails + a belt surface, with slats that animate toward the chute (the
+// fixed-timestep loop drives the offset off game.elapsed).
 function drawPath(ctx) {
   ctx.lineJoin = "round"; ctx.lineCap = "round";
   const trace = () => { ctx.beginPath(); ctx.moveTo(PATH[0].x, PATH[0].y); for (let i = 1; i < PATH.length; i++) ctx.lineTo(PATH[i].x, PATH[i].y); };
-  ctx.strokeStyle = COLOR.pathEdge; ctx.lineWidth = 42; trace(); ctx.stroke();
-  ctx.strokeStyle = COLOR.pathFill; ctx.lineWidth = 32; trace(); ctx.stroke();
-  ctx.strokeStyle = COLOR.pathCenter; ctx.globalAlpha = 0.35; ctx.lineWidth = 3; trace(); ctx.stroke();
-  ctx.globalAlpha = 1;
+  ctx.strokeStyle = "#0e1118"; ctx.lineWidth = 46; trace(); ctx.stroke();  // rail shadow
+  ctx.strokeStyle = "#333c4b"; ctx.lineWidth = 40; trace(); ctx.stroke();  // rail metal
+  ctx.strokeStyle = "#232a35"; ctx.lineWidth = 34; trace(); ctx.stroke();  // belt surface
+  // Moving slats across the belt, marching toward the chute.
+  const spacing = 26, half = 15;
+  const offset = (game.elapsed * 42) % spacing;
+  ctx.strokeStyle = "rgba(255,255,255,0.07)"; ctx.lineWidth = 4; ctx.lineCap = "butt";
+  let acc = 0;
+  for (let i = 0; i < SEGMENT_LENGTHS.length; i++) {
+    const A = PATH[i], B = PATH[i + 1], len = SEGMENT_LENGTHS[i];
+    if (len === 0) continue;
+    const dx = (B.x - A.x) / len, dy = (B.y - A.y) / len, px = -dy, py = dx;
+    const k0 = Math.ceil((acc - offset) / spacing);
+    for (let s = offset + k0 * spacing; s < acc + len; s += spacing) {
+      const d = s - acc, cx = A.x + dx * d, cy = A.y + dy * d;
+      ctx.beginPath(); ctx.moveTo(cx - px * half, cy - py * half); ctx.lineTo(cx + px * half, cy + py * half); ctx.stroke();
+    }
+    acc += len;
+  }
+  ctx.lineCap = "round";
+}
+
+// The kitchen the dishes escape from — a doorway with swinging half-doors at the
+// belt's spawn (left edge); the belt emerges from its dark mouth.
+function drawKitchenDoor(ctx) {
+  const y = PATH[0].y, doorW = 40, gap = 18;
+  const top = y - 40, bot = y + 40;
+  ctx.fillStyle = "#0b0e14"; ctx.fillRect(0, top, doorW, bot - top);          // dark interior
+  ctx.fillStyle = "#2c3543"; ctx.strokeStyle = "#3f4a5c"; ctx.lineWidth = 1;   // swinging half-doors
+  ctx.fillRect(2, top + 2, doorW - 4, (y - gap) - (top + 2)); ctx.strokeRect(2, top + 2, doorW - 4, (y - gap) - (top + 2));
+  ctx.fillRect(2, y + gap, doorW - 4, (bot - 2) - (y + gap)); ctx.strokeRect(2, y + gap, doorW - 4, (bot - 2) - (y + gap));
+  ctx.strokeStyle = "#4a5568"; ctx.lineWidth = 3;                              // door frame (right jamb + lintel + sill)
+  ctx.beginPath(); ctx.moveTo(doorW, top); ctx.lineTo(doorW, bot); ctx.moveTo(0, top); ctx.lineTo(doorW, top); ctx.moveTo(0, bot); ctx.lineTo(doorW, bot); ctx.stroke();
+  ctx.fillStyle = "#8b94a7"; ctx.font = "bold 8px system-ui, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillText("KITCHEN", doorW / 2, bot + 8);
+  ctx.textBaseline = "alphabetic";
 }
 
 function drawSlots(ctx) {

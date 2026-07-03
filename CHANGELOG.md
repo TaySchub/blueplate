@@ -6,6 +6,27 @@ Format is deliberately simple and plain-language.
 ## [Unreleased]
 
 ### Added
+- **Re-theme, Phase 3 — Map 1: the conveyor belt** (Developer hat; Issue #35).
+  Map 1 now reads as an American diner: food leaves the **kitchen** (spawn), rides
+  a **conveyor belt** past the tables, and any dish reaching the **trash chute** is
+  wasted. **No gameplay/balance change** — the map geometry (`map.path`/`map.slots`)
+  is unchanged, so the sim still reads **55.5% (BALANCED)**; this is all rendering.
+  - **Belt** (`drawPath`): metal rails + a belt surface with **slats that animate
+    toward the chute** (offset driven by `game.elapsed`, so the fixed-timestep loop
+    conveys it for free).
+  - **Kitchen door** (`drawKitchenDoor`) at the spawn — swinging half-doors + a
+    "KITCHEN" sign; dishes emerge from its dark mouth. (Trash chute was already
+    themed in Phase 2.)
+  - **Diner background** (`drawBackground`): a low-contrast checkerboard floor +
+    booth/table pads under the seats — kept subtle so the belt, customers, and food
+    stay the things that pop. Verified at desktop + iPhone (375px).
+  - **Why the geometry is untouched:** the existing serpentine already reads as a
+    winding conveyor line (kitchen at the left entry, chute at the right end), and
+    keeping it guarantees the balance the sim locked at 55.5% — which the spec
+    prioritizes ("keep total path length + slot count so balance holds"). A future
+    map redesign can be its own issue.
+  - Removed the now-dead path-color constants. Files: `main.js` (+ `index.html`
+    cache-bust).
 - **Re-theme, Phase 2 — art reskin** (Developer hat; Issue #33). All-new
   canvas art for the restaurant theme — original, cheap shapes, one readable
   identity feature each. **No gameplay, no balance numbers, no internal IDs, no
