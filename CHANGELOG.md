@@ -5,6 +5,21 @@ Format is deliberately simple and plain-language.
 
 ## [Unreleased]
 
+### Changed
+- **Balance is now a real single source of truth.** Difficulty & economy numbers
+  (tower stats + upgrade deltas, enemy types, the 10-wave table, and the economy)
+  moved out of hardcoded constants in `main.js` into `data/balance.json`. The
+  game now reads them from `window.BALANCE`, sourced from the JSON via a
+  generated `balance.data.js` (so the game still runs when you double-click
+  `index.html` — a `fetch()` would be blocked on `file://`). Run
+  `python3 tools/gen_balance.py` after editing the JSON. `tools/balance_sim.py`
+  was rewritten to model the real 5-tower game (combat, upgrades, economy) from
+  the same file — so the sim's win-rate finally reflects what players face. The
+  shipped config reads BALANCED (~60% for the reference strategy, in the 45–60%
+  band). Art (colors/shapes) and level geometry (path, slots) stay in `main.js`.
+  Files: `data/balance.json`, `balance.data.js` (generated), `tools/gen_balance.py`,
+  `tools/balance_sim.py`, `main.js`, `index.html`.
+
 ### Fixed
 - **iPhone landscape clipping.** On a real iPhone in Safari, rotating to
   landscape clipped the top and bottom of the game off-screen — the previous

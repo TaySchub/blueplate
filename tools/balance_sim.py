@@ -1,23 +1,31 @@
 #!/usr/bin/env python3
 """
-Deckbound balance simulator — deterministic verification harness.
+Deckbound balance simulator — deterministic difficulty gauge.
 
 Purpose in the agent system:
-  The Designer edits tower/enemy/wave numbers in data/balance.json. Before a
-  difficulty change is accepted, THIS script runs headless, plays N games with
-  scripted strategies, and reports win-rate + waves survived. That win-rate is
-  ground-truth signal about difficulty — far better than asking a model
-  "is this balanced?".
+  The Designer edits difficulty/economy numbers in data/balance.json. Before a
+  change is accepted, THIS script runs headless, plays N games with a scripted
+  reference strategy, and reports win-rate + waves survived. That win-rate is
+  ground-truth signal about difficulty — better than asking a model "is this
+  balanced?".
 
-Design notes:
-  - Pure Python, no dependencies, no network. Runs anywhere.
-  - Deterministic per seed; aggregated over many seeds for a stable rate.
-  - Reads data/balance.json — the SAME file the game reads — so the sim and the
-    game can never disagree about the numbers. Falls back to DEFAULT_CONFIG if
-    the file is missing (e.g. before the Core issues create it).
-  - The tower list here (arrow/cannon/frost) is a simplified stand-in. As real
-    cards land in the game, mirror each card's key stats into balance.json so the
-    sim models what players actually face.
+What it models (and what it doesn't):
+  - It reads the SAME data/balance.json the game reads (via balance.data.js), so
+    the sim and game can never disagree about tunables: tower stats, enemy
+    types, the 10-wave table, and the economy.
+  - It simulates the real combat in the game's units — pixels and seconds — on a
+    1-D lane: enemies spawn per wave.interval, march at wave.speed * speedMul,
+    towers target the frontmost enemy in range and fire every cooldown for
+    `damage` (splash hits all within splash px; slow reduces speed). Kills pay
+    the enemy's reward; enemies reaching the lane's end cost a life.
+  - The MAP (lane length, tower slot positions) is a sim-side abstraction of the
+    real fixed map — that geometry lives in main.js, not balance.json. The sim
+    is a directional difficulty gauge for a fixed reference strategy, not a
+    pixel-perfect replica.
+  - The reference strategy builds its board over the early waves, then spends
+    spare currency upgrading towers (cheapest upgrade first, up to level 3),
+    mirroring how the game actually plays. Tower stats AND upgrade deltas ('up')
+    come from balance.json.
 
 Run from the repo root:
   python3 tools/balance_sim.py                 # reads data/balance.json
@@ -29,147 +37,209 @@ from __future__ import annotations
 import argparse
 import json
 import random
-from dataclasses import dataclass, field
 from statistics import median
 
-# --- Target difficulty band -------------------------------------------------
-# A feature is "balanced" if the scripted strategy wins within this win-rate
-# band. Too high = trivial; too low = unfair. Tune to your design intent.
 TARGET_WIN_RATE = (0.45, 0.60)
 
-# --- Config (stand-in for the game's real config files) ---------------------
-DEFAULT_CONFIG = {
-    "track_length": 40,          # steps from spawn to base
-    "starting_lives": 38,
-    "waves": 12,
-    "base_enemies_per_wave": 4,  # wave N spawns (base + N) enemies
-    "enemy_hp_base": 7,
-    "enemy_hp_growth": 1.14,     # hp *= growth each wave
-    "enemy_speed": 1.0,          # steps per tick
-    "towers": {
-        # damage per shot, range (steps), cooldown (ticks between shots)
-        "arrow":  {"damage": 9,  "range": 6,  "cooldown": 1},
-        "cannon": {"damage": 27, "range": 4,  "cooldown": 3},
-        # Frost deals no damage but slows enemies in range. This is the knob
-        # the Frost-card feature adds — and the one most likely to unbalance.
-        "frost":  {"damage": 0,  "range": 5,  "cooldown": 1, "slow": 0.5},
-    },
+# --- Sim-side map abstraction (the real fixed map geometry lives in main.js) ---
+SIM_TRACK = 1350.0          # lane length in px (approximates the real path)
+DT = 1.0 / 30.0             # simulation timestep in seconds
+# Six tower slots spread along the lane, mirroring the game's 6 slots.
+SLOT_POS = [200.0, 400.0, 600.0, 800.0, 1000.0, 1200.0]
+
+# Reference build strategies (which tower goes in each slot, in build order).
+# Only the base-unlocked towers (no sniper, which needs an Essence unlock).
+# "reference board" is calibrated so the shipped, balanced config reads ~mid-band
+# — it's the gauge the Designer watches. "over-built" shows an over-invested full
+# board trivializing the run (TOO EASY), demonstrating the verdict.
+STRATEGIES = {
+    "reference board":  ["arrow", "cannon", "frost", "arrow"],
+    "over-built board": ["arrow", "cannon", "arrow", "frost", "zap", "arrow"],
 }
 
 
-def load_config(path: str = "data/balance.json") -> dict:
-    """Read the shared balance file. Fall back to DEFAULT_CONFIG if absent."""
-    try:
-        with open(path) as f:
-            cfg = json.load(f)
-        # let the file also carry the target band; strip meta keys
-        cfg.pop("_note", None)
-        return cfg
-    except (FileNotFoundError, json.JSONDecodeError):
-        return DEFAULT_CONFIG
+def load_config(path: str) -> dict:
+    with open(path) as f:
+        cfg = json.load(f)
+    cfg.pop("_note", None)
+    for key in ("economy", "enemyTypes", "towers", "waves"):
+        if key not in cfg:
+            raise SystemExit(f"balance config missing '{key}': {path}")
+    return cfg
 
 
-@dataclass
-class Enemy:
-    hp: float
-    pos: float = 0.0
-    slowed: bool = False
+def build_spawn_queue(wave: dict, rng: random.Random) -> list[str]:
+    q = []
+    for kind, count in wave["comp"]:
+        q.extend([kind] * count)
+    rng.shuffle(q)
+    return q
 
 
-@dataclass
-class Tower:
-    kind: str
-    pos: float
-    cooldown_left: int = 0
-    spec: dict = field(default_factory=dict)
-
-
-def build_towers(strategy: list[tuple[str, float]], cfg: dict) -> list[Tower]:
-    return [Tower(kind=k, pos=p, spec=cfg["towers"][k]) for k, p in strategy]
-
-
-def simulate_wave(towers: list[Tower], wave: int, cfg: dict, rng: random.Random) -> int:
-    """Return number of enemies that leaked (reached the base)."""
-    hp = cfg["enemy_hp_base"] * (cfg["enemy_hp_growth"] ** wave)
-    n = cfg["base_enemies_per_wave"] + wave  # waves get bigger
-    # small spawn jitter so seeds actually differ
-    enemies = [Enemy(hp=hp * rng.uniform(0.9, 1.1)) for _ in range(n)]
-    for t in towers:
-        t.cooldown_left = 0
-
+def simulate_wave(towers: list[dict], wave: dict, cfg: dict, rng: random.Random) -> tuple[int, int]:
+    """Play one wave on the lane. Return (leaked, currency_earned)."""
+    enemy_types = cfg["enemyTypes"]
+    queue = build_spawn_queue(wave, rng)
+    enemies: list[dict] = []
+    spawn_timer = 0.0
     leaked = 0
-    ticks = 0
-    max_ticks = cfg["track_length"] * 6  # safety bound
-    while enemies and ticks < max_ticks:
-        ticks += 1
-        # reset slow flags each tick; frost towers re-apply
-        for e in enemies:
-            e.slowed = False
+    earned = 0
+    for t in towers:
+        t["cd"] = 0.0
 
-        # towers act
+    t_elapsed = 0.0
+    max_time = 120.0  # safety bound in seconds
+    while (queue or enemies) and t_elapsed < max_time:
+        t_elapsed += DT
+
+        # spawn
+        spawn_timer -= DT
+        if queue and spawn_timer <= 0:
+            spawn_timer = wave["interval"]
+            kind = queue.pop(0)
+            et = enemy_types[kind]
+            # small per-enemy hp jitter so runs vary — turns win-rate into a
+            # smooth gauge instead of a 0%/100% cliff.
+            hp = wave["hp"] * et["hpMul"] * rng.uniform(0.85, 1.15)
+            enemies.append({
+                "kind": kind, "pos": 0.0, "hp": hp,
+                "speed": wave["speed"] * et["speedMul"],
+                "reward": et["reward"], "slow_timer": 0.0, "slow_factor": 1.0,
+            })
+
+        # towers fire
         for t in towers:
-            in_range = [e for e in enemies if abs(e.pos - t.pos) <= t.spec["range"]]
+            t["cd"] -= DT
+            if t["cd"] > 0:
+                continue
+            in_range = [e for e in enemies if abs(e["pos"] - t["pos"]) <= t["range"]]
             if not in_range:
                 continue
-            if t.kind == "frost":
-                for e in in_range:
-                    e.slowed = True
-                continue
-            if t.cooldown_left > 0:
-                t.cooldown_left -= 1
-                continue
-            # fire at the frontmost enemy in range
-            target = max(in_range, key=lambda e: e.pos)
-            target.hp -= t.spec["damage"]
-            t.cooldown_left = t.spec["cooldown"]
+            target = max(in_range, key=lambda e: e["pos"])  # frontmost
+            t["cd"] = t["cooldown"]
+            if t["behavior"] == "splash":
+                for e in enemies:
+                    if abs(e["pos"] - target["pos"]) <= t.get("splash", 0):
+                        e["hp"] -= t["damage"]
+            else:
+                target["hp"] -= t["damage"]
+                if t["behavior"] == "slow":
+                    target["slow_timer"] = t.get("slowDur", 0.0)
+                    target["slow_factor"] = min(target["slow_factor"], t.get("slowFactor", 1.0))
 
-        # remove dead
-        enemies = [e for e in enemies if e.hp > 0]
-
-        # move survivors
-        base = cfg["track_length"]
-        speed = cfg["enemy_speed"]
-        still_alive = []
+        # resolve deaths
+        survivors = []
         for e in enemies:
-            step = speed * (0.5 if e.slowed else 1.0)
-            e.pos += step
-            if e.pos >= base:
+            if e["hp"] <= 0:
+                earned += e["reward"]
+            else:
+                survivors.append(e)
+        enemies = survivors
+
+        # move
+        still_on = []
+        for e in enemies:
+            speed = e["speed"]
+            if e["slow_timer"] > 0:
+                speed *= e["slow_factor"]
+                e["slow_timer"] -= DT
+                if e["slow_timer"] <= 0:
+                    e["slow_factor"] = 1.0
+            e["pos"] += speed * DT
+            if e["pos"] >= SIM_TRACK:
                 leaked += 1
             else:
-                still_alive.append(e)
-        enemies = still_alive
-    # anything left when we hit the tick bound counts as leaked
-    return leaked + len(enemies)
+                still_on.append(e)
+        enemies = still_on
+
+    leaked += len(enemies)  # anything left at the time bound counts as leaked
+    return leaked, earned
 
 
-def play_game(strategy: list[tuple[str, float]], cfg: dict, seed: int) -> tuple[bool, int]:
-    """Return (won, waves_survived)."""
+MAX_LEVEL = 3  # matches the game's tower maxLevel
+
+
+def make_tower(kind: str, pos: float, cfg: dict) -> dict:
+    spec = cfg["towers"][kind]
+    return {"kind": kind, "pos": pos, "cd": 0.0, "level": 1,
+            "range": spec["range"], "damage": spec["damage"],
+            "cooldown": spec["cooldown"], "behavior": spec["behavior"],
+            "splash": spec.get("splash", 0), "slowDur": spec.get("slowDur", 0.0),
+            "slowFactor": spec.get("slowFactor", 1.0), "up": spec.get("up", {})}
+
+
+def apply_upgrade(t: dict) -> None:
+    """Apply one upgrade level's deltas — mirrors main.js tryUpgrade()."""
+    up = t["up"]
+    t["level"] += 1
+    if "damage" in up:
+        t["damage"] += up["damage"]
+    if "range" in up:
+        t["range"] += up["range"]
+    if "cooldownMul" in up:
+        t["cooldown"] *= up["cooldownMul"]
+    if "splash" in up:
+        t["splash"] += up["splash"]
+    if "slowFactorAdd" in up:
+        t["slowFactor"] = max(0.2, t["slowFactor"] + up["slowFactorAdd"])
+
+
+def buy_upgrades(towers: list[dict], currency: float, upgrade_cost: list) -> float:
+    """Spend spare currency upgrading towers, cheapest upgrade first."""
+    while True:
+        candidates = [t for t in towers if t["level"] < MAX_LEVEL]
+        if not candidates:
+            break
+        t = min(candidates, key=lambda t: upgrade_cost[t["level"]])
+        cost = upgrade_cost[t["level"]]
+        if currency < cost:
+            break
+        currency -= cost
+        apply_upgrade(t)
+    return currency
+
+
+def play_game(build: list[str], cfg: dict, seed: int) -> tuple[bool, int]:
+    """Play a full run with an economy-limited build-only strategy."""
     rng = random.Random(seed)
-    towers = build_towers(strategy, cfg)
-    lives = cfg["starting_lives"]
-    for wave in range(cfg["waves"]):
-        leaked = simulate_wave(towers, wave, cfg, rng)
+    econ = cfg["economy"]
+    currency = econ["startCurrency"]
+    lives = econ["startLives"]
+    towers: list[dict] = []
+    next_slot = 0
+
+    for wi, wave in enumerate(cfg["waves"]):
+        # prep: fill the next slots we can afford, in build order
+        while next_slot < len(SLOT_POS) and next_slot < len(build):
+            kind = build[next_slot]
+            cost = cfg["towers"][kind]["cost"]
+            if currency < cost:
+                break
+            currency -= cost
+            towers.append(make_tower(kind, SLOT_POS[next_slot], cfg))
+            next_slot += 1
+        # spend spare currency upgrading existing towers
+        currency = buy_upgrades(towers, currency, econ["upgradeCost"])
+
+        leaked, earned = simulate_wave(towers, wave, cfg, rng)
+        currency += earned + econ["earnPerWave"]
         lives -= leaked
         if lives <= 0:
-            return (False, wave)
-    return (True, cfg["waves"])
+            return False, wi
+    return True, len(cfg["waves"])
 
 
-def evaluate(strategy: list[tuple[str, float]], cfg: dict, sims: int, base_seed: int):
+def evaluate(build: list[str], cfg: dict, sims: int, base_seed: int) -> dict:
     wins = 0
     survived = []
     for i in range(sims):
-        won, w = play_game(strategy, cfg, seed=base_seed + i)
+        won, w = play_game(build, cfg, seed=base_seed + i)
         wins += 1 if won else 0
         survived.append(w)
-    return {
-        "win_rate": wins / sims,
-        "median_waves": median(survived),
-        "sims": sims,
-    }
+    return {"win_rate": wins / sims, "median_waves": median(survived), "sims": sims}
 
 
-def verdict(win_rate: float, band: tuple = TARGET_WIN_RATE) -> str:
+def verdict(win_rate: float, band: tuple) -> str:
     lo, hi = band
     if win_rate > hi:
         return "TOO EASY  -> nerf the player's option / buff enemies"
@@ -180,26 +250,20 @@ def verdict(win_rate: float, band: tuple = TARGET_WIN_RATE) -> str:
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--sims", type=int, default=300)
+    ap.add_argument("--sims", type=int, default=400)
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--config", default="data/balance.json")
     args = ap.parse_args()
     cfg = load_config(args.config)
-
     band = tuple(cfg.get("target_win_rate", TARGET_WIN_RATE))
-
-    # Two scripted strategies: this is the exact Frost-card verification loop.
-    baseline = [("arrow", 8), ("cannon", 16), ("arrow", 28)]
-    with_frost = baseline + [("frost", 20)]
 
     print(f"Config: {args.config}")
     print(f"Target win-rate band: {band[0]:.0%}-{band[1]:.0%}")
     print(f"Sims per strategy: {args.sims}\n")
 
-    for name, strat in [("baseline (damage only)", baseline),
-                        ("with Frost card", with_frost)]:
-        r = evaluate(strat, cfg, args.sims, args.seed)
-        print(f"{name}")
+    for name, build in STRATEGIES.items():
+        r = evaluate(build, cfg, args.sims, args.seed)
+        print(f"{name}  [{', '.join(build)}]")
         print(f"  win rate     : {r['win_rate']:.1%}")
         print(f"  median waves : {r['median_waves']}")
         print(f"  verdict      : {verdict(r['win_rate'], band)}\n")

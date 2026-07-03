@@ -46,6 +46,11 @@
     <span>v1 — hub, deck, meta-progression, 10 waves.</span>
   </footer>
 
+  <!-- Balance numbers (difficulty & economy), generated from data/balance.json
+       by tools/gen_balance.py. Loaded before main.js so window.BALANCE exists
+       when the game reads it. Deferred scripts run in order. -->
+  <script src="balance.data.js" defer></script>
+
   <!-- The game code. 'defer' means it runs after the page has loaded. -->
   <script src="main.js" defer></script>
 </body>

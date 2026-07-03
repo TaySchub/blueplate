@@ -35,38 +35,47 @@ const COLOR = {
   upgradeSpark: "#ffe08a", panel: "#151a24",
 };
 
+/* Difficulty & economy numbers come from data/balance.json, loaded as
+   window.BALANCE via the generated balance.data.js (see index.html and
+   tools/gen_balance.py). Art (colors/shapes/blurbs), per-tower upgrade deltas,
+   and level geometry stay in this file and are merged onto the balance data by
+   id below. Rule: if the balance sim needs a number, it lives in balance.json. */
+if (!window.BALANCE) {
+  throw new Error("balance.data.js failed to load — run `python3 tools/gen_balance.py`");
+}
+const BAL = window.BALANCE;
+
 const RULES = {
-  startCurrency: 150,
-  startLives: 20,
-  upgradeCost: [0, 70, 100],
-  earnPerWave: 40,
+  startCurrency: BAL.economy.startCurrency,
+  startLives: BAL.economy.startLives,
+  upgradeCost: BAL.economy.upgradeCost,
+  earnPerWave: BAL.economy.earnPerWave,
 };
 
-const TOWER_TYPES = [
-  { id: "arrow", name: "Arrow", shape: "diamond", cost: 50, color: "#6ea8fe", glow: "#3f6bb0",
-    range: 130, damage: 30, cooldown: 0.75, behavior: "single",
-    up: { damage: 16, range: 14, cooldownMul: 0.86 }, blurb: "Balanced single-target" },
-  { id: "cannon", name: "Cannon", shape: "circle", cost: 85, color: "#ff9d5c", glow: "#b5561f",
-    range: 118, damage: 24, cooldown: 1.3, behavior: "splash", splash: 46,
-    up: { damage: 15, splash: 10, cooldownMul: 0.9 }, blurb: "Splash damage (AoE)" },
-  { id: "frost", name: "Frost", shape: "hex", cost: 70, color: "#7fe0ff", glow: "#2b8fb5",
-    range: 120, damage: 10, cooldown: 0.8, behavior: "slow", slowFactor: 0.5, slowDur: 1.2,
-    up: { damage: 6, slowFactorAdd: -0.08, range: 12 }, blurb: "Slows enemies" },
-  { id: "sniper", name: "Sniper", shape: "triangle", cost: 95, color: "#c8a8ff", glow: "#7a4fd0",
-    range: 235, damage: 70, cooldown: 1.85, behavior: "single",
-    up: { damage: 45, range: 26, cooldownMul: 0.88 }, blurb: "Long range, big hits" },
-  { id: "zap", name: "Zap", shape: "square", cost: 35, color: "#ffe08a", glow: "#b59a2b",
-    range: 96, damage: 12, cooldown: 0.32, behavior: "single",
-    up: { damage: 7, range: 8, cooldownMul: 0.85 }, blurb: "Cheap, fast, weak" },
-];
+// Per-tower ART only (not difficulty). Combat stats + upgrade deltas (cost,
+// range, damage, cooldown, behavior, splash, slow, up) come from BAL.towers.
+const TOWER_ART = {
+  arrow:  { name: "Arrow",  shape: "diamond",  color: "#6ea8fe", glow: "#3f6bb0", blurb: "Balanced single-target" },
+  cannon: { name: "Cannon", shape: "circle",   color: "#ff9d5c", glow: "#b5561f", blurb: "Splash damage (AoE)" },
+  frost:  { name: "Frost",  shape: "hex",      color: "#7fe0ff", glow: "#2b8fb5", blurb: "Slows enemies" },
+  sniper: { name: "Sniper", shape: "triangle", color: "#c8a8ff", glow: "#7a4fd0", blurb: "Long range, big hits" },
+  zap:    { name: "Zap",    shape: "square",   color: "#ffe08a", glow: "#b59a2b", blurb: "Cheap, fast, weak" },
+};
+// Fixed display order for the deck/toolbar.
+const TOWER_ORDER = ["arrow", "cannon", "frost", "sniper", "zap"];
+const TOWER_TYPES = TOWER_ORDER.map((id) => ({ id, ...BAL.towers[id], ...TOWER_ART[id] }));
 const TOWER_BY_ID = Object.fromEntries(TOWER_TYPES.map((t) => [t.id, t]));
 
-const ENEMY_TYPES = {
-  mote:   { name: "Mote",   color: "#c86bff", edge: "#e4c2ff", hpMul: 1.0,  speedMul: 1.0, radius: 12, reward: 5 },
-  runner: { name: "Runner", color: "#ff8f6b", edge: "#ffd0bf", hpMul: 0.6,  speedMul: 1.7, radius: 9,  reward: 5 },
-  brute:  { name: "Brute",  color: "#8b7bd8", edge: "#c7bdf0", hpMul: 2.6,  speedMul: 0.7, radius: 17, reward: 9 },
-  swarm:  { name: "Swarm",  color: "#6bffb0", edge: "#c2ffe0", hpMul: 0.28, speedMul: 1.2, radius: 7,  reward: 2 },
+// Per-enemy ART (not difficulty). hpMul/speedMul/reward come from BAL.enemyTypes.
+const ENEMY_ART = {
+  mote:   { name: "Mote",   color: "#c86bff", edge: "#e4c2ff", radius: 12 },
+  runner: { name: "Runner", color: "#ff8f6b", edge: "#ffd0bf", radius: 9 },
+  brute:  { name: "Brute",  color: "#8b7bd8", edge: "#c7bdf0", radius: 17 },
+  swarm:  { name: "Swarm",  color: "#6bffb0", edge: "#c2ffe0", radius: 7 },
 };
+const ENEMY_TYPES = Object.fromEntries(
+  Object.entries(BAL.enemyTypes).map(([id, stats]) => [id, { ...ENEMY_ART[id], ...stats }])
+);
 
 /* =========================================================================
    1b) META-PROGRESSION — persisted in the browser (localStorage).
@@ -135,18 +144,9 @@ function pointAtDistance(dist) {
    3) WAVES
    ========================================================================= */
 
-const WAVES = [
-  { hp: 75,  speed: 50, interval: 1.0,  comp: [["mote", 7]] },
-  { hp: 90,  speed: 53, interval: 0.95, comp: [["mote", 6], ["runner", 4]] },
-  { hp: 110, speed: 55, interval: 0.9,  comp: [["mote", 7], ["runner", 5], ["swarm", 4]] },
-  { hp: 135, speed: 57, interval: 0.85, comp: [["mote", 8], ["swarm", 9], ["runner", 4]] },
-  { hp: 160, speed: 59, interval: 0.8,  comp: [["mote", 8], ["runner", 6], ["brute", 2]] },
-  { hp: 190, speed: 61, interval: 0.76, comp: [["swarm", 14], ["runner", 6], ["brute", 2]] },
-  { hp: 220, speed: 63, interval: 0.72, comp: [["mote", 9], ["brute", 3], ["runner", 7]] },
-  { hp: 255, speed: 65, interval: 0.68, comp: [["runner", 10], ["brute", 3], ["swarm", 9]] },
-  { hp: 295, speed: 67, interval: 0.63, comp: [["mote", 11], ["swarm", 12], ["brute", 4]] },
-  { hp: 340, speed: 69, interval: 0.56, comp: [["brute", 6], ["runner", 12], ["mote", 9]] },
-];
+// The 10-wave difficulty curve lives in data/balance.json (each wave: hp,
+// speed, interval, and comp = [[enemyType, count], ...]).
+const WAVES = BAL.waves;
 function buildSpawnQueue(wave) {
   const q = [];
   for (const [type, count] of wave.comp) for (let i = 0; i < count; i++) q.push(type);

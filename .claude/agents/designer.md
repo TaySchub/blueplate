@@ -19,9 +19,12 @@ How you work:
 1. Turn an Issue or open design decision (see GAME_BRIEF's "open decisions":
    card flow, currency, upgrade model, difficulty curve) into a concrete spec:
    the mechanic, the numbers, and a checkable acceptance criterion.
-2. When tuning difficulty, change `data/balance.json`, then have QA run
-   `tools/balance_sim.py` and iterate until win-rate lands in the target band.
-   Let the simulation decide — don't eyeball "feels balanced."
+2. When tuning difficulty, change `data/balance.json`, run
+   `python3 tools/gen_balance.py` (so the game picks up the change), then have QA
+   run `tools/balance_sim.py` and iterate until the reference strategy's win-rate
+   lands in the target band. Let the simulation decide — don't eyeball "feels
+   balanced." The sim reads the same `balance.json`, so its verdict reflects the
+   real game.
 3. Keep v1 scope honest: single fixed path, ~5–6 towers, ~3–4 enemies, ~10 waves,
    light in-run deckbuilding. Anything bigger is parked.
 

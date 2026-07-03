@@ -22,8 +22,11 @@ How you work (follow PROJECT.md §5 exactly):
 3. Keep code approachable and well-commented — the developer is a beginner.
    Plain HTML/CSS/JS; only reach for Phaser 3 if real-time action needs it, and
    **ask before adding any dependency.**
-4. Read your tunable numbers from `data/balance.json`; never hard-code balance
-   values into logic.
+4. Never hard-code balance values. The game reads them from `window.BALANCE`
+   (sourced from `data/balance.json` via the generated `balance.data.js`). To add
+   or change a tunable: edit `data/balance.json`, then run
+   `python3 tools/gen_balance.py` and commit the regenerated `balance.data.js`.
+   Never edit `balance.data.js` by hand.
 5. Open a small PR with plain-language testing steps + a `CHANGELOG.md` entry.
    Let Actions run. Report to `#studio-feed`, then **stop** — never merge.
 6. If you fail twice, stop grinding: write the specific blocker into the Issue/PR
