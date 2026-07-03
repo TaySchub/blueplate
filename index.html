@@ -2,10 +2,11 @@
 <!--
   Deckbound — a tower-defense deckbuilder (v1).
 
-  Full loop: from the hub, spend Essence to unlock towers/perks (saved between
-  runs), then Start Run — build & upgrade from your deck of 5 tower types, and
-  survive 10 waves of mixed enemies defending the core. Win or lose, you earn
-  Essence and get stronger over time. All game logic lives in main.js.
+  Theme: hungry customers vs. runaway food. From the hub, spend Golden Forks to
+  reserve customers/perks (saved between runs), then Open for Service — seat &
+  upgrade customers from your regulars, and eat waves of runaway dishes before
+  they reach the trash chute. Win or lose, you earn Golden Forks and get stronger
+  over time. All game logic lives in main.js.
 
   Plain HTML + CSS + JavaScript for now. We can add Phaser 3 later if the
   real-time action needs it (see GAME_BRIEF.md).
@@ -27,7 +28,7 @@
   <!-- Page header: the game's title and a one-line reminder of what it is. -->
   <header class="site-header">
     <h1>Deckbound</h1>
-    <p class="tagline">A tower-defense deckbuilder — draw, place, survive.</p>
+    <p class="tagline">A tower-defense deckbuilder — hungry customers vs. runaway food.</p>
   </header>
 
   <!-- Main play area. Everything the game draws will go on this canvas. -->
@@ -35,23 +36,23 @@
     <!--
       The <canvas> is where all game graphics are drawn. Its internal drawing
       size (800x450) is fixed here; CSS controls how big it looks on screen.
-      main.js draws the path, the core, and the running game loop onto it.
+      main.js draws the belt, the trash chute, and the running game loop onto it.
     -->
     <canvas id="game-canvas" width="800" height="450"
-            aria-label="Deckbound game area: the level path and the core"></canvas>
+            aria-label="Deckbound game area: the conveyor belt and the trash chute"></canvas>
   </main>
 
   <!-- Footer: a quiet status line we can use while building. -->
   <footer class="site-footer">
-    <span>Deckbound — hub, deck, meta-progression, formula-scaled waves.</span>
+    <span>Deckbound — hungry customers vs. runaway food.</span>
   </footer>
 
   <!-- Balance numbers (difficulty & economy), generated from data/balance.json
        by tools/gen_balance.py. Loaded before main.js so window.BALANCE exists
        when the game reads it. Deferred scripts run in order. -->
-  <script src="balance.data.js?v=7f72fa40" defer></script>
+  <script src="balance.data.js?v=95783ed6" defer></script>
 
   <!-- The game code. 'defer' means it runs after the page has loaded. -->
-  <script src="main.js?v=2e882524" defer></script>
+  <script src="main.js?v=7c7a96ed" defer></script>
 </body>
 </html>

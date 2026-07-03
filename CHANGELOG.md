@@ -6,6 +6,31 @@ Format is deliberately simple and plain-language.
 ## [Unreleased]
 
 ### Added
+- **Re-theme, Phase 1 — text & label reskin** (Developer hat; Issue #31). Every
+  player-facing string now reads as the restaurant theme; **no gameplay, no
+  balance numbers, no internal IDs changed** — the reference board still reads
+  **55.5% (BALANCED)** in `tools/balance_sim.py`, and a pre-change localStorage
+  save still loads.
+  - **Display names are now data-driven.** Tower `name`/`blurb` and enemy `name`
+    moved out of `main.js`'s art objects into `data/balance.json` (read via the
+    generated `balance.data.js`), so future reskins are a JSON edit. IDs
+    (`arrow`/`mote`/…) are unchanged; only added string fields.
+  - **Customers (towers):** The Regular, Big Appetite, The Photographer, Chopstick
+    Sensei, The Kids' Table. **Runaway food (enemies):** Chicken Nugget, The
+    Slider, Tough Steak, Fry Swarm.
+  - **UI strings:** Golden Forks (was Essence), Tips (currency), Health (lives),
+    the TRASH chute (core), upgrade levels shown as **Appetizer → Entrée →
+    Dessert**, "Open for Service", "Send Wave", "Full menu / All-you-can-eat"
+    modes, hub/shop labels (Reserve Chopstick Sensei's seat, Cash float, Forgiving
+    inspector), and end screens ("Service complete" / "Shut down by the health
+    inspector"). `index.html` tagline/footer/aria-label themed too.
+  - **Kept "Wave"** (not "Course") for the wave counter, because "Course" now
+    collides with the Appetizer/Entrée/Dessert upgrade levels.
+  - **Known cosmetic follow-up for Phase 2 (art):** the longer names are tight in
+    the small deck/toolbar cards (shrunk to 9px as a stopgap); Phase 2 redraws
+    those cards and will fit them cleanly.
+  - Files: `data/balance.json`, `main.js`, `index.html`, `balance.data.js`
+    (generated).
 - **Re-theme, Phase 0 — docs only** (Game Designer hat; Issue #29). Starts
   re-skinning the game from the arcane-wardens / Wellspring / Blight placeholder
   to **hungry restaurant customers vs. runaway food** (the towers are seated diner

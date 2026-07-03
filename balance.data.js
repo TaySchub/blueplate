@@ -1,7 +1,7 @@
 // AUTO-GENERATED from data/balance.json by tools/gen_balance.py.
 // Do NOT edit by hand — edit data/balance.json and re-run the generator.
 window.BALANCE = {
-  "_note": "Single source of truth for DIFFICULTY, ECONOMY, and MAP GEOMETRY. tools/balance_sim.py reads this file directly; the game reads it via the generated balance.data.js (run tools/gen_balance.py after editing). Only pure art (colors/shapes/blurbs) stays in main.js. Rule: if the balance sim needs a number to compute win-rate, it belongs in this file \u2014 including per-tower upgrade deltas ('up'), the map (path + slots), and the wave generator (waveGen).",
+  "_note": "Single source of truth for DIFFICULTY, ECONOMY, and MAP GEOMETRY. tools/balance_sim.py reads this file directly; the game reads it via the generated balance.data.js (run tools/gen_balance.py after editing). Only pure art (colors/shapes) stays in main.js; tower/enemy display names + blurbs live here too, so a theme reskin is JSON-only. Rule: if the balance sim needs a number to compute win-rate, it belongs in this file \u2014 including per-tower upgrade deltas ('up'), the map (path + slots), and the wave generator (waveGen).",
   "target_win_rate": [
     0.45,
     0.6
@@ -119,21 +119,25 @@ window.BALANCE = {
   },
   "enemyTypes": {
     "mote": {
+      "name": "Chicken Nugget",
       "hpMul": 1.0,
       "speedMul": 1.0,
       "reward": 5
     },
     "runner": {
+      "name": "The Slider",
       "hpMul": 0.6,
       "speedMul": 1.7,
       "reward": 5
     },
     "brute": {
+      "name": "Tough Steak",
       "hpMul": 2.6,
       "speedMul": 0.7,
       "reward": 9
     },
     "swarm": {
+      "name": "Fry Swarm",
       "hpMul": 0.28,
       "speedMul": 1.2,
       "reward": 2
@@ -141,6 +145,8 @@ window.BALANCE = {
   },
   "towers": {
     "arrow": {
+      "name": "The Regular",
+      "blurb": "Steady single-target fork-stabs",
       "cost": 50,
       "range": 130,
       "damage": 30,
@@ -153,6 +159,8 @@ window.BALANCE = {
       }
     },
     "cannon": {
+      "name": "Big Appetite",
+      "blurb": "Inhales everything nearby (splash)",
       "cost": 85,
       "range": 118,
       "damage": 24,
@@ -166,6 +174,8 @@ window.BALANCE = {
       }
     },
     "frost": {
+      "name": "The Photographer",
+      "blurb": "Freezes food to pose (slow)",
       "cost": 70,
       "range": 120,
       "damage": 10,
@@ -180,6 +190,8 @@ window.BALANCE = {
       }
     },
     "sniper": {
+      "name": "Chopstick Sensei",
+      "blurb": "Plucks one dish from across the room (long range)",
       "cost": 95,
       "range": 235,
       "damage": 70,
@@ -192,6 +204,8 @@ window.BALANCE = {
       }
     },
     "zap": {
+      "name": "The Kids' Table",
+      "blurb": "Cheap, fast, tiny bites",
       "cost": 35,
       "range": 96,
       "damage": 12,

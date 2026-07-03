@@ -2,6 +2,11 @@
   Deckbound — main.js
   Stage 3: deck / collection + meta-progression + polish. Completes the v1 loop.
 
+  THEME (display layer only): "hungry customers vs. runaway food." Towers are
+  seated diner customers; enemies are dishes escaping down the belt to the trash
+  chute. Internal IDs below (arrow/cannon/…, mote/runner/…, essence, core) are
+  UNCHANGED — only the words players see are themed. See docs/FRANCHISE_BACKBONE.md.
+
   New this stage:
     - A HUB / start screen (phase "menu"): your card collection + an Essence shop.
     - META-PROGRESSION that PERSISTS between runs (saved in the browser via
@@ -56,26 +61,31 @@ const RULES = {
   earlyCallWindow: BAL.economy.earlyCallWindow || 1,
 };
 
-// Per-tower ART only (not difficulty). Combat stats + upgrade deltas (cost,
-// range, damage, cooldown, behavior, splash, slow, up) come from BAL.towers.
+// Per-tower ART only (shapes/colors). Combat stats + upgrade deltas AND the
+// display name/blurb now come from BAL.towers (data/balance.json), so a theme
+// reskin is a JSON edit — no code change.
 const TOWER_ART = {
-  arrow:  { name: "Arrow",  shape: "diamond",  color: "#6ea8fe", glow: "#3f6bb0", blurb: "Balanced single-target" },
-  cannon: { name: "Cannon", shape: "circle",   color: "#ff9d5c", glow: "#b5561f", blurb: "Splash damage (AoE)" },
-  frost:  { name: "Frost",  shape: "hex",      color: "#7fe0ff", glow: "#2b8fb5", blurb: "Slows enemies" },
-  sniper: { name: "Sniper", shape: "triangle", color: "#c8a8ff", glow: "#7a4fd0", blurb: "Long range, big hits" },
-  zap:    { name: "Zap",    shape: "square",   color: "#ffe08a", glow: "#b59a2b", blurb: "Cheap, fast, weak" },
+  arrow:  { shape: "diamond",  color: "#6ea8fe", glow: "#3f6bb0" },
+  cannon: { shape: "circle",   color: "#ff9d5c", glow: "#b5561f" },
+  frost:  { shape: "hex",      color: "#7fe0ff", glow: "#2b8fb5" },
+  sniper: { shape: "triangle", color: "#c8a8ff", glow: "#7a4fd0" },
+  zap:    { shape: "square",   color: "#ffe08a", glow: "#b59a2b" },
 };
+// Upgrade levels 1→2→3 are presented as a three-course meal (display only; the
+// underlying level numbers are unchanged).
+const COURSE_NAMES = ["Appetizer", "Entrée", "Dessert"];
 // Fixed display order for the deck/toolbar.
 const TOWER_ORDER = ["arrow", "cannon", "frost", "sniper", "zap"];
 const TOWER_TYPES = TOWER_ORDER.map((id) => ({ id, ...BAL.towers[id], ...TOWER_ART[id] }));
 const TOWER_BY_ID = Object.fromEntries(TOWER_TYPES.map((t) => [t.id, t]));
 
-// Per-enemy ART (not difficulty). hpMul/speedMul/reward come from BAL.enemyTypes.
+// Per-enemy ART (colors/radius). hpMul/speedMul/reward AND the display name
+// come from BAL.enemyTypes (data/balance.json).
 const ENEMY_ART = {
-  mote:   { name: "Mote",   color: "#c86bff", edge: "#e4c2ff", radius: 12 },
-  runner: { name: "Runner", color: "#ff8f6b", edge: "#ffd0bf", radius: 9 },
-  brute:  { name: "Brute",  color: "#8b7bd8", edge: "#c7bdf0", radius: 17 },
-  swarm:  { name: "Swarm",  color: "#6bffb0", edge: "#c2ffe0", radius: 7 },
+  mote:   { color: "#c86bff", edge: "#e4c2ff", radius: 12 },
+  runner: { color: "#ff8f6b", edge: "#ffd0bf", radius: 9 },
+  brute:  { color: "#8b7bd8", edge: "#c7bdf0", radius: 17 },
+  swarm:  { color: "#6bffb0", edge: "#c2ffe0", radius: 7 },
 };
 const ENEMY_TYPES = Object.fromEntries(
   Object.entries(BAL.enemyTypes).map(([id, stats]) => [id, { ...ENEMY_ART[id], ...stats }])
@@ -103,9 +113,9 @@ let META = freshMeta();
 
 // The Essence shop shown on the hub screen.
 const SHOP = [
-  { id: "sniper", label: "Unlock the Sniper tower", cost: 3, owned: () => META.unlocked.includes("sniper"), buy: () => META.unlocked.push("sniper") },
-  { id: "currency", label: "+50 starting currency", cost: 2, owned: () => META.boughtCurrency, buy: () => (META.boughtCurrency = true) },
-  { id: "lives", label: "+3 starting lives", cost: 2, owned: () => META.boughtLives, buy: () => (META.boughtLives = true) },
+  { id: "sniper", label: "Reserve Chopstick Sensei's seat", cost: 3, owned: () => META.unlocked.includes("sniper"), buy: () => META.unlocked.push("sniper") },
+  { id: "currency", label: "Cash float (+50 Tips)", cost: 2, owned: () => META.boughtCurrency, buy: () => (META.boughtCurrency = true) },
+  { id: "lives", label: "Forgiving inspector (+3 Health)", cost: 2, owned: () => META.boughtLives, buy: () => (META.boughtLives = true) },
 ];
 
 // Your "deck": the tower cards you've unlocked (in a fixed display order).
@@ -298,7 +308,7 @@ function startRun() {
   game.lastRun = null;
   const deck = deckTypes();
   game.selectedType = deck.length ? deck[0].id : "arrow";
-  setMessage("Pick a tower below, build on a slot, then Start Wave");
+  setMessage("Pick a customer below, seat them at a table, then Send Out the food");
 }
 
 function setMessage(text, seconds = 3.5) { game.message = text; game.messageTimer = seconds; }
@@ -387,7 +397,7 @@ function setupInput(canvas) {
 
 function tryBuyShop(item) {
   if (item.owned()) { audio.deny(); return; }
-  if (META.essence < item.cost) { audio.deny(); setMessage("Not enough Essence (need " + item.cost + ")"); return; }
+  if (META.essence < item.cost) { audio.deny(); setMessage("Not enough Golden Forks (need " + item.cost + ")"); return; }
   META.essence -= item.cost;
   item.buy();
   saveMeta();
@@ -400,7 +410,7 @@ function tryBuyShop(item) {
 
 function tryBuild(slotIndex) {
   const def = TOWER_BY_ID[game.selectedType];
-  if (game.currency < def.cost) { audio.deny(); setMessage("Not enough currency for " + def.name + " (need " + def.cost + ")"); return; }
+  if (game.currency < def.cost) { audio.deny(); setMessage("Not enough Tips for " + def.name + " (need " + def.cost + ")"); return; }
   game.currency -= def.cost;
   const s = SLOTS[slotIndex];
   game.towers.push({
@@ -414,9 +424,9 @@ function tryBuild(slotIndex) {
 }
 
 function tryUpgrade(t) {
-  if (t.level >= t.maxLevel) { audio.deny(); setMessage("Tower is already max level"); return; }
+  if (t.level >= t.maxLevel) { audio.deny(); setMessage("Already served Dessert (max level)"); return; }
   const cost = RULES.upgradeCost[t.level];
-  if (game.currency < cost) { audio.deny(); setMessage("Not enough currency to upgrade (need " + cost + ")"); return; }
+  if (game.currency < cost) { audio.deny(); setMessage("Not enough Tips for the next course (need " + cost + ")"); return; }
   game.currency -= cost;
   t.level++;
   const up = TOWER_BY_ID[t.typeId].up;
@@ -448,7 +458,7 @@ function startNextWave() {
   game.waveHp = w.hp; game.waveSpeed = w.speed; game.waveInterval = w.interval;
   if (bonus > 0) {
     game.currency += bonus;
-    setMessage("Called early — +" + bonus + " bonus!  Wave " + (game.waveIndex + 1) + " incoming!");
+    setMessage("Called early — +" + bonus + " tip!  Wave " + (game.waveIndex + 1) + " incoming!");
     spawnFloatText(START_BTN.x + START_BTN.w / 2, START_BTN.y - 4, "+" + bonus, COLOR.gold);
   } else {
     setMessage("Wave " + (game.waveIndex + 1) + " incoming!");
@@ -614,7 +624,7 @@ function checkWaveEnd() {
     // Finite mode wins after the last authored wave; endless never wins — it
     // keeps generating waves (getWave past WAVES.length) until you lose.
     if (!game.endless && game.waveIndex + 1 >= WAVES.length) { endRun(true); }
-    else { game.waveIndex++; game.phase = "prep"; game.prepElapsed = 0; setMessage("Wave cleared!  +" + RULES.earnPerWave + " — build up, then Start Wave", 4); }
+    else { game.waveIndex++; game.phase = "prep"; game.prepElapsed = 0; setMessage("Wave cleared!  +" + RULES.earnPerWave + " Tips — seat more customers, then Send Out the food", 4); }
   }
 }
 
@@ -725,17 +735,17 @@ function drawMenu(ctx) {
   ctx.fillText("Deckbound", 40, 62);
   ctx.fillStyle = COLOR.muted;
   ctx.font = "14px system-ui, sans-serif";
-  ctx.fillText("Defend the core. Collect towers. Survive.", 42, 86);
+  ctx.fillText("Seat the customers. Eat the food. Don't let dinner get away.", 42, 86);
 
-  // Essence.
+  // Golden Forks (meta currency).
   ctx.fillStyle = COLOR.essence;
   ctx.font = "bold 18px system-ui, sans-serif";
-  ctx.fillText("✦ Essence: " + META.essence, 42, 122);
+  ctx.fillText("✦ Golden Forks: " + META.essence, 42, 122);
 
-  // Your deck (collection).
+  // Your regulars (collection).
   ctx.fillStyle = COLOR.ink;
   ctx.font = "bold 14px system-ui, sans-serif";
-  ctx.fillText("Your deck", 42, 156);
+  ctx.fillText("Your regulars", 42, 156);
   const deck = deckTypes();
   let dx = 46;
   for (const def of deck) {
@@ -745,7 +755,7 @@ function drawMenu(ctx) {
     roundRect(ctx, dx, 168, 64, 78, 8); ctx.stroke();
     ctx.fillStyle = def.color;
     drawTowerShape(ctx, def.shape, dx + 32, 196, 12); ctx.fill();
-    ctx.fillStyle = COLOR.ink; ctx.font = "bold 11px system-ui, sans-serif"; ctx.textAlign = "center";
+    ctx.fillStyle = COLOR.ink; ctx.font = "bold 9px system-ui, sans-serif"; ctx.textAlign = "center";
     ctx.fillText(def.name, dx + 32, 226);
     ctx.fillStyle = COLOR.gold; ctx.font = "10px system-ui, sans-serif";
     ctx.fillText("◆" + def.cost, dx + 32, 240);
@@ -766,7 +776,7 @@ function drawMenu(ctx) {
 
   // Shop.
   ctx.fillStyle = COLOR.ink; ctx.font = "bold 14px system-ui, sans-serif";
-  ctx.fillText("Essence shop", 430, 140);
+  ctx.fillText("Golden Forks shop", 430, 140);
   for (const b of shopButtonRects()) {
     const owned = b.item.owned();
     const affordable = META.essence >= b.item.cost;
@@ -790,7 +800,7 @@ function drawMenu(ctx) {
   ctx.strokeStyle = chosenEndless ? COLOR.essence : "#4a5670"; ctx.lineWidth = 1;
   roundRect(ctx, MODE_BTN.x, MODE_BTN.y, MODE_BTN.w, MODE_BTN.h, 8); ctx.stroke();
   ctx.fillStyle = COLOR.muted; ctx.font = "12px system-ui, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-  ctx.fillText("Mode:  " + (chosenEndless ? "Endless ∞" : "Finite (20)"), VIEW.w / 2, MODE_BTN.y + MODE_BTN.h / 2);
+  ctx.fillText("Mode:  " + (chosenEndless ? "All-you-can-eat ∞" : "Full menu (20)"), VIEW.w / 2, MODE_BTN.y + MODE_BTN.h / 2);
   ctx.textBaseline = "alphabetic"; ctx.textAlign = "left";
 
   // Play button.
@@ -799,7 +809,7 @@ function drawMenu(ctx) {
   roundRect(ctx, PLAY_BTN.x, PLAY_BTN.y, PLAY_BTN.w, PLAY_BTN.h, 10); ctx.fill();
   ctx.fillStyle = COLOR.ink; ctx.font = "bold 18px system-ui, sans-serif";
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
-  ctx.fillText("▶  Start Run", VIEW.w / 2, PLAY_BTN.y + PLAY_BTN.h / 2);
+  ctx.fillText("▶  Open for Service", VIEW.w / 2, PLAY_BTN.y + PLAY_BTN.h / 2);
   ctx.textBaseline = "alphabetic"; ctx.textAlign = "left";
 }
 
@@ -856,7 +866,7 @@ function drawCore(ctx) {
   for (let i = 0; i < 6; i++) { const angle = (Math.PI / 3) * i - Math.PI / 6; const px = CORE.x + Math.cos(angle) * CORE.radius, py = CORE.y + Math.sin(angle) * CORE.radius; i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py); }
   ctx.closePath(); ctx.fill();
   ctx.fillStyle = COLOR.ink; ctx.font = "bold 12px system-ui, sans-serif"; ctx.textAlign = "center";
-  ctx.fillText("CORE", CORE.x, CORE.y + CORE.radius + 16);
+  ctx.fillText("TRASH", CORE.x, CORE.y + CORE.radius + 16);
 }
 
 function drawEnemies(ctx) {
@@ -940,7 +950,7 @@ function drawTowers(ctx) {
     ctx.strokeStyle = "#eaf2ff"; ctx.lineWidth = 2; ctx.stroke();
     drawTowerDetail(ctx, t.typeId, t.x, t.y, radius, def, t);
     for (let i = 0; i < t.maxLevel; i++) { ctx.beginPath(); ctx.arc(t.x - 8 + i * 8, t.y - radius - 9, 3, 0, Math.PI * 2); ctx.fillStyle = i < t.level ? COLOR.upgradeSpark : "#39404f"; ctx.fill(); }
-    if (distance(game.pointer, t) <= 18 && t.level < t.maxLevel) { ctx.fillStyle = game.currency >= RULES.upgradeCost[t.level] ? COLOR.good : COLOR.bad; ctx.font = "11px system-ui, sans-serif"; ctx.textAlign = "center"; ctx.fillText("upgrade " + RULES.upgradeCost[t.level], t.x, t.y - radius - 17); }
+    if (distance(game.pointer, t) <= 18 && t.level < t.maxLevel) { ctx.fillStyle = game.currency >= RULES.upgradeCost[t.level] ? COLOR.good : COLOR.bad; ctx.font = "11px system-ui, sans-serif"; ctx.textAlign = "center"; ctx.fillText("next course " + RULES.upgradeCost[t.level], t.x, t.y - radius - 17); }
   }
 }
 
@@ -964,7 +974,7 @@ function drawToolbar(ctx) {
     ctx.lineWidth = selected ? 2 : 1; ctx.strokeStyle = selected ? def.color : (hover ? "#4a5670" : "#2a3242"); roundRect(ctx, r.x, r.y, r.w, r.h, 6); ctx.stroke();
     ctx.globalAlpha = affordable ? 1 : 0.4;
     ctx.fillStyle = def.color; drawTowerShape(ctx, def.shape, r.x + 15, r.y + r.h / 2, 9); ctx.fill();
-    ctx.fillStyle = COLOR.ink; ctx.font = "bold 11px system-ui, sans-serif"; ctx.textAlign = "left"; ctx.fillText(def.name, r.x + 28, r.y + 17);
+    ctx.fillStyle = COLOR.ink; ctx.font = "bold 9px system-ui, sans-serif"; ctx.textAlign = "left"; ctx.fillText(def.name, r.x + 28, r.y + 17);
     ctx.fillStyle = affordable ? COLOR.gold : COLOR.bad; ctx.font = "11px system-ui, sans-serif"; ctx.fillText("◆" + def.cost, r.x + 28, r.y + 33);
     ctx.globalAlpha = 1;
   }
@@ -976,7 +986,7 @@ function drawToolbar(ctx) {
 
 function drawStartButton(ctx) {
   if (game.phase !== "prep") {
-    if (game.phase === "wave") { ctx.fillStyle = COLOR.muted; ctx.font = "12px system-ui, sans-serif"; ctx.textAlign = "center"; ctx.fillText("defending — build/upgrade live", START_BTN.x + START_BTN.w / 2, START_BTN.y + 24); }
+    if (game.phase === "wave") { ctx.fillStyle = COLOR.muted; ctx.font = "12px system-ui, sans-serif"; ctx.textAlign = "center"; ctx.fillText("serving — seat/upgrade live", START_BTN.x + START_BTN.w / 2, START_BTN.y + 24); }
     return;
   }
   const hover = inRect(game.pointer, START_BTN);
@@ -990,7 +1000,7 @@ function drawStartButton(ctx) {
     ctx.fillText("+" + bonus, START_BTN.x + START_BTN.w - 32, START_BTN.y + START_BTN.h / 2);
   } else {
     ctx.fillStyle = COLOR.ink; ctx.font = "bold 15px system-ui, sans-serif";
-    ctx.fillText("▶  Start Wave " + (game.waveIndex + 1), START_BTN.x + START_BTN.w / 2, START_BTN.y + START_BTN.h / 2);
+    ctx.fillText("▶  Send Wave " + (game.waveIndex + 1), START_BTN.x + START_BTN.w / 2, START_BTN.y + START_BTN.h / 2);
   }
   ctx.textBaseline = "alphabetic";
 }
@@ -1025,9 +1035,7 @@ function drawSelectedTowerPanel(ctx) {
   ctx.strokeStyle = def.color; ctx.lineWidth = 1; roundRect(ctx, p.rect.x, p.rect.y, p.rect.w, p.rect.h, 8); ctx.stroke();
   // Header.
   ctx.fillStyle = COLOR.ink; ctx.font = "bold 11px system-ui, sans-serif"; ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
-  ctx.fillText(def.name + "  Lv" + t.level, p.rect.x + 8, p.rect.y + 17);
-  ctx.fillStyle = COLOR.muted; ctx.font = "9px system-ui, sans-serif"; ctx.textAlign = "right";
-  ctx.fillText("Target priority", p.rect.x + p.rect.w - 8, p.rect.y + 17);
+  ctx.fillText(def.name + "  ·  " + COURSE_NAMES[t.level - 1], p.rect.x + 8, p.rect.y + 17);
   ctx.textAlign = "left";
   // Targeting mode buttons.
   const cur = t.targeting || "first";
@@ -1046,7 +1054,7 @@ function drawSelectedTowerPanel(ctx) {
   ctx.fillStyle = canUp ? (afford ? "#16281c" : "#2a1f26") : "#1b2230"; roundRect(ctx, u.x, u.y, u.w, u.h, 5); ctx.fill();
   ctx.strokeStyle = canUp ? (afford ? COLOR.good : COLOR.bad) : "#2a3242"; ctx.lineWidth = 1; roundRect(ctx, u.x, u.y, u.w, u.h, 5); ctx.stroke();
   ctx.fillStyle = COLOR.ink; ctx.font = "bold 10px system-ui, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-  ctx.fillText(canUp ? "Upgrade  ◆" + cost : "Max level", u.x + u.w / 2, u.y + u.h / 2 + 0.5);
+  ctx.fillText(canUp ? "Serve next course  ◆" + cost : "Dessert (max)", u.x + u.w / 2, u.y + u.h / 2 + 0.5);
   ctx.textBaseline = "alphabetic"; ctx.textAlign = "left";
 }
 
@@ -1090,7 +1098,7 @@ function drawHUD(ctx) {
   const waveLabel = game.endless ? "Wave " + (game.waveIndex + 1) : "Wave " + Math.min(game.waveIndex + 1, WAVES.length) + "/" + WAVES.length;
   ctx.fillText(waveLabel, 160, 11);
   if (game.endless) { ctx.fillStyle = COLOR.essence; ctx.fillText("★ " + game.score, 250, 11); }
-  ctx.fillStyle = COLOR.muted; ctx.font = "12px system-ui, sans-serif"; ctx.fillText(game.phase === "wave" ? "defending…" : "prep", game.endless ? 348 : 262, 12);
+  ctx.fillStyle = COLOR.muted; ctx.font = "12px system-ui, sans-serif"; ctx.fillText(game.phase === "wave" ? "serving…" : "prep", game.endless ? 348 : 262, 12);
   ctx.textBaseline = "alphabetic";
 }
 
@@ -1106,16 +1114,16 @@ function drawSummary(ctx) {
   const r = game.lastRun || { won: false, wave: 1, killed: 0, essence: 0, endless: false, score: 0 };
   const endless = !!r.endless;
   ctx.fillStyle = r.won ? COLOR.good : COLOR.bad; ctx.font = "bold 40px system-ui, sans-serif";
-  ctx.fillText(r.won ? "VICTORY" : (endless ? "RUN OVER" : "DEFEAT"), VIEW.w / 2, VIEW.h / 2 - 58);
+  ctx.fillText(r.won ? "SERVICE COMPLETE" : (endless ? "CLOSING TIME" : "SHUT DOWN"), VIEW.w / 2, VIEW.h / 2 - 58);
   ctx.fillStyle = COLOR.ink; ctx.font = "15px system-ui, sans-serif";
-  const sub = r.won ? "You survived all " + WAVES.length + " waves."
-    : endless ? "Endless run — you reached wave " + r.wave + "."
-    : "Reached wave " + r.wave + " of " + WAVES.length + ".";
+  const sub = r.won ? "You served all " + WAVES.length + " waves without a shutdown."
+    : endless ? "All-you-can-eat — you served " + r.wave + " waves."
+    : "The health inspector shut you down at wave " + r.wave + " of " + WAVES.length + ".";
   ctx.fillText(sub, VIEW.w / 2, VIEW.h / 2 - 30);
-  ctx.fillText("Enemies destroyed: " + r.killed, VIEW.w / 2, VIEW.h / 2 - 8);
+  ctx.fillText("Dishes eaten: " + r.killed, VIEW.w / 2, VIEW.h / 2 - 8);
   if (endless) { ctx.fillStyle = COLOR.essence; ctx.font = "bold 17px system-ui, sans-serif"; ctx.fillText("★ Score: " + (r.score || 0), VIEW.w / 2, VIEW.h / 2 + 15); }
   ctx.fillStyle = COLOR.essence; ctx.font = "bold 16px system-ui, sans-serif";
-  ctx.fillText("✦ +" + r.essence + " Essence earned", VIEW.w / 2, VIEW.h / 2 + (endless ? 36 : 30));
+  ctx.fillText("✦ +" + r.essence + " Golden Forks earned", VIEW.w / 2, VIEW.h / 2 + (endless ? 36 : 30));
   const hover = inRect(game.pointer, CONTINUE_BTN);
   ctx.fillStyle = hover ? COLOR.core : "#2b3f66"; roundRect(ctx, CONTINUE_BTN.x, CONTINUE_BTN.y, CONTINUE_BTN.w, CONTINUE_BTN.h, 8); ctx.fill();
   ctx.fillStyle = COLOR.ink; ctx.font = "bold 15px system-ui, sans-serif"; ctx.textBaseline = "middle";
