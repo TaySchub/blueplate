@@ -228,6 +228,7 @@ const game = {
   phase: "menu",
   currency: 0, lives: 0, maxLives: 0, waveIndex: 0,
   selectedType: "arrow",
+  selectedTower: null, // the placed tower whose targeting/upgrade panel is open
   towers: [], enemies: [], projectiles: [], particles: [],
   spawnQueue: [], spawnTimer: 0, waveHp: 0, waveSpeed: 0, waveInterval: 1,
   killed: 0, coreHurtFlash: 0, shake: 0, elapsed: 0, fps: 0, prepElapsed: 0,
@@ -256,6 +257,7 @@ function startRun() {
   game.towers = []; game.enemies = []; game.projectiles = []; game.particles = [];
   game.spawnQueue = []; game.killed = 0; game.coreHurtFlash = 0;
   game.prepElapsed = 0;
+  game.selectedTower = null;
   game.lastRun = null;
   const deck = deckTypes();
   game.selectedType = deck.length ? deck[0].id : "arrow";
@@ -308,6 +310,17 @@ function setupInput(canvas) {
       return;
     }
 
+    // Selected-tower panel (targeting + upgrade) — check its buttons first so a
+    // click on the panel doesn't fall through to the slot/tower underneath it.
+    if (game.selectedTower) {
+      const panel = towerPanel(game.selectedTower);
+      if (inRect(p, panel.rect)) {
+        for (const b of panel.modes) if (inRect(p, b.rect)) { game.selectedTower.targeting = b.mode; audio.build(); return; }
+        if (inRect(p, panel.upgrade.rect)) { tryUpgrade(game.selectedTower); return; }
+        return; // clicked panel background — swallow the click
+      }
+    }
+
     // Toolbar: select a card from your deck.
     const deck = deckTypes();
     for (let i = 0; i < deck.length; i++) {
@@ -316,12 +329,17 @@ function setupInput(canvas) {
 
     if (game.phase === "prep" && inRect(p, START_BTN)) { startNextWave(); return; }
 
-    for (const t of game.towers) if (distance(p, t) <= 18) { tryUpgrade(t); return; }
+    // Click a placed tower → select it (opens the targeting/upgrade panel).
+    for (const t of game.towers) if (distance(p, t) <= 18) { game.selectedTower = t; return; }
 
+    // Click an empty slot → build there.
     for (let i = 0; i < SLOTS.length; i++) {
       const s = SLOTS[i];
-      if (distance(p, s) <= 20 && !game.towers.some((t) => t.slotIndex === i)) { tryBuild(i); return; }
+      if (distance(p, s) <= 20 && !game.towers.some((t) => t.slotIndex === i)) { tryBuild(i); game.selectedTower = null; return; }
     }
+
+    // Clicked empty space → close any open panel.
+    game.selectedTower = null;
   };
 
   canvas.addEventListener("mousedown", (e) => onDown(e.clientX, e.clientY));
@@ -351,7 +369,7 @@ function tryBuild(slotIndex) {
     slotIndex, x: s.x, y: s.y, typeId: def.id, level: 1, maxLevel: 3,
     range: def.range, damage: def.damage, cooldown: def.cooldown,
     splash: def.splash || 0, slowFactor: def.slowFactor || 1, slowDur: def.slowDur || 0,
-    cdTimer: 0, upgradeFlash: 0,
+    cdTimer: 0, upgradeFlash: 0, targeting: "first",
   });
   spawnRing(s.x, s.y, def.color, 34, 0.4);
   audio.build();
@@ -469,13 +487,34 @@ function moveEnemies(step) {
   game.enemies = game.enemies.filter((e) => !e.reachedCore);
 }
 
+// The four targeting modes a player can set per tower. "first" (furthest along
+// the path) is the default and matches the balance sim's frontmost behavior.
+const TARGETING_MODES = [
+  ["first", "First"], ["last", "Last"], ["strong", "Strong"], ["close", "Close"],
+];
+
+function pickTarget(t) {
+  let best = null, bestKey = -Infinity;
+  for (const e of game.enemies) {
+    if (distance(t, e) > t.range) continue;
+    let key;
+    switch (t.targeting) {
+      case "last": key = -e.dist; break;        // least far along the path
+      case "strong": key = e.hp; break;         // most current HP
+      case "close": key = -distance(t, e); break; // nearest to the tower
+      default: key = e.dist;                    // "first": furthest along the path
+    }
+    if (key > bestKey) { bestKey = key; best = e; }
+  }
+  return best;
+}
+
 function updateTowers(step) {
   for (const t of game.towers) {
     if (t.upgradeFlash > 0) t.upgradeFlash -= step;
     t.cdTimer -= step;
     if (t.cdTimer > 0) continue;
-    let target = null, bestDist = -1;
-    for (const e of game.enemies) if (distance(t, e) <= t.range && e.dist > bestDist) { target = e; bestDist = e.dist; }
+    const target = pickTarget(t);
     if (target) { fireProjectile(t, target); t.cdTimer = t.cooldown; }
   }
 }
@@ -608,6 +647,7 @@ function render() {
   drawToolbar(ctx);
   drawStartButton(ctx);
   drawHUD(ctx);
+  drawSelectedTowerPanel(ctx);
   drawMessage(ctx);
   drawMuteButton(ctx);
   if (game.phase === "won" || game.phase === "lost") drawSummary(ctx);
@@ -898,6 +938,61 @@ function drawStartButton(ctx) {
     ctx.fillText("▶  Start Wave " + (game.waveIndex + 1), START_BTN.x + START_BTN.w / 2, START_BTN.y + START_BTN.h / 2);
   }
   ctx.textBaseline = "alphabetic";
+}
+
+// Geometry for the selected-tower panel (targeting modes + upgrade). Shared by
+// the click handler and the renderer so hit-testing matches what's drawn.
+function towerPanel(t) {
+  const W = 184, H = 80;
+  const x = Math.max(6, Math.min(VIEW.w - W - 6, t.x - W / 2));
+  let y = t.y + 24;
+  if (y + H > TOOLBAR.y - 4) y = t.y - 24 - H;      // flip above the tower if it'd cover the toolbar
+  y = Math.max(6, Math.min(TOOLBAR.y - H - 6, y));
+  const rect = { x, y, w: W, h: H };
+  const bw = 41, bh = 20, gap = 4, by = y + 28;
+  const modes = TARGETING_MODES.map(([mode, label], i) => ({
+    mode, label, rect: { x: x + 6 + i * (bw + gap), y: by, w: bw, h: bh },
+  }));
+  const upgrade = { rect: { x: x + 6, y: y + 54, w: W - 12, h: 20 } };
+  return { rect, modes, upgrade };
+}
+
+function drawSelectedTowerPanel(ctx) {
+  const t = game.selectedTower;
+  if (!t || game.phase === "menu") return;
+  const def = TOWER_BY_ID[t.typeId];
+  const p = towerPanel(t);
+  // Highlight ring on the selected tower.
+  ctx.strokeStyle = COLOR.core; ctx.lineWidth = 2; ctx.setLineDash([4, 3]);
+  ctx.beginPath(); ctx.arc(t.x, t.y, 22, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+  // Panel background.
+  ctx.fillStyle = "rgba(14,18,28,0.96)"; roundRect(ctx, p.rect.x, p.rect.y, p.rect.w, p.rect.h, 8); ctx.fill();
+  ctx.strokeStyle = def.color; ctx.lineWidth = 1; roundRect(ctx, p.rect.x, p.rect.y, p.rect.w, p.rect.h, 8); ctx.stroke();
+  // Header.
+  ctx.fillStyle = COLOR.ink; ctx.font = "bold 11px system-ui, sans-serif"; ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+  ctx.fillText(def.name + "  Lv" + t.level, p.rect.x + 8, p.rect.y + 17);
+  ctx.fillStyle = COLOR.muted; ctx.font = "9px system-ui, sans-serif"; ctx.textAlign = "right";
+  ctx.fillText("Target priority", p.rect.x + p.rect.w - 8, p.rect.y + 17);
+  ctx.textAlign = "left";
+  // Targeting mode buttons.
+  const cur = t.targeting || "first";
+  for (const b of p.modes) {
+    const on = cur === b.mode;
+    ctx.fillStyle = on ? "#26324a" : "#1b2230"; roundRect(ctx, b.rect.x, b.rect.y, b.rect.w, b.rect.h, 5); ctx.fill();
+    ctx.strokeStyle = on ? def.color : "#2a3242"; ctx.lineWidth = on ? 1.5 : 1; roundRect(ctx, b.rect.x, b.rect.y, b.rect.w, b.rect.h, 5); ctx.stroke();
+    ctx.fillStyle = on ? COLOR.ink : COLOR.muted; ctx.font = "9px system-ui, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText(b.label, b.rect.x + b.rect.w / 2, b.rect.y + b.rect.h / 2 + 0.5);
+  }
+  // Upgrade button.
+  const canUp = t.level < t.maxLevel;
+  const cost = canUp ? RULES.upgradeCost[t.level] : 0;
+  const afford = canUp && game.currency >= cost;
+  const u = p.upgrade.rect;
+  ctx.fillStyle = canUp ? (afford ? "#16281c" : "#2a1f26") : "#1b2230"; roundRect(ctx, u.x, u.y, u.w, u.h, 5); ctx.fill();
+  ctx.strokeStyle = canUp ? (afford ? COLOR.good : COLOR.bad) : "#2a3242"; ctx.lineWidth = 1; roundRect(ctx, u.x, u.y, u.w, u.h, 5); ctx.stroke();
+  ctx.fillStyle = COLOR.ink; ctx.font = "bold 10px system-ui, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillText(canUp ? "Upgrade  ◆" + cost : "Max level", u.x + u.w / 2, u.y + u.h / 2 + 0.5);
+  ctx.textBaseline = "alphabetic"; ctx.textAlign = "left";
 }
 
 // A small warded-shield glyph for lives — echoes the core's hexagon shape (defense, not just health).

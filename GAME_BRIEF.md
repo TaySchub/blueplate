@@ -52,6 +52,8 @@ the frozen v1 scope above; they are being built as post-v1 features and noted
 here so the brief stays honest:
 - **Call the wave early for a bonus** — an opt-in prep-phase currency bonus for
   starting waves promptly (does not change the no-clock prep).
+- **Per-tower targeting priority** — each tower can be set to First / Last /
+  Strong / Close, changed live by selecting the tower.
 
 ## Constraints (from the developer profile)
 Beginner developer; agents do the building. Web game in HTML5 + JavaScript on GitHub Pages, tested on Mac + iPhone. Phaser 3 if the real-time action warrants it; plain HTML/CSS/JavaScript is fine if simpler. ~12–15 hrs/week. General-audience content. No monetization now (keep it addable later). **Original theme and assets only — no branded or trademarked content.**

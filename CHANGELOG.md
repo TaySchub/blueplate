@@ -6,6 +6,14 @@ Format is deliberately simple and plain-language.
 ## [Unreleased]
 
 ### Added
+- **Per-tower targeting priority** (developer-approved post-v1 addition). Each
+  placed tower now has a targeting mode — **First** (furthest along the path,
+  default), **Last**, **Strong** (most HP), **Close** (nearest to the tower).
+  Click a placed tower to open a panel with the four modes plus its upgrade
+  button; the choice is per-tower and can be changed live during a wave, visibly
+  changing which enemy the tower fires at. Default First matches the balance
+  sim's frontmost targeting, so no balance change and no sim change. Files:
+  `main.js`.
 - **Call the wave early for a bonus** (developer-approved post-v1 addition). The
   Start Wave button now shows a currency bonus (e.g. `+18`) that's full the
   instant a prep phase begins and decays linearly to 0 over
