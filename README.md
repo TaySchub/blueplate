@@ -15,8 +15,10 @@ or see `SETUP-AND-LAUNCH.md` for a tiny local web server if you prefer.)
 
 ## Status
 
-Task 1 (project skeleton) is built: a titled page with a game-canvas
-placeholder. No game logic yet. The backlog lives in GitHub Issues.
+**Playable v1 is built** and live at <https://tayschub.github.io/deckbound/>:
+the full prep→wave→resolve loop with 5 towers, 4 enemy types, 10 waves, tower
+upgrades, and between-run meta-progression. Remaining v1 items (deck hand-draw,
+final playtest sign-off) live in GitHub Issues.
 
 ## Tech
 

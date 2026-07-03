@@ -28,12 +28,16 @@ mirrors `PROJECT.md` §9).
 
 **Game code (build targets):**
 - `index.html` — page shell + game-canvas. Frontend work lands here.
-- `main.js` — all game logic (currently a skeleton, no logic yet). Primary
-  build target until it's split into `src/` modules.
+- `main.js` — all game logic. **A complete, playable v1 tower-defense game**
+  (~950 lines): hub/deck screen, prep→wave→resolve loop, 5 towers, 4 enemy
+  types, 10 waves, upgrades, and localStorage meta-progression. Still a single
+  file; splitting it into `src/` modules is the first refactor (see `CLAUDE.md`).
 - `style.css` — styling.
-- `data/balance.json` — **single source of truth for tunable numbers** (tower/
-  enemy/wave/economy stats). The game reads from it; the balance simulator reads
-  from it. Change numbers here, nowhere else. (New — see the runbook.)
+- `data/balance.json` — tunable-numbers file (tower/enemy/wave/economy stats).
+  **`tools/balance_sim.py` reads it. The game does *not* — `main.js` currently
+  uses its own hardcoded constants (`RULES`, `TOWER_TYPES`, `ENEMY_TYPES`,
+  `WAVES`).** Wiring the game to read this file (to make it a true single source
+  of truth) is a pending decision. (New — see the runbook.)
 
 **Law / specs (read-only unless the developer says otherwise):**
 - `GAME_BRIEF.md` — frozen vision + the v1 "done" definition. Source of truth.
@@ -59,12 +63,16 @@ mirrors `PROJECT.md` §9).
 
 ## The v1 backlog (from GitHub Issues — this is the plan)
 
-Build in this order. Core before Hook before Depth. One Issue at a time while
-the game is still a single `main.js` (parallel edits to one file cause constant
-conflicts — see `CLAUDE.md`).
+**Status (Phase 0 audit, 2026-07-02):** most of v1 is already built and shipped
+in `main.js`. Issues #1, #4–#7, #9–#13 are verified done (played end to end:
+win, lose, currency, upgrades, meta-progression). What actually remains:
 
-- **Foundation** — #2 deploy *(human gate: enabling GitHub Pages needs approval)*
-- **Core** — #4 enemy movement & lose · #5 wave system & win · #6 basic tower · #7 currency economy
-- **Hook** — #8 deck & hand · #9 live-during-wave placing & upgrading · #10 tower variety (~5–6 cards)
-- **Depth** — #11 enemy variety (~3–4) · #12 tower upgrades · #13 meta-progression
-- **Milestone** — #14 polish & playtest (first version done)
+- **#2 deploy** — Pages is live at <https://tayschub.github.io/deckbound/>;
+  keep this issue only if you want a formal deploy/verification sign-off.
+- **#8 deck & hand** — placing from cards works, but there is **no randomized
+  hand draw** yet (the full deck is always shown). Decide whether v1 needs it.
+- **#14 milestone** — the human playtest / "call it v1 done" sign-off.
+
+Original build order (kept for reference; Core→Hook→Depth, one Issue at a time
+while the game is a single `main.js`): #2 · #4 #5 #6 #7 · #8 #9 #10 · #11 #12
+#13 · #14.

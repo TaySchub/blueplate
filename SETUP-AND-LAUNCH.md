@@ -15,7 +15,7 @@ through your browser, so **your password is never typed into a command**.
 ## Part 1 — Run it locally (30 seconds)
 
 The simplest way: find `index.html` in this folder and **double-click it**. It
-opens in your browser and you'll see the "Deckbound" placeholder page.
+opens in your browser and the "Deckbound" game loads (hub screen → Start Run).
 
 If double-clicking ever misbehaves, run a tiny local web server instead. Open
 the **Terminal** app and paste:
