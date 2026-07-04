@@ -153,6 +153,7 @@ def simulate_wave(towers: list[dict], wave: dict, cfg: dict, rng: random.Random,
                 "kind": kind, "dist": 0.0, "x": 0.0, "y": 0.0, "hp": hp,
                 "speed": wave["speed"] * et["speedMul"],
                 "reward": et["reward"], "slow_timer": 0.0, "slow_factor": 1.0,
+                "freeze_timer": 0.0,
             })
 
         # cache each enemy's 2-D position for this tick
@@ -174,10 +175,21 @@ def simulate_wave(towers: list[dict], wave: dict, cfg: dict, rng: random.Random,
                 for e in enemies:
                     if math.hypot(e["x"] - target["x"], e["y"] - target["y"]) <= t.get("splash", 0):
                         e["hp"] -= t["damage"]
+            elif t["behavior"] == "multi":
+                # maxTargets hands spread across the frontmost dishes; spare hands pile
+                # onto the same dish when fewer are in range (mirrors updateTowers).
+                front = sorted(in_range, key=lambda e: -e["dist"])
+                for i in range(t.get("maxTargets", 1)):
+                    front[i % len(front)]["hp"] -= t["damage"]
             else:
                 target["hp"] -= t["damage"]
                 if t["behavior"] == "slow":
                     target["slow_timer"] = t.get("slowDur", 0.0)
+                    target["slow_factor"] = min(target["slow_factor"], t.get("slowFactor", 1.0))
+                elif t["behavior"] == "freeze":
+                    fd = t.get("freezeDur", 0.0)
+                    target["freeze_timer"] = max(target["freeze_timer"], fd)
+                    target["slow_timer"] = max(target["slow_timer"], fd + t.get("slowDur", 0.0))
                     target["slow_factor"] = min(target["slow_factor"], t.get("slowFactor", 1.0))
 
         # resolve deaths
@@ -193,8 +205,12 @@ def simulate_wave(towers: list[dict], wave: dict, cfg: dict, rng: random.Random,
         still_on = []
         for e in enemies:
             speed = e["speed"]
-            if e["slow_timer"] > 0:
+            if e["freeze_timer"] > 0:
+                e["freeze_timer"] -= DT
+                speed = 0.0
+            elif e["slow_timer"] > 0:
                 speed *= e["slow_factor"]
+            if e["slow_timer"] > 0:
                 e["slow_timer"] -= DT
                 if e["slow_timer"] <= 0:
                     e["slow_factor"] = 1.0
@@ -218,7 +234,8 @@ def make_tower(kind: str, x: float, y: float, cfg: dict) -> dict:
             "range": spec["range"], "damage": spec["damage"],
             "cooldown": spec["cooldown"], "behavior": spec["behavior"],
             "splash": spec.get("splash", 0), "slowDur": spec.get("slowDur", 0.0),
-            "slowFactor": spec.get("slowFactor", 1.0), "up": spec.get("up", {})}
+            "slowFactor": spec.get("slowFactor", 1.0), "freezeDur": spec.get("freezeDur", 0.0),
+            "maxTargets": spec.get("maxTargets", 1), "up": spec.get("up", {})}
 
 
 def apply_upgrade(t: dict) -> None:
@@ -235,6 +252,8 @@ def apply_upgrade(t: dict) -> None:
         t["splash"] += up["splash"]
     if "slowFactorAdd" in up:
         t["slowFactor"] = max(0.2, t["slowFactor"] + up["slowFactorAdd"])
+    if "freezeDurAdd" in up:
+        t["freezeDur"] += up["freezeDurAdd"]
 
 
 def buy_upgrades(towers: list[dict], currency: float, upgrade_cost: list) -> float:

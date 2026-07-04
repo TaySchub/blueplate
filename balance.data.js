@@ -160,61 +160,62 @@ window.BALANCE = {
     },
     "cannon": {
       "name": "Big Appetite",
-      "blurb": "Inhales everything nearby (splash)",
+      "blurb": "Grabs one dish and takes a huge, slow bite (single-target)",
       "cost": 85,
-      "range": 118,
-      "damage": 24,
-      "cooldown": 1.3,
-      "behavior": "splash",
-      "splash": 46,
+      "range": 104,
+      "damage": 90,
+      "cooldown": 3.0,
+      "behavior": "single",
       "up": {
-        "damage": 15,
-        "splash": 10,
-        "cooldownMul": 0.9
+        "damage": 48,
+        "range": 8,
+        "cooldownMul": 0.92
       }
     },
     "frost": {
       "name": "The Photographer",
-      "blurb": "Freezes food to pose (slow)",
+      "blurb": "Flash makes a dish pose (1s freeze), then it's slowed ~3s (very low dmg)",
       "cost": 70,
       "range": 120,
-      "damage": 10,
-      "cooldown": 0.8,
-      "behavior": "slow",
-      "slowFactor": 0.5,
-      "slowDur": 1.2,
+      "damage": 6,
+      "cooldown": 1.1,
+      "behavior": "freeze",
+      "freezeDur": 1.0,
+      "slowFactor": 0.62,
+      "slowDur": 3.0,
       "up": {
-        "damage": 6,
-        "slowFactorAdd": -0.08,
+        "damage": 3,
+        "freezeDurAdd": 0.2,
         "range": 12
       }
     },
     "sniper": {
       "name": "The Milkshake Slurper",
-      "blurb": "Slurps one far dish clean up the straw (long range)",
+      "blurb": "Slurps a dish super-fast for tiny bites \u2014 watch its HP drain (small-med range)",
       "cost": 95,
-      "range": 235,
-      "damage": 70,
-      "cooldown": 1.85,
+      "range": 150,
+      "damage": 7,
+      "cooldown": 0.14,
       "behavior": "single",
       "up": {
-        "damage": 45,
-        "range": 26,
-        "cooldownMul": 0.88
+        "damage": 3,
+        "range": 15,
+        "cooldownMul": 0.9
       }
     },
     "zap": {
       "name": "The Kids' Table",
-      "blurb": "Cheap, fast, tiny bites",
+      "blurb": "Three kids grab up to 3 dishes at once \u2014 small fast bites",
       "cost": 35,
       "range": 96,
-      "damage": 12,
-      "cooldown": 0.32,
-      "behavior": "single",
+      "damage": 9,
+      "cooldown": 0.5,
+      "behavior": "multi",
+      "maxTargets": 3,
       "up": {
-        "damage": 7,
+        "damage": 5,
         "range": 8,
-        "cooldownMul": 0.85
+        "cooldownMul": 0.88
       }
     }
   },
