@@ -6,6 +6,15 @@ Format is deliberately simple and plain-language.
 ## [Unreleased]
 
 ### Changed
+- **Combat feel tweaks** (Developer hat, follow-up to the rework):
+  - **Milkshake Slurper** — the straw now **stays attached** to one dish and sips
+    fast until it dies or leaves range (was rapid-firing separate straws); sip
+    sound throttled. Sniper fires instantly now (no traveling projectile).
+  - **Big Appetite** — **lunges ~2× farther** and the CHOMP is punchier (bite
+    flash + chunkier crumbs). **More damage, slower reload** (72→90 dmg,
+    2.4→3.0s); reference re-checked at **46.5% (BALANCED)**.
+  - **Kids' Table** — the grab hands now have **little arms** (sleeve + forearm)
+    so they read as kids reaching in.
 - **Combat rework: five distinct attack identities + new mechanics** (Developer
   hat). Builds on the art deep-dive branch. Each customer now fights differently,
   with the mechanics mirrored in `tools/balance_sim.py` so the sim stays honest:

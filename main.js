@@ -546,6 +546,7 @@ function tryBuild(slotIndex) {
     freezeDur: def.freezeDur || 0, maxTargets: def.maxTargets || 1,
     cdTimer: 0, upgradeFlash: 0, targeting: "first",
     lungeTimer: 0, lungeAngle: 0,   // brief lunge-toward-target on attack (drawTowers)
+    slurpTarget: null, slurpShow: 0, slurpSoundTimer: 0,   // Milkshake Slurper's attached straw
   });
   spawnRing(s.x, s.y, def.color, 34, 0.4);
   audio.build();
@@ -693,7 +694,22 @@ function updateTowers(step) {
   for (const t of game.towers) {
     if (t.upgradeFlash > 0) t.upgradeFlash -= step;
     if (t.lungeTimer > 0) t.lungeTimer -= step;
+    if (t.slurpShow > 0) t.slurpShow -= step;
+    if (t.slurpSoundTimer > 0) t.slurpSoundTimer -= step;
     t.cdTimer -= step;
+    // The Milkshake Slurper locks its straw onto one dish and keeps sipping fast
+    // until that dish dies or leaves range — then it latches onto the next.
+    if (t.typeId === "sniper") {
+      if (!t.slurpTarget || !game.enemies.includes(t.slurpTarget) || distance(t, t.slurpTarget) > t.range) t.slurpTarget = pickTarget(t);
+      if (t.slurpTarget) {
+        t.slurpShow = 0.12;   // keep the straw drawn between sips
+        if (t.cdTimer <= 0) {
+          fireProjectile(t, t.slurpTarget); t.cdTimer = t.cooldown;
+          if (t.slurpSoundTimer <= 0) { audio.shoot("sniper"); t.slurpSoundTimer = 0.32; }   // throttle the sip sound
+        }
+      }
+      continue;
+    }
     if (t.cdTimer > 0) continue;
     if (TOWER_BY_ID[t.typeId].behavior === "multi") {
       // The Kids' Table sends `maxTargets` hands. They spread across the frontmost
@@ -730,6 +746,12 @@ function fireProjectile(t, target) {
     applyDamage(target, t.damage);
     spawnGrabHand(target.x, target.y, target.radius);
     audio.shoot(t.typeId);
+    return;
+  }
+  // The Milkshake Slurper sips instantly up an attached straw (drawn by
+  // drawSlurpStraws); the sip sound is throttled in updateTowers.
+  if (t.typeId === "sniper") {
+    applyDamage(target, t.damage);
     return;
   }
   game.projectiles.push({
@@ -836,13 +858,15 @@ function spawnKillBurst(x, y, color) {
     game.particles.push({ type: "spark", x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r: 1.6 + Math.random() * 2, life: 0.35 + Math.random() * 0.3, maxLife: 0.65, color: crumbs[i % crumbs.length] });
   }
 }
-// A big single CHOMP for Big Appetite — a heavy bite ring + a chunky crumb spray.
+// A big single CHOMP for Big Appetite — a bright bite flash + heavy ring + a
+// chunky crumb spray, so the bite really reads.
 function spawnBite(x, y, color) {
-  spawnRing(x, y, "#ffe1b0", 30, 0.26);
+  spawnRing(x, y, "#fff2d0", 22, 0.16);   // quick bright flash
+  spawnRing(x, y, "#ffe1b0", 40, 0.3);    // wider bite ring
   const crumbs = ["#e8c58a", "#c98a45", color];
-  for (let i = 0; i < 8; i++) {
-    const a = Math.random() * Math.PI * 2, sp = 70 + Math.random() * 130;
-    game.particles.push({ type: "spark", x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r: 2 + Math.random() * 2.4, life: 0.32 + Math.random() * 0.28, maxLife: 0.6, color: crumbs[i % crumbs.length] });
+  for (let i = 0; i < 12; i++) {
+    const a = Math.random() * Math.PI * 2, sp = 90 + Math.random() * 150;
+    game.particles.push({ type: "spark", x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r: 2.4 + Math.random() * 2.6, life: 0.34 + Math.random() * 0.3, maxLife: 0.64, color: crumbs[i % crumbs.length] });
   }
 }
 // A little kid hand that reaches in from a random side and clenches on a dish
@@ -899,6 +923,7 @@ function render() {
   drawCore(ctx);
   drawEnemies(ctx);
   drawProjectiles(ctx);
+  drawSlurpStraws(ctx);
   drawTowers(ctx);
   drawParticles(ctx);
   if (shaking) ctx.restore();
@@ -1340,20 +1365,14 @@ function drawEnemies(ctx) {
   }
 }
 
-// Each tower's shot is themed to how that customer eats: a thrown fork, a flash,
-// a gulp-glob, kid grab-sparks, and the Slurper's straw shooting out to the dish.
+// The only shots that still travel are the Regular's thrown fork and the
+// Photographer's flash orb. Big Appetite, the Kids' Table, and the Slurper all
+// act instantly on the belt (see fireProjectile / drawSlurpStraws).
 function drawProjectiles(ctx) {
   for (const p of game.projectiles) {
     const tx = p.target ? p.target.x : p.x + 1, ty = p.target ? p.target.y : p.y;
     const ang = Math.atan2(ty - p.y, tx - p.x);
-    if (p.typeId === "sniper") {
-      // Milkshake Slurper — a candy-striped straw stretching from the customer to the dish.
-      ctx.lineCap = "round"; ctx.lineJoin = "round";
-      ctx.strokeStyle = "#0b0e14"; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(p.x0, p.y0); ctx.lineTo(p.x, p.y); ctx.stroke();
-      ctx.strokeStyle = "#f4f7fb"; ctx.lineWidth = 3.2; ctx.beginPath(); ctx.moveTo(p.x0, p.y0); ctx.lineTo(p.x, p.y); ctx.stroke();
-      ctx.save(); ctx.strokeStyle = "#e5484d"; ctx.lineWidth = 1.4; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(p.x0, p.y0); ctx.lineTo(p.x, p.y); ctx.stroke(); ctx.restore();
-      ctx.fillStyle = "#f4f7fb"; ctx.strokeStyle = "#0b0e14"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(p.x, p.y, 3, 0, 7); ctx.fill(); ctx.stroke();   // straw tip
-    } else if (p.typeId === "arrow") {
+    if (p.typeId === "arrow") {
       // The Regular — a fork thrown tines-first.
       ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(ang);
       ctx.strokeStyle = "#c3ccdb"; ctx.lineCap = "round"; ctx.lineWidth = 2.6;
@@ -1365,18 +1384,23 @@ function drawProjectiles(ctx) {
       // The Photographer — a soft flash orb.
       ctx.globalAlpha = 0.4; ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.radius * 2.4, 0, 7); ctx.fill(); ctx.globalAlpha = 1;
       ctx.fillStyle = "#eaffff"; ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, 7); ctx.fill();
-    } else if (p.typeId === "cannon") {
-      // Big Appetite — a hungry gulp-glob.
-      ctx.fillStyle = p.color; ctx.strokeStyle = "#7a3a12"; ctx.lineWidth = 1.4;
-      ctx.beginPath(); ctx.arc(p.x, p.y, p.radius * 1.3, 0, 7); ctx.fill(); ctx.stroke();
-    } else if (p.typeId === "zap") {
-      // The Kids' Table — a tiny fast grab-spark with a short trail.
-      ctx.strokeStyle = p.color; ctx.globalAlpha = 0.5; ctx.lineWidth = 2.5; ctx.lineCap = "round";
-      ctx.beginPath(); ctx.moveTo(p.x - Math.cos(ang) * 7, p.y - Math.sin(ang) * 7); ctx.lineTo(p.x, p.y); ctx.stroke(); ctx.globalAlpha = 1;
-      ctx.fillStyle = "#fff6c8"; drawSpark4(ctx, p.x, p.y, 4);
     } else {
       ctx.fillStyle = p.color || COLOR.projectile; ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2); ctx.fill();
     }
+  }
+}
+
+// The Milkshake Slurper's straw stays attached to its locked dish while sipping.
+function drawSlurpStraws(ctx) {
+  for (const t of game.towers) {
+    if (t.typeId !== "sniper" || !(t.slurpShow > 0) || !t.slurpTarget || !game.enemies.includes(t.slurpTarget)) continue;
+    const x0 = t.x, y0 = t.y - 4, x1 = t.slurpTarget.x, y1 = t.slurpTarget.y;
+    const straw = () => { ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); };
+    ctx.lineCap = "round";
+    ctx.strokeStyle = "#0b0e14"; ctx.lineWidth = 5; straw(); ctx.stroke();
+    ctx.strokeStyle = "#f4f7fb"; ctx.lineWidth = 3.2; straw(); ctx.stroke();
+    ctx.save(); ctx.strokeStyle = "#e5484d"; ctx.lineWidth = 1.4; ctx.setLineDash([4, 4]); straw(); ctx.stroke(); ctx.restore();
+    ctx.fillStyle = "#f4f7fb"; ctx.strokeStyle = "#0b0e14"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(x1, y1, 3, 0, 7); ctx.fill(); ctx.stroke();   // tip on the dish
   }
 }
 
@@ -1762,10 +1786,12 @@ function drawTowers(ctx) {
     const def = TOWER_BY_ID[t.typeId];
     const idx = t.level - 1, radius = 13 + idx * 2;
     const glowStrength = 0.12 + idx * 0.12 + Math.max(0, t.upgradeFlash);
-    // Lunge toward the target on attack: peaks mid-animation, back to rest at the ends.
+    // Lunge toward the target on attack: peaks mid-animation, back to rest at the
+    // ends. Big Appetite lunges much farther — he really goes for the dish.
     let ox = 0, oy = 0;
     if (t.lungeTimer > 0) {
-      const amp = Math.sin((1 - t.lungeTimer / LUNGE_DUR) * Math.PI) * (radius * 0.85);
+      const reach = t.typeId === "cannon" ? 1.9 : 0.85;
+      const amp = Math.sin((1 - t.lungeTimer / LUNGE_DUR) * Math.PI) * (radius * reach);
       ox = Math.cos(t.lungeAngle) * amp; oy = Math.sin(t.lungeAngle) * amp;
     }
     ctx.globalAlpha = Math.min(0.6, glowStrength); ctx.fillStyle = def.glow;
@@ -1802,6 +1828,14 @@ function drawGrabHand(ctx, p) {
   const spread = 0.6 - prog * 0.42, fLen = palmR * (1.6 - prog * 0.8);
   ctx.globalAlpha = p.life < p.maxLife * 0.35 ? p.life / (p.maxLife * 0.35) : 1;
   ctx.lineCap = "round";
+  // A small arm reaching in from the side (behind the hand): yellow sleeve then a
+  // skin forearm, so it reads as a kid grabbing rather than a floating hand.
+  const armLen = p.r * 1.1;
+  const ex = hx + Math.cos(p.angle) * armLen, ey = hy + Math.sin(p.angle) * armLen;
+  const mx = hx + Math.cos(p.angle) * armLen * 0.5, my = hy + Math.sin(p.angle) * armLen * 0.5;
+  ctx.strokeStyle = MDARK; ctx.lineWidth = palmR * 0.98; ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(hx, hy); ctx.stroke();
+  ctx.strokeStyle = "#ffe08a"; ctx.lineWidth = palmR * 0.74; ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(mx, my); ctx.stroke();       // sleeve
+  ctx.strokeStyle = SKIN; ctx.lineWidth = palmR * 0.74; ctx.beginPath(); ctx.moveTo(mx, my); ctx.lineTo(hx, hy); ctx.stroke();           // forearm
   for (const off of [-1.5, -0.5, 0.5, 1.5]) {          // four fingers curling toward the dish
     const fa = toward + off * spread, fx = hx + Math.cos(fa) * fLen, fy = hy + Math.sin(fa) * fLen;
     ctx.strokeStyle = MDARK; ctx.lineWidth = palmR * 0.66; ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(fx, fy); ctx.stroke();

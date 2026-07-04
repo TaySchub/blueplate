@@ -163,11 +163,11 @@ window.BALANCE = {
       "blurb": "Grabs one dish and takes a huge, slow bite (single-target)",
       "cost": 85,
       "range": 104,
-      "damage": 72,
-      "cooldown": 2.4,
+      "damage": 90,
+      "cooldown": 3.0,
       "behavior": "single",
       "up": {
-        "damage": 38,
+        "damage": 48,
         "range": 8,
         "cooldownMul": 0.92
       }
