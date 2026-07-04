@@ -334,6 +334,9 @@ def main():
     ap.add_argument("--sims", type=int, default=400)
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--config", default="data/balance.json")
+    ap.add_argument("--check", action="store_true",
+                    help="CI gate: evaluate ONLY the reference board and exit "
+                         "non-zero if its win-rate is outside the target band")
     args = ap.parse_args()
     cfg = load_config(args.config)
     band = tuple(cfg.get("target_win_rate", TARGET_WIN_RATE))
@@ -341,6 +344,22 @@ def main():
     print(f"Config: {args.config}")
     print(f"Target win-rate band: {band[0]:.0%}-{band[1]:.0%}")
     print(f"Sims per strategy: {args.sims}\n")
+
+    # --check: the pass/fail gate for CI. Reference board only (the band gauge;
+    # the other strategies are informational), fixed seed, exit code = verdict.
+    if args.check:
+        build = STRATEGIES["reference board"]
+        r = evaluate(build, cfg, args.sims, args.seed)
+        ok = band[0] <= r["win_rate"] <= band[1]
+        print(f"reference board  [{', '.join(build)}]")
+        print(f"  win rate     : {r['win_rate']:.1%}")
+        print(f"  median waves : {r['median_waves']}")
+        print(f"  verdict      : {verdict(r['win_rate'], band)}")
+        print(f"\nCHECK {'PASSED' if ok else 'FAILED'}: reference win-rate "
+              f"{r['win_rate']:.1%} {'inside' if ok else 'OUTSIDE'} "
+              f"{band[0]:.0%}-{band[1]:.0%}"
+              + ("" if ok else " — retune data/balance.json before merging"))
+        raise SystemExit(0 if ok else 1)
 
     for name, build in STRATEGIES.items():
         r = evaluate(build, cfg, args.sims, args.seed)

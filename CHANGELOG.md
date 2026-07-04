@@ -93,6 +93,23 @@ Format is deliberately simple and plain-language.
     `main.js` (+ `index.html` cache-bust).
 
 ### Added
+- **First real CI checks** (QA hat). A new `.github/workflows/ci.yml` runs on
+  every PR and push to `main` — until now the only workflow was the Slack
+  announcer, so "let Actions run its checks" checked nothing. Three gates, all
+  deterministic:
+  1. **JS syntax** — `node --check` on `main.js` + `balance.data.js` (no build
+     step exists to catch a broken script before it ships).
+  2. **Generated files in sync** — re-runs `tools/gen_balance.py` and fails if
+     the committed `balance.data.js` or `index.html` cache-bust stamps are
+     stale (i.e. someone edited `data/balance.json` or `main.js` and forgot
+     the generator).
+  3. **Balance band** — `tools/balance_sim.py --check` (new flag): plays the
+     reference board with a fixed seed and **exits non-zero if its win-rate
+     leaves the target band**, so a difficulty-breaking PR goes red instead of
+     relying on someone reading the printout. Verified locally: current config
+     reads **53.0% (BALANCED, exit 0)** at `--sims 200`; an impossible band
+     correctly fails (exit 1). No gameplay/balance change.
+  Files: `.github/workflows/ci.yml`, `tools/balance_sim.py`.
 - **Re-theme, Phase 5 — file follow-up design** (Game Designer hat; file-only, no
   build). Closes out the retheme by recording future work: filed **Issue #39 —
   "Map 2: the Pizzeria + Pizza Supreme (splitter enemy)"** (the franchise's first
