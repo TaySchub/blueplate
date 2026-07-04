@@ -76,7 +76,7 @@ def wave_type_weights(n: int, unlock: dict) -> dict:
 
 
 def make_wave(n: int, cfg: dict) -> dict:
-    """Generate wave n from waveGen — mirrors main.js makeWave(). Deterministic."""
+    """Generate wave n from waveGen — mirrors src/engine.js makeWave() (parity-checked in CI via tools/check_parity.py). Deterministic."""
     wg = cfg["waveGen"]
     hp = round(wg["hpBase"] * wg["hpGrowth"] ** n)
     speed = min(wg["speedMax"], wg["speedBase"] + wg["speedStep"] * n)
@@ -99,7 +99,7 @@ def build_path(cfg: dict) -> dict:
 
 
 def point_at(path: dict, dist: float) -> tuple[float, float]:
-    """2-D position at arc-length `dist` along the path — mirrors main.js
+    """2-D position at arc-length `dist` along the path — mirrors src/engine.js
     pointAtDistance()."""
     if dist <= 0:
         return path["pts"][0]
@@ -239,7 +239,7 @@ def make_tower(kind: str, x: float, y: float, cfg: dict) -> dict:
 
 
 def apply_upgrade(t: dict) -> None:
-    """Apply one upgrade level's deltas — mirrors main.js tryUpgrade()."""
+    """Apply one upgrade level's deltas — mirrors src/engine.js tryUpgrade()."""
     up = t["up"]
     t["level"] += 1
     if "damage" in up:

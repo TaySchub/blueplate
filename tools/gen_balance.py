@@ -7,13 +7,13 @@ fetch() a local JSON file when index.html is opened via file:// (double-click).
 So we mirror the JSON into a tiny JS file the game loads with a <script> tag.
 
 This script also STAMPS index.html's <script> tags with a short content hash
-(main.js?v=... and balance.data.js?v=...). GitHub Pages serves everything with a
+(src/*.js?v=... and balance.data.js?v=...). GitHub Pages serves everything with a
 10-minute cache and no way to override it, so without versioned URLs a browser
-can keep running an old main.js after a deploy (or mix a new index.html with a
-stale main.js). The hash changes only when the file's contents change, so every
+can keep running old game code after a deploy (or mix a new index.html with a
+stale module). The hash changes only when a file's contents change, so every
 deploy gets fresh, self-consistent script URLs with zero manual version bumping.
 
-Run this after editing data/balance.json OR main.js, before committing/deploying:
+Run this after editing data/balance.json OR any src/*.js file, before committing/deploying:
 
     python3 tools/gen_balance.py
 
@@ -37,7 +37,11 @@ BANNER = (
 )
 
 # The runtime <script> assets to cache-bust, in load order.
-VERSIONED_ASSETS = ("balance.data.js", "main.js")
+VERSIONED_ASSETS = (
+    "balance.data.js",
+    "src/data.js", "src/engine.js", "src/audio.js",
+    "src/art.js", "src/render.js", "src/main.js",
+)
 
 
 def stamp_index() -> dict:

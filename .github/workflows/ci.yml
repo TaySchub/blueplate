@@ -28,8 +28,8 @@ jobs:
 
       - name: JS syntax check
         run: |
-          node --check main.js
           node --check balance.data.js
+          for f in src/*.js; do node --check "$f"; done
 
       - name: Generated files in sync (balance.data.js + cache-bust stamps)
         run: |
@@ -41,3 +41,17 @@ jobs:
 
       - name: Balance sim in band
         run: python3 tools/balance_sim.py --check --sims 200
+
+      # The Python sim re-implements the wave formula; JS and Python round
+      # differently (Math.round vs banker's round), so this gate turns any
+      # silent formula drift into a red run.
+      - name: Wave parity (real engine vs Python sim)
+        run: |
+          node tools/sim.mjs --dump-waves /tmp/waves.json
+          python3 tools/check_parity.py /tmp/waves.json
+
+      # Report-only for now: the real-engine gauge (no mirror, real projectile
+      # travel/straw-lock). The Python sim above stays the pass/fail gate until
+      # the developer decides which gauge difficulty is tuned against.
+      - name: Real-engine win-rate (report only)
+        run: node tools/sim.mjs --sims 200

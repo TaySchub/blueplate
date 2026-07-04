@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <!--
   Deckbound dev harness — the self-serve verification tool for agents (and
-  curious humans). Loads the REAL game code (../../balance.data.js + ../../main.js,
-  no copies, no mocks) and gives three things:
+  curious humans). Loads the REAL game code (../../balance.data.js + the
+  ../../src/*.js modules, no copies, no mocks) and gives three things:
 
     1. CONTACT SHEET — every customer (levels 1/2/3, attack fx, toolbar size) and
        every food (fresh / ¾HP / ½HP / hurt / true belt size) drawn by the real
@@ -77,15 +77,20 @@
 <select id="play-speed"><option>1</option><option>2</option><option selected>4</option><option>8</option></select>
 <canvas id="game-canvas" width="800" height="450"></canvas>
 
-<!-- Freeze the game's own rAF loop BEFORE main.js boots: startGameLoop() runs at
-     DOMContentLoaded and would otherwise fight the harness driver. The harness
-     restores real rAF for its own loop after boot. -->
+<!-- Freeze the game's own rAF loop BEFORE src/main.js boots: startGameLoop()
+     runs at DOMContentLoaded and would otherwise fight the harness driver. The
+     harness restores real rAF for its own loop after boot. -->
 <script>
   window.__realRAF = window.requestAnimationFrame.bind(window);
   window.requestAnimationFrame = function () { return 0; };
 </script>
 <script src="../../balance.data.js"></script>
-<script src="../../main.js"></script>
+<script src="../../src/data.js"></script>
+<script src="../../src/engine.js"></script>
+<script src="../../src/audio.js"></script>
+<script src="../../src/art.js"></script>
+<script src="../../src/render.js"></script>
+<script src="../../src/main.js"></script>
 
 <script>
 (function () {
