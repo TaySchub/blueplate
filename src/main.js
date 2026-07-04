@@ -10,6 +10,15 @@
    6) STARTUP + INPUT
    ========================================================================= */
 
+// Pause is SHELL state: when true the loop simply stops calling update(), so
+// the engine never knows about it. Seating/upgrading still works while paused
+// (strategic pause). Auto-clears outside a run.
+let gamePaused = false;
+function togglePause() {
+  if (game.phase !== "prep" && game.phase !== "wave") return;
+  gamePaused = !gamePaused;
+}
+
 window.addEventListener("DOMContentLoaded", () => {
   const canvas = document.getElementById("game-canvas");
   if (!canvas) { console.error("Deckbound: could not find the game canvas."); return; }
@@ -34,6 +43,9 @@ function setupInput(canvas) {
 
     // Mute (always available).
     if (p.x >= VIEW.w - 44 && p.x <= VIEW.w - 12 && p.y >= 12 && p.y <= 44) { audio.muted = !audio.muted; return; }
+
+    // Pause (only shown/meaningful during a run — sits left of the mute button).
+    if ((game.phase === "prep" || game.phase === "wave") && p.x >= VIEW.w - 84 && p.x <= VIEW.w - 52 && p.y >= 12 && p.y <= 44) { togglePause(); return; }
 
     // Hub / menu.
     if (game.phase === "menu") {
@@ -86,6 +98,13 @@ function setupInput(canvas) {
   canvas.addEventListener("mousedown", (e) => onDown(e.clientX, e.clientY));
   canvas.addEventListener("touchstart", (e) => { if (e.touches[0]) { e.preventDefault(); onDown(e.touches[0].clientX, e.touches[0].clientY); } }, { passive: false });
   canvas.addEventListener("mousemove", (e) => { game.pointer = toDesign(e.clientX, e.clientY); });
+
+  // Keyboard: P or Space toggles pause. Skipped while typing in a form field
+  // (the dev harness has inputs on the same page as the game).
+  window.addEventListener("keydown", (e) => {
+    if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+    if (e.code === "KeyP" || e.code === "Space") { e.preventDefault(); togglePause(); }
+  });
 }
 
 /* =========================================================================
@@ -99,7 +118,11 @@ function startGameLoop() {
     if (lastTime === undefined) lastTime = now;
     let dt = (now - lastTime) / 1000; lastTime = now;
     if (dt > 0.25) dt = 0.25;
+    // Paused: drop banked time so nothing fast-forwards on resume; the pause
+    // flag self-clears outside a run so a new run never starts frozen.
+    if (game.phase !== "prep" && game.phase !== "wave") gamePaused = false;
     accumulator += dt;
+    if (gamePaused) accumulator = 0;
     while (accumulator >= STEP) { update(STEP); accumulator -= STEP; }
     framesThisSecond++; fpsTimer += dt;
     if (fpsTimer >= 1) { game.fps = framesThisSecond; framesThisSecond = 0; fpsTimer -= 1; }

@@ -378,7 +378,7 @@ function fireProjectile(t, target) {
   }
   game.projectiles.push({
     x: t.x, y: t.y, x0: t.x, y0: t.y, typeId: t.typeId, target,
-    speed: def.behavior === "single" && t.typeId === "sniper" ? 520 : 360,
+    speed: 360,   // only arrow + frost reach here; the instant attackers returned above
     damage: t.damage, radius: t.typeId === "cannon" ? 6 : 4, behavior: def.behavior, color: def.color,
     splash: t.splash, slowDur: t.slowDur, slowFactor: t.slowFactor, freezeDur: t.freezeDur,
   });

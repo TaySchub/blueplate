@@ -16,6 +16,22 @@ Format is deliberately simple and plain-language.
   applies; canvas text now matches the page's HTML text in sharpness.
   No gameplay/balance change. File: `style.css`.
 
+### Added
+- **Pause (strategic pause)** (Developer hat; the review's last item-10 piece).
+  A pause/resume button beside mute (shown during a run) plus **P / Space**;
+  a phone call mid-wave no longer costs the run. Implemented entirely in the
+  SHELL: the loop stops calling `update()` and drops banked time (nothing
+  fast-forwards on resume); the engine never knows, so the headless sim and
+  the seeded smoke runs are untouched — **seed 1 re-verified bit-identical**.
+  While paused the board dims under a PAUSED label but the toolbar/panel stay
+  live — you can still seat and upgrade (classic TD strategic pause). The
+  early-call bonus correctly freezes with prep time. Auto-unpauses outside a
+  run so a new run never starts frozen; keyboard handler ignores form fields
+  (the dev harness has inputs). Also swept the last flagged dead code: the
+  unreachable sniper projectile-speed ternary in `fireProjectile` (sniper
+  returns before the projectile push) is now a plain `360`.
+  Files: `src/main.js`, `src/render.js`, `src/engine.js` (+ stamps).
+
 ### Changed
 - **Slack heartbeat: hourly → daily** (QA hat). The studio-feed cron posted
   "cloud automation is alive" every hour, 24/7 — ~720 no-op messages a month

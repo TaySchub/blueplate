@@ -41,12 +41,15 @@ function render() {
   drawTowers(ctx);
   drawParticles(ctx);
   if (shaking) ctx.restore();
+  // Paused: dim the board (UI below stays bright — you can still seat/upgrade).
+  if (typeof gamePaused !== "undefined" && gamePaused) drawPausedOverlay(ctx);
   drawToolbar(ctx);
   drawStartButton(ctx);
   drawHUD(ctx);
   drawSelectedTowerPanel(ctx);
   drawMessage(ctx);
   drawMuteButton(ctx);
+  drawPauseButton(ctx);
   if (game.phase === "won" || game.phase === "lost") drawSummary(ctx);
 }
 
@@ -520,5 +523,33 @@ function drawMuteButton(ctx) {
   ctx.beginPath(); ctx.moveTo(x + 9, y + 13); ctx.lineTo(x + 14, y + 13); ctx.lineTo(x + 19, y + 9); ctx.lineTo(x + 19, y + 23); ctx.lineTo(x + 14, y + 19); ctx.lineTo(x + 9, y + 19); ctx.closePath(); ctx.fill();
   if (audio.muted) { ctx.strokeStyle = COLOR.coreHurt; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x + 22, y + 11); ctx.lineTo(x + 28, y + 21); ctx.moveTo(x + 28, y + 11); ctx.lineTo(x + 22, y + 21); ctx.stroke(); }
   else { ctx.strokeStyle = COLOR.core; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x + 21, y + 16, 4, -0.6, 0.6); ctx.arc(x + 21, y + 16, 8, -0.6, 0.6); ctx.stroke(); }
+}
+
+// Pause/resume button, left of mute — shown only during a run. `gamePaused` is
+// SHELL state (src/main.js); the engine never reads it, so the typeof guard
+// keeps this file safe in contexts where the shell isn't loaded.
+function drawPauseButton(ctx) {
+  if (game.phase !== "prep" && game.phase !== "wave") return;
+  const paused = typeof gamePaused !== "undefined" && gamePaused;
+  const x = VIEW.w - 84, y = 12;
+  ctx.fillStyle = "rgba(0,0,0,0.35)"; ctx.fillRect(x, y, 32, 32);
+  ctx.fillStyle = paused ? COLOR.good : COLOR.core;
+  if (paused) {   // play triangle = "resume"
+    ctx.beginPath(); ctx.moveTo(x + 12, y + 8); ctx.lineTo(x + 25, y + 16); ctx.lineTo(x + 12, y + 24); ctx.closePath(); ctx.fill();
+  } else {        // two bars = "pause"
+    ctx.fillRect(x + 10, y + 8, 4.5, 16); ctx.fillRect(x + 18, y + 8, 4.5, 16);
+  }
+}
+
+// Full-board dim + label while paused. Drawn under the toolbar/HUD so the
+// interactive UI stays bright — seating and upgrading work while paused.
+function drawPausedOverlay(ctx) {
+  ctx.fillStyle = "rgba(8,10,15,0.45)"; ctx.fillRect(0, 0, VIEW.w, TOOLBAR.y - 2);
+  ctx.textAlign = "center";
+  ctx.fillStyle = COLOR.ink; ctx.font = "bold 26px system-ui, sans-serif";
+  ctx.fillText("PAUSED", VIEW.w / 2, VIEW.h / 2 - 40);
+  ctx.fillStyle = COLOR.muted; ctx.font = "13px system-ui, sans-serif";
+  ctx.fillText("P / Space or tap ▶ to resume — you can still seat & upgrade", VIEW.w / 2, VIEW.h / 2 - 18);
+  ctx.textAlign = "left";
 }
 
