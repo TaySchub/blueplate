@@ -6,6 +6,16 @@ Format is deliberately simple and plain-language.
 ## [Unreleased]
 
 ### Changed
+- **Docs/comment alignment + a balance ease** (Developer hat). Post-rework cleanup
+  so nothing reads as outdated: `docs/FRANCHISE_BACKBONE.md` cast roles +
+  personalities rewritten to the new combat identities (Big Appetite = heavy
+  single bite, Photographer = freeze→slow, Milkshake Slurper = fast drain, Kids'
+  Table = multi-target); `GAME_BRIEF.md` behavior examples updated; stale `main.js`
+  comments fixed (Big Appetite plate/single-bite, Slurper fast-drain, the audio
+  `sniper` case renamed off "Chopstick Sensei"); a pointer note added to the
+  historical `deckbound-retheme-prompt.md` naming map. Balance ease: Big Appetite
+  cooldown **3.0 → 2.8s** — reference build **53.0% (BALANCED)**. (Flagged for the
+  audio branch: some attack *sounds* no longer match the reworked attacks.)
 - **Combat feel tweaks** (Developer hat, follow-up to the rework):
   - **Milkshake Slurper** — the straw now **stays attached** to one dish and sips
     fast until it dies or leaves range (was rapid-firing separate straws); sip

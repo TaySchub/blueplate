@@ -37,7 +37,7 @@ You **lose** when too many enemies reach your core; you **win** by surviving all
 ## First version ("done") — the milestone
 A deployable build, openable on a Mac or iPhone via the GitHub Pages link, playable end to end:
 - **1 map** (single path) with a core to defend and a lose condition.
-- **~5–6 tower cards** with distinct behaviors (e.g. single-target, splash, slow, long-range, cheap-but-weak).
+- **~5–6 tower cards** with distinct behaviors (e.g. steady single-target, a heavy single bite, freeze-then-slow, fast drain, cheap multi-target).
 - **~3–4 enemy types** with escalating stats across **~10 waves**, ending in a clear win.
 - The full **prep → wave → resolve** loop with **live in-wave placing/upgrading** and an in-run **currency economy** (earn per wave/kill, spend to place and upgrade).
 - A **minimal between-run unlock** (even 1–2 unlockable cards) to prove the meta-progression loop.
