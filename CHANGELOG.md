@@ -5,6 +5,17 @@ Format is deliberately simple and plain-language.
 
 ## [Unreleased]
 
+### Fixed
+- **Blocky canvas scaling on Retina/iPhone screens.** `style.css` forced
+  `image-rendering: pixelated` on the game canvas ("crisp edges when we draw
+  pixel art later") — but the art became smooth vector-style canvas drawing,
+  not pixel art, so on any screen where the 800×450 canvas is scaled
+  (devicePixelRatio 2–3 on Mac Retina and every iPhone) all the mascots,
+  outlines, and canvas text rendered visibly jagged with nearest-neighbor
+  sampling. Removed the override so the browser's default smooth scaling
+  applies; canvas text now matches the page's HTML text in sharpness.
+  No gameplay/balance change. File: `style.css`.
+
 ### Changed
 - **Docs/comment alignment + a balance ease** (Developer hat). Post-rework cleanup
   so nothing reads as outdated: `docs/FRANCHISE_BACKBONE.md` cast roles +
