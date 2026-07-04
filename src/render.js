@@ -306,7 +306,7 @@ function drawEnemies(ctx) {
 function drawProjectiles(ctx) {
   for (const p of game.projectiles) {
     const tx = p.target ? p.target.x : p.x + 1, ty = p.target ? p.target.y : p.y;
-    const ang = Math.atan2(ty - p.y, tx - p.x);
+    const ang = p.piercing ? p.angle : Math.atan2(ty - p.y, tx - p.x);   // pierce forks fly a fixed heading (no homing target)
     if (p.typeId === "arrow") {
       // The Regular — a fork thrown tines-first.
       ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(ang);
@@ -342,7 +342,7 @@ function drawSlurpStraws(ctx) {
 function drawTowers(ctx) {
   for (const t of game.towers) {
     const def = TOWER_BY_ID[t.typeId];
-    const idx = t.level - 1, radius = 13 + idx * 2;
+    const idx = t.upgradeTier, radius = 13 + idx * 2;
     const glowStrength = 0.12 + idx * 0.12 + Math.max(0, t.upgradeFlash);
     // Lunge toward the target on attack: peaks mid-animation, back to rest at the
     // ends. Big Appetite lunges much farther — he really goes for the dish.
@@ -358,9 +358,16 @@ function drawTowers(ctx) {
     // Big Appetite's mouth snaps shut around the peak of the lunge.
     let bite = 0;
     if (t.typeId === "cannon" && t.lungeTimer > 0) { const pr = 1 - t.lungeTimer / LUNGE_DUR; bite = Math.max(0, 1 - Math.abs(pr - 0.55) / 0.3); }
-    drawCustomer(ctx, t.typeId, t.x + ox, t.y + oy, radius, def.color, { level: t.level, firing: justFired, bite });
-    for (let i = 0; i < t.maxLevel; i++) { ctx.beginPath(); ctx.arc(t.x - 8 + i * 8, t.y - radius - 16, 3, 0, Math.PI * 2); ctx.fillStyle = i < t.level ? COLOR.upgradeSpark : "#39404f"; ctx.fill(); }
-    if (distance(game.pointer, t) <= 18 && t.level < t.maxLevel) { ctx.fillStyle = game.currency >= RULES.upgradeCost[t.level] ? COLOR.good : COLOR.bad; ctx.font = "11px system-ui, sans-serif"; ctx.textAlign = "center"; ctx.fillText("next course " + RULES.upgradeCost[t.level], t.x, t.y - radius - 24); }
+    // Art escalates with tiers bought (bib at tier 1, sparkle at tier 2); the
+    // committed path drives per-tower art (e.g. the Regular's Carving Station fork).
+    drawCustomer(ctx, t.typeId, t.x + ox, t.y + oy, radius, def.color, { level: t.upgradeTier + 1, path: t.upgradePath, tier: t.upgradeTier, firing: justFired, bite });
+    // Two tier pips: filled = tiers bought on this tower's committed path.
+    for (let i = 0; i < MAX_TIER; i++) { ctx.beginPath(); ctx.arc(t.x - 4 + i * 8, t.y - radius - 16, 3, 0, Math.PI * 2); ctx.fillStyle = i < t.upgradeTier ? COLOR.upgradeSpark : "#39404f"; ctx.fill(); }
+    if (distance(game.pointer, t) <= 18 && t.upgradeTier < MAX_TIER) {
+      let cheapest = Infinity;
+      for (const pp of towerPaths(t.typeId)) { const nt = nextTier(t, pp.id); if (nt && nt.cost < cheapest) cheapest = nt.cost; }
+      if (cheapest < Infinity) { ctx.fillStyle = game.currency >= cheapest ? COLOR.good : COLOR.bad; ctx.font = "11px system-ui, sans-serif"; ctx.textAlign = "center"; ctx.fillText("upgrade ◆" + cheapest, t.x, t.y - radius - 24); }
+    }
   }
 }
 
@@ -416,21 +423,25 @@ function drawStartButton(ctx) {
   ctx.textBaseline = "alphabetic";
 }
 
-// Geometry for the selected-tower panel (targeting modes + upgrade). Shared by
-// the click handler and the renderer so hit-testing matches what's drawn.
+// Geometry for the selected-tower panel (targeting modes + two upgrade-path
+// buttons). Shared by the click handler and the renderer so hit-testing matches
+// what's drawn.
 function towerPanel(t) {
-  const W = 184, H = 80;
+  const W = 190, H = 110;
   const x = Math.max(6, Math.min(VIEW.w - W - 6, t.x - W / 2));
   let y = t.y + 24;
   if (y + H > TOOLBAR.y - 4) y = t.y - 24 - H;      // flip above the tower if it'd cover the toolbar
   y = Math.max(6, Math.min(TOOLBAR.y - H - 6, y));
   const rect = { x, y, w: W, h: H };
-  const bw = 41, bh = 20, gap = 4, by = y + 28;
+  const bw = 42, bh = 20, gap = 4, by = y + 26;
   const modes = TARGETING_MODES.map(([mode, label], i) => ({
     mode, label, rect: { x: x + 6 + i * (bw + gap), y: by, w: bw, h: bh },
   }));
-  const upgrade = { rect: { x: x + 6, y: y + 54, w: W - 12, h: 20 } };
-  return { rect, modes, upgrade };
+  // Two full-width upgrade-path buttons stacked below the targeting row.
+  const paths = towerPaths(t.typeId).map((pp, i) => ({
+    id: pp.id, name: pp.name, rect: { x: x + 6, y: y + 52 + i * 26, w: W - 12, h: 22 },
+  }));
+  return { rect, modes, paths };
 }
 
 function drawSelectedTowerPanel(ctx) {
@@ -444,9 +455,10 @@ function drawSelectedTowerPanel(ctx) {
   // Panel background.
   ctx.fillStyle = "rgba(14,18,28,0.96)"; roundRect(ctx, p.rect.x, p.rect.y, p.rect.w, p.rect.h, 8); ctx.fill();
   ctx.strokeStyle = def.color; ctx.lineWidth = 1; roundRect(ctx, p.rect.x, p.rect.y, p.rect.w, p.rect.h, 8); ctx.stroke();
-  // Header.
+  // Header: tower name + which path/tier this tower is committed to.
   ctx.fillStyle = COLOR.ink; ctx.font = "bold 11px system-ui, sans-serif"; ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
-  ctx.fillText(def.name + "  ·  " + COURSE_NAMES[t.level - 1], p.rect.x + 8, p.rect.y + 17);
+  const sub = t.upgradeTier === 0 ? "choose an upgrade path" : def.upgrades[t.upgradePath].name + "  " + t.upgradeTier + "/" + MAX_TIER;
+  ctx.fillText(def.name + "  ·  " + sub, p.rect.x + 8, p.rect.y + 16);
   ctx.textAlign = "left";
   // Targeting mode buttons.
   const cur = t.targeting || "first";
@@ -457,15 +469,34 @@ function drawSelectedTowerPanel(ctx) {
     ctx.fillStyle = on ? COLOR.ink : COLOR.muted; ctx.font = "9px system-ui, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
     ctx.fillText(b.label, b.rect.x + b.rect.w / 2, b.rect.y + b.rect.h / 2 + 0.5);
   }
-  // Upgrade button.
-  const canUp = t.level < t.maxLevel;
-  const cost = canUp ? RULES.upgradeCost[t.level] : 0;
-  const afford = canUp && game.currency >= cost;
-  const u = p.upgrade.rect;
-  ctx.fillStyle = canUp ? (afford ? "#16281c" : "#2a1f26") : "#1b2230"; roundRect(ctx, u.x, u.y, u.w, u.h, 5); ctx.fill();
-  ctx.strokeStyle = canUp ? (afford ? COLOR.good : COLOR.bad) : "#2a3242"; ctx.lineWidth = 1; roundRect(ctx, u.x, u.y, u.w, u.h, 5); ctx.stroke();
-  ctx.fillStyle = COLOR.ink; ctx.font = "bold 10px system-ui, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-  ctx.fillText(canUp ? "Serve next course  ◆" + cost : "Dessert (max)", u.x + u.w / 2, u.y + u.h / 2 + 0.5);
+  // Two upgrade-path buttons. Buying tier 1 of one commits this tower and greys
+  // the other out for good; the committed path then reveals its tier-2 cost.
+  ctx.font = "bold 10px system-ui, sans-serif"; ctx.textBaseline = "middle";
+  for (const pb of p.paths) {
+    const r = pb.rect;
+    const committed = t.upgradePath === pb.id;
+    const lockedOut = t.upgradePath !== null && !committed;
+    const maxed = committed && t.upgradeTier >= MAX_TIER;
+    const tier = nextTier(t, pb.id);                 // null if maxed or locked out
+    const afford = tier && game.currency >= tier.cost;
+    let bg, border;
+    if (lockedOut) { bg = "#161a22"; border = "#242a36"; }
+    else if (maxed) { bg = "#16281c"; border = COLOR.good; }
+    else { bg = afford ? "#16281c" : "#2a1f26"; border = afford ? COLOR.good : COLOR.bad; }
+    ctx.globalAlpha = lockedOut ? 0.5 : 1;
+    ctx.fillStyle = bg; roundRect(ctx, r.x, r.y, r.w, r.h, 5); ctx.fill();
+    ctx.strokeStyle = border; ctx.lineWidth = committed ? 1.5 : 1; roundRect(ctx, r.x, r.y, r.w, r.h, 5); ctx.stroke();
+    // Path name (left) + cost/state tag (right).
+    ctx.fillStyle = lockedOut ? COLOR.muted : COLOR.ink; ctx.textAlign = "left";
+    ctx.fillText(fitText(ctx, pb.name, r.w - 54), r.x + 8, r.y + r.h / 2 + 0.5);
+    ctx.textAlign = "right";
+    let tag;
+    if (lockedOut) { ctx.fillStyle = COLOR.muted; tag = "🔒 locked"; }
+    else if (maxed) { ctx.fillStyle = COLOR.good; tag = "✓ max"; }
+    else { ctx.fillStyle = afford ? COLOR.gold : COLOR.bad; tag = "◆" + tier.cost; }
+    ctx.fillText(tag, r.x + r.w - 8, r.y + r.h / 2 + 0.5);
+  }
+  ctx.globalAlpha = 1;
   ctx.textBaseline = "alphabetic"; ctx.textAlign = "left";
 }
 

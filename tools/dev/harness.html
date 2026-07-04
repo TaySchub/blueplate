@@ -57,9 +57,9 @@
 
 <!-- ============ 1) CONTACT SHEET ============ -->
 <h2 id="sheet-title">1 · Contact sheet — screenshot this for art PRs</h2>
-<p class="hint">Drawn by the real drawCustomer()/drawFood(). Columns: customer levels 1–3 (bib at 2, sparkle at 3), attack fx where one exists, toolbar size (r=8); food fresh / ¾HP / ½HP / hurt-flash / true belt size. Self-check against <code>docs/ART_STYLE.md</code> before requesting review.</p>
+<p class="hint">Drawn by the real drawCustomer()/drawFood(). Rows: customers by tiers bought (bib at tier 1, sparkle at tier 2), attack fx where one exists, toolbar size (r=8); The Regular's upgrade-path fork escalation; food fresh / ¾HP / ½HP / hurt-flash / true belt size. Self-check against <code>docs/ART_STYLE.md</code> before requesting review.</p>
 <button id="redraw-sheet">Redraw sheet</button>
-<canvas id="sheet-canvas" width="800" height="1060"></canvas>
+<canvas id="sheet-canvas" width="800" height="1260"></canvas>
 
 <!-- ============ 2) SMOKE RUN ============ -->
 <h2 id="smoke-title">2 · Smoke run — paste the JSON in gameplay PRs</h2>
@@ -98,6 +98,9 @@
 
   const params = new URLSearchParams(location.search);
   const DEFAULT_BUILD = ["arrow", "cannon", "frost", "arrow"];   // = the sim's reference board
+  // Reference upgrade strategy (mirrors tools/balance_sim.py + tools/sim.mjs): each
+  // tower commits to one fixed path and buys its two tiers cheapest-next-first.
+  const SIM_PATHS = { arrow: "carvingStation", cannon: "oneBigBite", frost: "longExposure", sniper: "extraSlurp", zap: "teenageTable" };
   const parseBuild = () => {
     const raw = (params.get("build") || "").split(",").map(s => s.trim()).filter(Boolean);
     const valid = raw.filter(id => TOWER_BY_ID[id]);
@@ -148,8 +151,26 @@
       drawCustomer(ctx, id, custCols[4], cy, 8, def.color, { level: 1 });
     });
 
+    // --- The Regular: upgrade-PATH art states (PR 1 vertical slice) ---
+    // Carving Station escalates the fork (bigger at tier 1, large two-tine serving
+    // fork at tier 2); Fork Frenzy keeps the everyday fork (its tier-2 pierce is a
+    // projectile, not customer art). Bib appears at tier 1, sparkle at tier 2.
+    const rpY = 590;
+    title("THE REGULAR — upgrade paths (fork escalates on Carving Station)", rpY);
+    const rpCols = [130, 290, 450, 600, 730];
+    const rpHead = ["base", "Fork Frenzy 1", "Fork Frenzy 2", "Carving 1", "Carving 2 (serving fork)"];
+    rpCols.forEach((x, i) => label(rpHead[i], x, rpY + 22));
+    const rpStates = [
+      { level: 1 },
+      { level: 2, path: "forkFrenzy", tier: 1 },
+      { level: 3, path: "forkFrenzy", tier: 2 },
+      { level: 2, path: "carvingStation", tier: 1 },
+      { level: 3, path: "carvingStation", tier: 2 },
+    ];
+    rpStates.forEach((st, i) => drawCustomer(ctx, "arrow", rpCols[i], rpY + 90, 17, TOWER_BY_ID.arrow.color, st));
+
     // --- Foods: one row each; cols fresh, ¾HP, ½HP, hurt, true belt size ---
-    const fy = 610;
+    const fy = 800;
     title("FOODS — fresh · ¾HP bite · ½HP bite · hurt flash · TRUE size on belt", fy - 26);
     const foodCols = [200, 320, 440, 560, 700];
     const foodHead = ["fresh", "¾ HP", "½ HP", "hurt", "true size"];
@@ -205,11 +226,12 @@
           nextSlot++;
         }
         for (;;) {
-          const cands = game.towers.filter(t => t.level < t.maxLevel);
+          const cands = game.towers.filter(t => t.upgradeTier < 2);
           if (!cands.length) break;
-          const t = cands.reduce((a, b) => RULES.upgradeCost[a.level] <= RULES.upgradeCost[b.level] ? a : b);
-          if (game.currency < RULES.upgradeCost[t.level]) break;
-          tryUpgrade(t);
+          const cost = t => nextTier(t, SIM_PATHS[t.typeId]).cost;
+          const t = cands.reduce((a, b) => cost(a) <= cost(b) ? a : b);
+          if (game.currency < cost(t)) break;
+          tryUpgrade(t, SIM_PATHS[t.typeId]);
         }
       };
       while (steps < STEP_CAP && game.phase !== "won" && game.phase !== "lost") {

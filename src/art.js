@@ -226,6 +226,10 @@ function drawFace(ctx, cx, hy, headR, opts = {}) {
 // one arm resting, the other raised mid fork-stab.
 function drawRegular(ctx, cx, cy, r, color, opts) {
   const level = opts.level || 1;
+  // Carving Station escalates the fork (bigger at tier 1, a large metal serving
+  // fork at tier 2). Only that path touches the fork; Fork Frenzy keeps the
+  // everyday utensil. Non-Carving paths pass carveTier 0.
+  const carveTier = opts.path === "carvingStation" ? (opts.tier || 0) : 0;
   const shirt = color, hair = "#5b3a21", pants = "#39415a";
   const headR = r * 0.6, hy = cy - r * 0.6, shoulderY = cy - r * 0.02;
   // Seated legs (behind the torso).
@@ -280,12 +284,18 @@ function drawRegular(ctx, cx, cy, r, color, opts) {
   drawLimb(ctx, sx, sy, ex, ey, r * 0.32, shirt);   // upper arm (sleeve)
   drawLimb(ctx, ex, ey, hx2, hy2, r * 0.26, SKIN);  // forearm (skin)
   fillCircle(ctx, hx2, hy2, r * 0.24, SKIN);        // fist
-  // Fork — a filled metal utensil: handle, head base, three notched tines + a highlight.
-  const metal = "#d9dfec", fBot = hy2 - r * 0.04, neck = hy2 - r * 0.52, headTop = hy2 - r * 1.02;
-  ctx.fillStyle = metal; ctx.strokeStyle = MDARK; ctx.lineWidth = 1; ctx.lineJoin = "round";
-  roundRect(ctx, hx2 - r * 0.08, neck - r * 0.02, r * 0.16, fBot - neck, r * 0.07); ctx.fill(); ctx.stroke();   // handle
-  roundRect(ctx, hx2 - r * 0.25, neck - r * 0.13, r * 0.5, r * 0.2, r * 0.06); ctx.fill(); ctx.stroke();        // head base (tines meet here)
-  for (const dx of [-r * 0.18, 0, r * 0.18]) { roundRect(ctx, hx2 + dx - r * 0.055, headTop, r * 0.11, (neck - r * 0.02) - headTop, r * 0.045); ctx.fill(); ctx.stroke(); }   // tines
+  // Fork — a filled metal utensil anchored at the fist: handle, head base, tines,
+  // highlight. Carving Station scales it up (fr) and, at tier 2, swaps to a large
+  // two-tine serving fork in heavier steel; other paths keep the 3-tine everyday fork.
+  const fr = r * (1 + carveTier * 0.42);   // 1.0 / 1.42 / 1.84
+  const metal = carveTier >= 2 ? "#c2c9d8" : "#d9dfec";
+  const fBot = hy2 - r * 0.04, neck = hy2 - fr * 0.52, headTop = hy2 - fr * 1.02;
+  ctx.fillStyle = metal; ctx.strokeStyle = MDARK; ctx.lineWidth = carveTier >= 2 ? 1.4 : 1; ctx.lineJoin = "round";
+  roundRect(ctx, hx2 - fr * 0.08, neck - r * 0.02, fr * 0.16, fBot - neck, fr * 0.07); ctx.fill(); ctx.stroke();   // handle
+  roundRect(ctx, hx2 - fr * 0.25, neck - fr * 0.13, fr * 0.5, fr * 0.2, fr * 0.06); ctx.fill(); ctx.stroke();      // head base (tines meet here)
+  const tines = carveTier >= 2 ? [-fr * 0.16, fr * 0.16] : [-fr * 0.18, 0, fr * 0.18];   // 2 broad tines at tier 2, else 3
+  const tineW = carveTier >= 2 ? fr * 0.13 : fr * 0.11;
+  for (const dx of tines) { roundRect(ctx, hx2 + dx - tineW / 2, headTop, tineW, (neck - r * 0.02) - headTop, fr * 0.045); ctx.fill(); ctx.stroke(); }   // tines
   ctx.strokeStyle = "rgba(255,255,255,0.6)"; ctx.lineWidth = Math.max(0.8, r * 0.05); ctx.lineCap = "round";    // handle highlight
   ctx.beginPath(); ctx.moveTo(hx2 - r * 0.02, neck + r * 0.02); ctx.lineTo(hx2 - r * 0.02, fBot - r * 0.06); ctx.stroke();
   if (level >= 3) { ctx.fillStyle = "#fff2b0"; drawSpark4(ctx, cx - r * 1.0, hy - r * 0.7, r * 0.4); }

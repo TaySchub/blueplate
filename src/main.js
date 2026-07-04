@@ -69,7 +69,7 @@ function setupInput(canvas) {
       const panel = towerPanel(game.selectedTower);
       if (inRect(p, panel.rect)) {
         for (const b of panel.modes) if (inRect(p, b.rect)) { game.selectedTower.targeting = b.mode; audio.build(); return; }
-        if (inRect(p, panel.upgrade.rect)) { tryUpgrade(game.selectedTower); return; }
+        for (const pb of panel.paths) if (inRect(p, pb.rect)) { tryUpgrade(game.selectedTower, pb.id); return; }
         return; // clicked panel background — swallow the click
       }
     }

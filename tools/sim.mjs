@@ -43,6 +43,10 @@ const has = (name) => args.includes("--" + name);
 const SIMS = parseInt(opt("sims", "200"), 10);
 const SEED = parseInt(opt("seed", "1"), 10);
 const BUILD = opt("build", "arrow,cannon,frost,arrow").split(",").map((s) => s.trim());
+// The reference player commits each tower to one fixed upgrade path and buys its
+// two tiers in order — mirrors tools/balance_sim.py SIM_PATHS (the pure-stat paths;
+// the signature paths carry mechanics this gauge doesn't need to pick).
+const SIM_PATHS = { arrow: "carvingStation", cannon: "oneBigBite", frost: "longExposure", sniper: "extraSlurp", zap: "teenageTable" };
 
 // --- load the real engine ---------------------------------------------------
 // The game files are classic browser scripts sharing one global lexical scope,
@@ -61,7 +65,7 @@ const bundle =
   `
 ;globalThis.ENGINE = {
   game, startRun, startNextWave, tryBuild, tryUpgrade, update, makeWave,
-  SLOTS, TOWER_BY_ID, RULES, WAVES,
+  SLOTS, TOWER_BY_ID, RULES, WAVES, towerPaths, nextTier,
   reset() { META = freshMeta(); chosenEndless = false; },
 };`;
 vm.runInThisContext(bundle, { filename: "deckbound-engine-bundle.js" });
@@ -106,12 +110,15 @@ function playGame(seed, build) {
           E.tryBuild(nextSlot);
           nextSlot++;
         }
+        // Each tower commits to its fixed SIM_PATHS path and buys both tiers,
+        // cheapest next tier first (mirrors balance_sim.py buy_upgrades).
         for (;;) {
-          const cands = E.game.towers.filter((t) => t.level < t.maxLevel);
+          const cands = E.game.towers.filter((t) => t.upgradeTier < 2);
           if (!cands.length) break;
-          const t = cands.reduce((a, b) => (E.RULES.upgradeCost[a.level] <= E.RULES.upgradeCost[b.level] ? a : b));
-          if (E.game.currency < E.RULES.upgradeCost[t.level]) break;
-          E.tryUpgrade(t);
+          const cost = (t) => E.nextTier(t, SIM_PATHS[t.typeId]).cost;
+          const t = cands.reduce((a, b) => (cost(a) <= cost(b) ? a : b));
+          if (E.game.currency < cost(t)) break;
+          E.tryUpgrade(t, SIM_PATHS[t.typeId]);
         }
         // Steady reference: let the early-call window lapse so the bonus is 0.
         E.game.prepElapsed = E.RULES.earlyCallWindow + 1;

@@ -33,6 +33,39 @@ Format is deliberately simple and plain-language.
   Files: `src/main.js`, `src/render.js`, `src/engine.js` (+ stamps).
 
 ### Changed
+- **Tower upgrades: three courses → two exclusive paths (PR 1 of the Issue #54
+  rework)** (Implementer hat). Each customer no longer walks a single
+  Appetizer→Entrée→Dessert ladder. Instead every tower now offers **two named
+  upgrade paths, each two tiers deep** — tier 1 a stat buff, tier 2 a signature
+  change to how it attacks. **Buying tier 1 of one path permanently locks the
+  other** for that placed customer (a real build choice), and the tower panel
+  now shows two path buttons: after you commit, the other greys out to
+  "🔒 locked" and the chosen path reveals its tier-2 cost. Course names
+  (Appetizer/Entrée/Dessert) are gone everywhere.
+  - **All ten tier-1 stat upgrades are live**; the two tier-2 *signatures* built
+    in this PR are **The Regular's**, as the vertical slice: **Fork Frenzy** t2
+    turns the thrown fork into a straight-line projectile that pierces the first
+    dish and skewers a second (the base Regular keeps today's homing fork), and
+    **Carving Station** t2 is pure damage with an art escalation — the fork grows
+    bigger at tier 1 and becomes a large two-tine metal serving fork at tier 2
+    (`src/art.js`). The other towers' signatures (crumb splash, knockback,
+    double-freeze, double-straw, 4th kid) are stubbed as placeholder stats and
+    land in PRs 2–4.
+  - **Data model:** each tower's `up` block and `economy.upgradeCost` in
+    `data/balance.json` are replaced by an `upgrades` schema (2 paths × 2 tiers
+    `{ cost, ...deltas }`). **These numbers are placeholders tuned only to keep
+    the balance gate in band** — the real per-tower/per-upgrade tuning is the
+    balance pass (PR 5), which runs against the real-engine sim. The engine stays
+    DOM/canvas/audio-free; both headless sims (`tools/balance_sim.py`,
+    `tools/sim.mjs`) and the harness smoke run were updated to pick one fixed
+    path per tower and apply tier deltas, so the Python band gate stays green.
+  - **Verified:** `balance_sim.py --check` **54.5%** (band 50–60%, stable 53–56%
+    across seeds 1–5); wave-parity OK; real-engine `sim.mjs` **36.0%**
+    (report-only); seeded smoke seed 1 = clean loss, seed 7 = clean win, both
+    PASS with zero violations, same-seed byte-identical. Files:
+    `data/balance.json`, `src/engine.js`, `src/render.js`, `src/main.js`,
+    `src/data.js`, `src/art.js`, `tools/balance_sim.py`, `tools/sim.mjs`,
+    `tools/dev/harness.html` (+ generated `balance.data.js` & `index.html` stamps).
 - **Slack heartbeat: hourly → daily** (QA hat). The studio-feed cron posted
   "cloud automation is alive" every hour, 24/7 — ~720 no-op messages a month
   drowning the signal (every real push already announces itself). Now one

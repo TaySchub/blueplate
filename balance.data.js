@@ -1,7 +1,7 @@
 // AUTO-GENERATED from data/balance.json by tools/gen_balance.py.
 // Do NOT edit by hand — edit data/balance.json and re-run the generator.
 window.BALANCE = {
-  "_note": "Single source of truth for DIFFICULTY, ECONOMY, and MAP GEOMETRY. tools/balance_sim.py reads this file directly; the game reads it via the generated balance.data.js (run tools/gen_balance.py after editing). Only pure art (colors/shapes) stays in main.js; tower/enemy display names + blurbs live here too, so a theme reskin is JSON-only. Rule: if the balance sim needs a number to compute win-rate, it belongs in this file \u2014 including per-tower upgrade deltas ('up'), the map (path + slots), and the wave generator (waveGen).",
+  "_note": "Single source of truth for DIFFICULTY, ECONOMY, and MAP GEOMETRY. tools/balance_sim.py reads this file directly; the game reads it via the generated balance.data.js (run tools/gen_balance.py after editing). Only pure art (colors/shapes) stays in main.js; tower/enemy display names + blurbs live here too, so a theme reskin is JSON-only. Rule: if the balance sim needs a number to compute win-rate, it belongs in this file \u2014 including each tower's per-path upgrade deltas ('upgrades'), the map (path + slots), and the wave generator (waveGen). Upgrades: 2 named paths per tower, each with 2 tiers { cost, ...deltas }; buying a tier of one path locks the other for that placed tower. Numbers here are PLACEHOLDERS balanced only to keep the Python gate in band \u2014 the real per-tower/per-upgrade tuning is the balance pass (Issue #54, PR 5).",
   "target_win_rate": [
     0.5,
     0.6
@@ -10,11 +10,6 @@ window.BALANCE = {
     "startCurrency": 150,
     "startLives": 20,
     "earnPerWave": 40,
-    "upgradeCost": [
-      0,
-      70,
-      100
-    ],
     "earlyCallBonus": 18,
     "earlyCallWindow": 8
   },
@@ -152,10 +147,37 @@ window.BALANCE = {
       "damage": 30,
       "cooldown": 0.75,
       "behavior": "single",
-      "up": {
-        "damage": 16,
-        "range": 14,
-        "cooldownMul": 0.86
+      "upgrades": {
+        "forkFrenzy": {
+          "name": "Fork Frenzy",
+          "tiers": [
+            {
+              "cost": 70,
+              "cooldownMul": 0.62
+            },
+            {
+              "cost": 100,
+              "pierce": true,
+              "damage": 10,
+              "range": 14
+            }
+          ]
+        },
+        "carvingStation": {
+          "name": "Carving Station",
+          "tiers": [
+            {
+              "cost": 70,
+              "damage": 27,
+              "range": 14
+            },
+            {
+              "cost": 100,
+              "damage": 27,
+              "range": 14
+            }
+          ]
+        }
       }
     },
     "cannon": {
@@ -166,10 +188,36 @@ window.BALANCE = {
       "damage": 90,
       "cooldown": 2.8,
       "behavior": "single",
-      "up": {
-        "damage": 48,
-        "range": 8,
-        "cooldownMul": 0.92
+      "upgrades": {
+        "speedEater": {
+          "name": "Speed Eater",
+          "tiers": [
+            {
+              "cost": 70,
+              "cooldownMul": 0.72
+            },
+            {
+              "cost": 100,
+              "cooldownMul": 0.82,
+              "damage": 30
+            }
+          ]
+        },
+        "oneBigBite": {
+          "name": "One Big Bite",
+          "tiers": [
+            {
+              "cost": 70,
+              "damage": 66,
+              "range": 8
+            },
+            {
+              "cost": 100,
+              "damage": 66,
+              "range": 8
+            }
+          ]
+        }
       }
     },
     "frost": {
@@ -183,10 +231,39 @@ window.BALANCE = {
       "freezeDur": 1.0,
       "slowFactor": 0.62,
       "slowDur": 3.0,
-      "up": {
-        "damage": 3,
-        "freezeDurAdd": 0.2,
-        "range": 12
+      "upgrades": {
+        "longExposure": {
+          "name": "Long Exposure",
+          "tiers": [
+            {
+              "cost": 70,
+              "freezeDurAdd": 0.2,
+              "damage": 3,
+              "range": 12
+            },
+            {
+              "cost": 100,
+              "freezeDurAdd": 0.2,
+              "damage": 3,
+              "range": 12,
+              "slowFactorAdd": -0.09
+            }
+          ]
+        },
+        "paparazzi": {
+          "name": "Paparazzi",
+          "tiers": [
+            {
+              "cost": 70,
+              "range": 20
+            },
+            {
+              "cost": 100,
+              "range": 12,
+              "damage": 4
+            }
+          ]
+        }
       }
     },
     "sniper": {
@@ -197,10 +274,36 @@ window.BALANCE = {
       "damage": 7,
       "cooldown": 0.14,
       "behavior": "single",
-      "up": {
-        "damage": 3,
-        "range": 15,
-        "cooldownMul": 0.9
+      "upgrades": {
+        "extraSlurp": {
+          "name": "Extra Slurp",
+          "tiers": [
+            {
+              "cost": 70,
+              "damage": 5,
+              "range": 15
+            },
+            {
+              "cost": 100,
+              "damage": 4,
+              "range": 15
+            }
+          ]
+        },
+        "sillyStraw": {
+          "name": "Silly Straw",
+          "tiers": [
+            {
+              "cost": 70,
+              "range": 20
+            },
+            {
+              "cost": 100,
+              "range": 10,
+              "damage": 3
+            }
+          ]
+        }
       }
     },
     "zap": {
@@ -212,10 +315,36 @@ window.BALANCE = {
       "cooldown": 0.5,
       "behavior": "multi",
       "maxTargets": 3,
-      "up": {
-        "damage": 5,
-        "range": 8,
-        "cooldownMul": 0.88
+      "upgrades": {
+        "birthdayParty": {
+          "name": "Birthday Party",
+          "tiers": [
+            {
+              "cost": 70,
+              "cooldownMul": 0.78
+            },
+            {
+              "cost": 100,
+              "cooldownMul": 0.85,
+              "damage": 6
+            }
+          ]
+        },
+        "teenageTable": {
+          "name": "Teenage Table",
+          "tiers": [
+            {
+              "cost": 70,
+              "damage": 8,
+              "range": 8
+            },
+            {
+              "cost": 100,
+              "damage": 8,
+              "range": 8
+            }
+          ]
+        }
       }
     }
   },

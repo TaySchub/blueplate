@@ -50,17 +50,17 @@
   <!-- Balance numbers (difficulty & economy), generated from data/balance.json
        by tools/gen_balance.py. Loaded first so window.BALANCE exists when the
        game reads it. Deferred scripts run in order. -->
-  <script src="balance.data.js?v=46e2668b" defer></script>
+  <script src="balance.data.js?v=07b2a51a" defer></script>
 
   <!-- The game code, split into modules (order matters; plain globals, no
        bundler — double-clicking index.html still works):
        data (constants + balance merge) -> engine (DOM-free logic) -> audio ->
        art (pure draw fns) -> render (UI/scene) -> main (boot/input/loop). -->
-  <script src="src/data.js?v=25fc2cf2" defer></script>
-  <script src="src/engine.js?v=241beb3d" defer></script>
+  <script src="src/data.js?v=9fe88e4b" defer></script>
+  <script src="src/engine.js?v=321c623a" defer></script>
   <script src="src/audio.js?v=a4651fd5" defer></script>
-  <script src="src/art.js?v=73c540a0" defer></script>
-  <script src="src/render.js?v=79050dae" defer></script>
-  <script src="src/main.js?v=13d93712" defer></script>
+  <script src="src/art.js?v=0cd3b8c7" defer></script>
+  <script src="src/render.js?v=dfc8db1c" defer></script>
+  <script src="src/main.js?v=f51290fe" defer></script>
 </body>
 </html>

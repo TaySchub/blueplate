@@ -25,9 +25,10 @@ What it models (and what it doesn't):
     It's still a directional difficulty gauge for a fixed reference strategy, not
     a per-frame replica.
   - The reference strategy builds its board over the early waves, then spends
-    spare currency upgrading towers (cheapest upgrade first, up to level 3),
-    mirroring how the game actually plays. Tower stats AND upgrade deltas ('up')
-    come from balance.json.
+    spare currency upgrading towers (cheapest next tier first, two tiers deep),
+    mirroring how the game actually plays. Each tower commits to ONE fixed upgrade
+    path (SIM_PATHS) and applies its tier deltas; tower stats AND those deltas come
+    from balance.json.
 
 Run from the repo root:
   python3 tools/balance_sim.py                 # reads data/balance.json
@@ -225,45 +226,70 @@ def simulate_wave(towers: list[dict], wave: dict, cfg: dict, rng: random.Random,
     return leaked, earned
 
 
-MAX_LEVEL = 3  # matches the game's tower maxLevel
+MAX_LEVEL = 3  # base + two path tiers (the game's tower buys 2 tiers of one path)
+
+# Each tower has two upgrade PATHS; buying a tier of one locks the other out for
+# that placed tower (see src/engine.js). The reference strategy commits each tower
+# to ONE fixed path and buys its two tiers in order. These are the pure-stat paths
+# per tower, so the 1-D difficulty gauge stays faithful — the signature paths carry
+# mechanics (pierce, knockback, double-freeze, ...) the gauge can't model, and are
+# the real balance pass's job (Issue #54, PR 5).
+SIM_PATHS = {
+    "arrow": "carvingStation",
+    "cannon": "oneBigBite",
+    "frost": "longExposure",
+    "sniper": "extraSlurp",
+    "zap": "teenageTable",
+}
 
 
 def make_tower(kind: str, x: float, y: float, cfg: dict) -> dict:
     spec = cfg["towers"][kind]
+    path = SIM_PATHS.get(kind) or next(iter(spec["upgrades"]))
     return {"kind": kind, "x": x, "y": y, "cd": 0.0, "level": 1,
             "range": spec["range"], "damage": spec["damage"],
             "cooldown": spec["cooldown"], "behavior": spec["behavior"],
             "splash": spec.get("splash", 0), "slowDur": spec.get("slowDur", 0.0),
             "slowFactor": spec.get("slowFactor", 1.0), "freezeDur": spec.get("freezeDur", 0.0),
-            "maxTargets": spec.get("maxTargets", 1), "up": spec.get("up", {})}
+            "maxTargets": spec.get("maxTargets", 1),
+            "tiers": spec["upgrades"][path]["tiers"]}
 
 
 def apply_upgrade(t: dict) -> None:
-    """Apply one upgrade level's deltas — mirrors src/engine.js tryUpgrade()."""
-    up = t["up"]
+    """Apply the next tier's deltas — mirrors src/engine.js applyUpgradeDeltas().
+    Level 1 buys tier index 0; level 2 buys tier index 1. Non-numeric keys ('cost',
+    'pierce') are ignored — the gauge can't model the signature mechanics."""
+    d = t["tiers"][t["level"] - 1]
     t["level"] += 1
-    if "damage" in up:
-        t["damage"] += up["damage"]
-    if "range" in up:
-        t["range"] += up["range"]
-    if "cooldownMul" in up:
-        t["cooldown"] *= up["cooldownMul"]
-    if "splash" in up:
-        t["splash"] += up["splash"]
-    if "slowFactorAdd" in up:
-        t["slowFactor"] = max(0.2, t["slowFactor"] + up["slowFactorAdd"])
-    if "freezeDurAdd" in up:
-        t["freezeDur"] += up["freezeDurAdd"]
+    if "damage" in d:
+        t["damage"] += d["damage"]
+    if "range" in d:
+        t["range"] += d["range"]
+    if "cooldownMul" in d:
+        t["cooldown"] *= d["cooldownMul"]
+    if "splash" in d:
+        t["splash"] += d["splash"]
+    if "slowFactorAdd" in d:
+        t["slowFactor"] = max(0.2, t["slowFactor"] + d["slowFactorAdd"])
+    if "freezeDurAdd" in d:
+        t["freezeDur"] += d["freezeDurAdd"]
+    if "slowDurAdd" in d:
+        t["slowDur"] += d["slowDurAdd"]
 
 
-def buy_upgrades(towers: list[dict], currency: float, upgrade_cost: list) -> float:
-    """Spend spare currency upgrading towers, cheapest upgrade first."""
+def next_tier_cost(t: dict) -> float:
+    """Cost of the next tier this tower would buy on its committed path."""
+    return t["tiers"][t["level"] - 1]["cost"]
+
+
+def buy_upgrades(towers: list[dict], currency: float) -> float:
+    """Spend spare currency upgrading towers, cheapest next tier first."""
     while True:
         candidates = [t for t in towers if t["level"] < MAX_LEVEL]
         if not candidates:
             break
-        t = min(candidates, key=lambda t: upgrade_cost[t["level"]])
-        cost = upgrade_cost[t["level"]]
+        t = min(candidates, key=next_tier_cost)
+        cost = next_tier_cost(t)
         if currency < cost:
             break
         currency -= cost
@@ -300,7 +326,7 @@ def play_game(build: list[str], cfg: dict, seed: int, early_bonus: float = 0.0,
             towers.append(make_tower(kind, slots[next_slot]["x"], slots[next_slot]["y"], cfg))
             next_slot += 1
         # spend spare currency upgrading existing towers
-        currency = buy_upgrades(towers, currency, econ["upgradeCost"])
+        currency = buy_upgrades(towers, currency)
 
         leaked, earned = simulate_wave(towers, wave, cfg, rng, path)
         currency += earned + econ["earnPerWave"] + early_bonus
