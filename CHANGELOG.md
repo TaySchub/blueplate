@@ -6,6 +6,27 @@ Format is deliberately simple and plain-language.
 ## [Unreleased]
 
 ### Changed
+- **Combat rework: five distinct attack identities + new mechanics** (Developer
+  hat). Builds on the art deep-dive branch. Each customer now fights differently,
+  with the mechanics mirrored in `tools/balance_sim.py` so the sim stays honest:
+  - **The Regular** (`arrow`) — throws forks; mid damage, medium speed (unchanged
+    numbers, now a themed fork projectile).
+  - **Big Appetite** (`cannon`) — **single-target** now (was splash): lunges in and
+    his **mouth chomps** the dish right on the belt (instant, big damage 90→72,
+    slow 2.4s reload, short range). Reusable tower-lunge added.
+  - **The Photographer** (`frost`) — new **freeze** mechanic: a flash makes the dish
+    **pose (freeze) 1s**, then it's **slowed 3s** (0.62×); very low damage. Camera
+    viewfinder-frame visual, no ice.
+  - **The Milkshake Slurper** (`sniper`) — tiny damage, **very fast** (~7 sips/sec),
+    small-med range: you watch a dish's HP drain up the straw.
+  - **The Kids' Table** (`zap`) — new **multi-target**: 3 hands grab up to 3 dishes;
+    if only one is in range all three pile onto it (3× damage). Instant hand-grab
+    visual.
+  - **Progressive food bites:** dishes show a bite eaten out past 3/4 HP that grows
+    past 1/2 HP; the Fry Swarm loses fries (5→3→1). Reads a dish's health at a glance.
+  - **Balance:** `balance_sim.py` extended for freeze + multi + single-target; a
+    tuning pass lands the reference build at **50.7% (BALANCED)** while keeping the
+    Photographer's 1s/3s feel. `audio` object untouched.
 - **Art deep-dive: all 5 customers + 4 foods redrawn** (Developer hat). Every
   tower is now a fully-drawn seated-diner mascot with its own body and props
   (still canvas-only, signature color kept as the at-a-glance ID), and every
