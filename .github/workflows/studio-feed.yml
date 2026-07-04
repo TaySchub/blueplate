@@ -3,7 +3,9 @@ on:
   push:
     branches: ["**"]
   schedule:
-    - cron: "0 * * * *"
+    # Daily heartbeat (was hourly — ~720 no-op Slack messages/month). Pushes
+    # already announce all real activity; this just proves the cron is alive.
+    - cron: "0 13 * * *"
   workflow_dispatch: {}
 jobs:
   notify:

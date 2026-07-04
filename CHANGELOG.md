@@ -17,6 +17,10 @@ Format is deliberately simple and plain-language.
   No gameplay/balance change. File: `style.css`.
 
 ### Changed
+- **Slack heartbeat: hourly → daily** (QA hat). The studio-feed cron posted
+  "cloud automation is alive" every hour, 24/7 — ~720 no-op messages a month
+  drowning the signal (every real push already announces itself). Now one
+  heartbeat a day at 13:00 UTC. File: `.github/workflows/studio-feed.yml`.
 - **Branching flow simplified: no more chaining; repo hardened** (QA hat;
   developer-approved 2026-07-04). The stacked-PR footgun that stranded PR #44
   (it merged into its parent feature branch instead of `main`) came from
