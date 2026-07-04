@@ -132,11 +132,9 @@ Render `tools/dev/harness.html?mode=sheet` and check:
 - **2026-07-02** — Kept **"Wave"** (not "Course") for the wave counter: "Course"
   collides with the Appetizer/Entrée/Dessert upgrade names.
 - **2026-07-03** (art deep-dive, PR #43) — **Foods are faceless** and
-  food-forward; silhouette + panic-motion carry the character. Supersedes the
-  "googly eyes" phrase that still sits in `FRANCHISE_BACKBONE.md`'s tone rules
-  — *backbone line pending developer confirmation to update*. Note:
-  `drawGooglyEyes()` in `main.js` is now unused (zero call sites) — remove it
-  or reuse it consciously, don't let it drift back in by accident.
+  food-forward; silhouette + panic-motion carry the character. **Developer
+  confirmed 2026-07-04:** `FRANCHISE_BACKBONE.md`'s tone rules aligned and the
+  unused `drawGooglyEyes()` removed from `main.js`, both in PR #51.
 - **2026-07-03** (combat rework, PR #45) — **Freeze = snapshot, not ice.**
   White pop + viewfinder brackets; no icicles, no frost aura on the freeze
   itself (the slow keeps its thin cyan ring).

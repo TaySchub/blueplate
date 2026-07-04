@@ -170,10 +170,9 @@ Format is deliberately simple and plain-language.
   - `docs/art-refs/` — the developer's visual reference drop-box (mood refs,
     marked-up feedback, approved contact sheets as the comparison baseline);
     agents must check it before any art task.
-  - Flagged (not changed): `FRANCHISE_BACKBONE.md`'s tone rules still say
-    food has "googly eyes" — superseded by the faceless-foods decision
-    (PR #43); backbone edit awaits developer confirmation. Also noted:
-    `drawGooglyEyes()` in `main.js` is now dead code.
+  - The flagged `FRANCHISE_BACKBONE.md` "googly eyes" contradiction was
+    confirmed by the developer (2026-07-04): the backbone alignment + dead
+    `drawGooglyEyes()` removal landed as their own PR #51.
   Files: `docs/ART_STYLE.md`, `docs/art-refs/README.md`.
 - **Re-theme, Phase 5 — file follow-up design** (Game Designer hat; file-only, no
   build). Closes out the retheme by recording future work: filed **Issue #39 —
