@@ -30,6 +30,40 @@ Format is deliberately simple and plain-language.
   remote branches and 5 local ones deleted (every tip verified an ancestor of
   `main` first — zero content loss). Files: `AUTONOMY.md`,
   `.claude/agents/implementer.md`.
+- **`main.js` split into six `src/` modules + a real-engine headless sim**
+  (Developer hat; developer-approved 2026-07-04; the review's items 8 & 9).
+  - **The split** (`src/data.js` → `engine.js` → `audio.js` → `art.js` →
+    `render.js` → `main.js`, ordered script tags, plain globals, no bundler —
+    double-click still works): `engine.js` holds ALL game logic and is
+    **DOM/canvas/audio-free**; its side effects (sounds, the call-early popup)
+    go through no-op `FX` hooks that `src/main.js` wires to the real audio/UI.
+    Art PRs and engine PRs no longer touch the same file.
+  - **Proof it changed nothing:** the split was done by a mechanical,
+    assert-guarded partition of `main.js` (reassembles byte-exact; exactly 18
+    audio→FX call rewrites), and the seeded harness smoke runs are
+    **bit-identical before/after** (seed 1: loss at wave 20, 211 eaten, 31,461
+    steps; seed 2: win, 217 eaten, 31,511 steps — every field equal). Game
+    loads with zero console errors; contact sheet renders; Python sim gate
+    still 53.0% BALANCED.
+  - **`tools/sim.mjs` — the real-engine sim:** plays whole seeded games through
+    the actual `src/engine.js` in Node (no mirror). 200 games in ~4s (the
+    Python model needs ~3 min). **Finding: the real engine reads ~20.5%
+    win-rate for the steady reference vs the Python gauge's 53.0%** — the
+    instant-hit/no-overkill/HP-jitter simplifications flatter the player; real
+    runs reach wave 20 at median and mostly die there. Reported, not retuned —
+    which gauge difficulty targets is the developer's call. CI now prints the
+    real-engine number on every PR (report-only; Python stays the gate).
+  - **`tools/check_parity.py` — a new CI GATE:** the game's `makeWave(0..24)`
+    (dumped by sim.mjs) must match the Python sim's `make_wave` exactly, so
+    silent formula drift (e.g. JS `Math.round(2.5)=3` vs Python banker's
+    `round(2.5)=2`) turns into a red run. Currently: all 25 waves identical.
+  - Tooling/docs updated: `gen_balance.py` stamps all six modules;
+    CI syntax-checks them; the harness loads them; `CLAUDE.md` map + landmarks
+    re-pathed per module; `AGENTS.md`/`implementer.md` scope rules updated
+    (logic only in the DOM-free engine). Files: `src/*` (new), `main.js`
+    (deleted), `index.html`, `tools/sim.mjs` + `tools/check_parity.py` (new),
+    `tools/gen_balance.py`, `tools/balance_sim.py` (comments),
+    `.github/workflows/ci.yml`, `tools/dev/harness.html`, docs.
 - **Backbone aligned to faceless foods + dead googly-eyes code removed**
   (Developer hat; developer-confirmed 2026-07-04). `docs/FRANCHISE_BACKBONE.md`'s
   tone rules still described food with "googly eyes" — superseded by the art

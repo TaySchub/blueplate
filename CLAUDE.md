@@ -40,21 +40,30 @@ session, confirm non-trivial work (`PROJECT.md` §5); during an unattended run,
 
 ## Where things live — THE repo map (single source; other docs point here)
 
-**Game code (the only build targets):**
+**Game code (the only build targets; `src/` load order matters, plain globals,
+no bundler — `file://` double-click still works):**
 - `index.html` — page shell + canvas; its `<script>` tags carry `gen_balance`'s
   `?v=` cache-bust stamps.
-- `main.js` — all game logic, canvas art, and procedural audio (~2,000 lines;
-  the `src/` module split is the planned next refactor). Landmarks below.
+- `src/data.js` — constants (incl. the `COLOR` palette) + the balance-data
+  merge into `TOWER_TYPES`/`ENEMY_TYPES`/`RULES`. No DOM.
+- `src/engine.js` — ALL game logic and state. **Must stay DOM/canvas/audio-free**
+  (`tools/sim.mjs` runs it headless in Node); side effects go through its `FX`
+  hooks, wired by `src/main.js`.
+- `src/audio.js` — the procedural Web Audio object (dedicated audio branches only).
+- `src/art.js` — pure draw functions (mascots, foods, glyphs, helpers).
+- `src/render.js` — the render pass + all UI/screens; panel geometry shared
+  with input hit-testing.
+- `src/main.js` — the shell: boot, input, fixed-timestep loop, FX wiring.
 - `style.css` — page styling around the canvas (no `image-rendering` override —
   the art is smooth vector, not pixel art).
 
 **Data & pipeline:**
 - `data/balance.json` — single source of truth for difficulty, economy, waves
   (`waveGen`), the map (`path`/`slots`), display names/blurbs, and
-  `target_win_rate` (currently 50–60%). **After editing it — or `main.js` —
-  run `python3 tools/gen_balance.py`** (regenerates `balance.data.js`,
-  re-stamps `index.html`; CI fails if you forget). Changing gameplay numbers
-  anywhere else is a bug; only pure art stays in `main.js`.
+  `target_win_rate` (currently 50–60%). **After editing it — or any
+  `src/*.js` file — run `python3 tools/gen_balance.py`** (regenerates
+  `balance.data.js`, re-stamps `index.html`; CI fails if you forget). Changing
+  gameplay numbers anywhere else is a bug; only pure art stays in `src/art.js`.
 - `balance.data.js` — generated mirror; never edit by hand.
 
 **Verification:**
@@ -75,36 +84,44 @@ session, confirm non-trivial work (`PROJECT.md` §5); during an unattended run,
 
 The backlog is GitHub Issues — the single roadmap. Don't create a parallel one.
 
-## Code landmarks in `main.js` (grep to confirm; update this list when they move)
+## Code landmarks (grep to confirm; update this list when they move)
 
-- **Data merge:** `TOWER_ART`/`ENEMY_ART` (art-only) + `BAL` (balance.json) →
-  `TOWER_TYPES`/`ENEMY_TYPES`; economy in `RULES`.
-- **Waves:** `makeWave(n)`/`waveTypeWeights` (mirrored in `balance_sim.py`) ·
-  `getWave` (endless past `waveCount`) · `buildSpawnQueue`.
-- **Combat:** `updateTowers()` (per-type firing incl. sniper straw-lock + zap
-  multi pile-on) · `fireProjectile()` (cannon/zap/sniper act instantly; only
-  arrow + frost shots travel) · `resolveHit()` · `applyDamage()` ·
-  `pickTarget()` (First/Last/Strong/Close) · `moveEnemies()` (freeze → slow).
-- **Run loop & economy:** `startRun` · `startNextWave` + `earlyCallBonusNow` ·
-  `checkWaveEnd` · `endRun`; meta-progression in `META`/`SHOP`/`loadMeta`.
-- **Upgrades:** `tryUpgrade` applies `up` deltas from balance.json (sim mirror:
-  `apply_upgrade`/`buy_upgrades`); rework tracked in pinned Issue #54.
-- **Art:** `drawCustomer()` → `drawRegular`/`drawBigAppetite`/`drawPhotographer`/
-  `drawMilkshakeSlurper`/`drawKidsTable` · `drawFood()` + `drawFoodBites`/
-  `BITE_SPOTS` · `drawSlurpStraws` · particles via `spawn*`.
-- **UI:** `drawToolbar`/`drawHUD`/`drawSelectedTowerPanel` + `towerPanel()`
-  (geometry shared with input hit-testing) · `setupInput`.
-- **Audio:** the `audio` object (`voice`/`noiseBurst`/`env` + per-event
-  effects) — touch only on a dedicated audio branch.
+- **`src/data.js` — data merge:** `TOWER_ART`/`ENEMY_ART` (art-only) + `BAL`
+  (balance.json) → `TOWER_TYPES`/`ENEMY_TYPES`; economy in `RULES`; `COLOR`.
+- **`src/engine.js` — waves:** `makeWave(n)`/`waveTypeWeights` (mirrored in
+  `balance_sim.py`; parity-checked in CI) · `getWave` (endless past
+  `waveCount`) · `buildSpawnQueue`.
+- **`src/engine.js` — combat:** `updateTowers()` (per-type firing incl. sniper
+  straw-lock + zap multi pile-on) · `fireProjectile()` (cannon/zap/sniper act
+  instantly; only arrow + frost shots travel) · `resolveHit()` ·
+  `applyDamage()` · `pickTarget()` (First/Last/Strong/Close) · `moveEnemies()`
+  (freeze → slow) · side effects via the `FX` hooks (wired in `src/main.js`).
+- **`src/engine.js` — run loop & economy:** `startRun` · `startNextWave` +
+  `earlyCallBonusNow` · `checkWaveEnd` · `endRun`; meta in `META`/`SHOP`/
+  `loadMeta`; particles as pure data via `spawn*`/`updateParticles`.
+- **`src/engine.js` — upgrades:** `tryUpgrade` applies `up` deltas from
+  balance.json (sim mirror: `apply_upgrade`/`buy_upgrades`); rework tracked in
+  pinned Issue #54.
+- **`src/art.js`:** `drawCustomer()` → `drawRegular`/`drawBigAppetite`/
+  `drawPhotographer`/`drawMilkshakeSlurper`/`drawKidsTable` · `drawFood()` +
+  `drawFoodBites`/`BITE_SPOTS` · shared helpers `drawFace`/`drawLimb`/
+  `fillCircle`/`roundRect`/`drawSpark4`.
+- **`src/render.js`:** `render()` · `drawToolbar`/`drawHUD`/
+  `drawSelectedTowerPanel` + `towerPanel()` (geometry shared with input
+  hit-testing) · scene draws (`drawPath`/`drawCore`/`drawEnemies`/
+  `drawTowers`/`drawSlurpStraws`).
+- **`src/main.js`:** boot · `setupInput` · `startGameLoop` (fixed timestep) ·
+  the FX wiring.
+- **`src/audio.js`:** the `audio` object (`voice`/`noiseBurst`/`env` +
+  per-event effects) — touch only on a dedicated audio branch.
 
-## Sequencing rule while the game is one file
+## Sequencing after the split
 
-`main.js` currently holds everything. **Run Issues sequentially, one worker on
-`main.js` at a time** — parallel edits to a single file cause nonstop merge
-conflicts, and parallel agents add real token + coordination overhead for no gain
-here. The next structural refactor is splitting `main.js` into modules (e.g.
-`src/engine.js`, `src/render.js`, `src/data.js`). *That* is the moment parallel
-domain workers (engine / frontend / balance) start paying off — not before.
+Modules unlock parallel work: an art PR (`src/art.js`) and an engine PR
+(`src/engine.js`) no longer collide. The rule is now **one worker per FILE at
+a time** — never two agents editing the same module concurrently. Cross-module
+features (most gameplay work touches engine + render) still run as ONE
+worker's branch.
 
 ## Verification (prefer deterministic checks over opinions)
 
@@ -122,7 +139,9 @@ Never hand the developer an unverified change to preview:**
    the signal that tells the designer to tune `data/balance.json`.
 3. **Any gameplay change:** run the smoke run in `tools/dev/harness.html`
    (`?mode=smoke&seed=1`) and paste its JSON verdict in the PR. Same seed →
-   same run, so a failing seed is a repro URL.
+   same run, so a failing seed is a repro URL. For engine changes also run
+   `node tools/sim.mjs` — the real-engine win-rate (no mirror; reported in CI
+   too) — and quote it alongside the Python number.
 4. **Art:** render the contact sheet (`tools/dev/harness.html?mode=sheet`),
    screenshot it, attach it to the PR, and self-check it against
    `docs/ART_STYLE.md` first. Batch a whole art pass into ONE sheet and one

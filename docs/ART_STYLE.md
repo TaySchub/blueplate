@@ -27,9 +27,9 @@ cheap smooth canvas vectors.
 - **General audience; the "violence" is dining.** Kills produce a bite-flash
   and **crumbs, not carnage**. Panic is comedic (little legs, speed lines),
   never distressing.
-- **Art never changes gameplay.** Colors/shapes/poses live in `main.js`;
-  anything the balance sim needs lives in `data/balance.json`. An art PR that
-  moves a number is a bug.
+- **Art never changes gameplay.** Colors/shapes/poses live in `src/art.js`
+  (scene/UI drawing in `src/render.js`); anything the balance sim needs lives
+  in `data/balance.json`. An art PR that moves a number is a bug.
 
 ## The identity system (why every unit reads at a glance)
 
@@ -79,7 +79,7 @@ cheap smooth canvas vectors.
   limbs are a dark underlay stroke + colored top stroke.
 - **Grounding:** foods get a soft shadow ellipse under them; customers sit on
   the booth pads the background draws.
-- **Palette anchors** (from `COLOR` in `main.js`): bg `#10131a`, ink
+- **Palette anchors** (from `COLOR` in `src/data.js`): bg `#10131a`, ink
   `#e8ecf3`, muted `#8b94a7`, gold `#ffe08a`, good `#7dff9b`, bad `#ff6b6b`,
   essence `#c9a6ff`. New colors are allowed but call them out in the PR.
 

@@ -141,9 +141,9 @@ the map (`path` + tower `slots`). To change the game:
 it from reading the JSON directly (a security rule for local files), so
 `gen_balance.py` copies the numbers into `balance.data.js`, which the game
 loads. It also stamps a small cache-busting version onto `index.html`'s script
-tags (`main.js?v=…`) so a fresh deploy shows up for players instead of GitHub
+tags (`src/engine.js?v=…` etc.) so a fresh deploy shows up for players instead of GitHub
 Pages' ~10-minute cached copy. So run `gen_balance.py` before deploying after
-**any** code change (including `main.js`), and commit `balance.data.js` +
+**any** code change (including the `src/*.js` modules), and commit `balance.data.js` +
 `index.html` together.
 
 > Instant testing tip: GitHub Pages still caches the page itself for ~10 min, so
@@ -158,5 +158,5 @@ python3 tools/balance_sim.py
 
 It plays the game headlessly and reports a win-rate — aim for the
 `target_win_rate` band (50–60%) set in the same file. Colors, shapes, and art
-aren't in `balance.json`; those live in `main.js` (and `style.css` for the page
+aren't in `balance.json`; those live in `src/art.js` (and `style.css` for the page
 around the game).
