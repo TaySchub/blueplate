@@ -90,8 +90,12 @@ html, body {
   background: var(--panel);
   border: 1px solid #2a3040;
   border-radius: 10px;
-  /* Crisp edges when we draw pixel art later. */
-  image-rendering: pixelated;
+  /*
+    No image-rendering override: the art is smooth vector-style canvas drawing
+    (anti-aliased curves), not pixel art, so the browser's default smooth
+    scaling is what keeps mascots/outlines crisp when the 800x450 canvas is
+    scaled up on Retina/iPhone screens. `pixelated` here made everything blocky.
+  */
 }
 
 /* --- Footer --- */
