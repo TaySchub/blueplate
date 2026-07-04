@@ -143,6 +143,26 @@ Format is deliberately simple and plain-language.
      reads **53.0% (BALANCED, exit 0)** at `--sims 200`; an impossible band
      correctly fails (exit 1). No gameplay/balance change.
   Files: `.github/workflows/ci.yml`, `tools/balance_sim.py`.
+- **Art style guide + reference drop-box** (Game Designer hat; docs-only, no
+  code). The project's visual taste was scattered across CHANGELOG prose, code
+  comments, and chat history — so every art pass re-derived it and every
+  review re-litigated it. Now written down:
+  - `docs/ART_STYLE.md` — hard rules (original-only, canvas-vector-only,
+    comedic never gross), the identity system (signature color = the ID, one
+    identity feature each, silhouette-first, size = HP, **foods are
+    faceless**), technique (shared helpers, r-relative coords, MDARK outline),
+    state language (one growing bite, snapshot-freeze **no ice**, bib/sparkle
+    upgrades), the readability bar, a **pre-PR checklist** agents run alone,
+    and an append-only **Decision Log** seeded with every settled call so
+    none get re-argued.
+  - `docs/art-refs/` — the developer's visual reference drop-box (mood refs,
+    marked-up feedback, approved contact sheets as the comparison baseline);
+    agents must check it before any art task.
+  - Flagged (not changed): `FRANCHISE_BACKBONE.md`'s tone rules still say
+    food has "googly eyes" — superseded by the faceless-foods decision
+    (PR #43); backbone edit awaits developer confirmation. Also noted:
+    `drawGooglyEyes()` in `main.js` is now dead code.
+  Files: `docs/ART_STYLE.md`, `docs/art-refs/README.md`.
 - **Re-theme, Phase 5 — file follow-up design** (Game Designer hat; file-only, no
   build). Closes out the retheme by recording future work: filed **Issue #39 —
   "Map 2: the Pizzeria + Pizza Supreme (splitter enemy)"** (the franchise's first
