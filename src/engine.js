@@ -183,7 +183,10 @@ function tryBuild(slotIndex) {
   game.currency -= def.cost;
   const s = SLOTS[slotIndex];
   game.towers.push({
-    slotIndex, x: s.x, y: s.y, typeId: def.id, level: 1, maxLevel: 3,
+    slotIndex, x: s.x, y: s.y, typeId: def.id,
+    // Upgrade state: one of the two paths, committed on the first purchase, then
+    // 0/1/2 tiers deep. upgradePath === null means "unupgraded, both paths open".
+    upgradePath: null, upgradeTier: 0, pierce: false,
     range: def.range, damage: def.damage, cooldown: def.cooldown,
     splash: def.splash || 0, slowFactor: def.slowFactor || 1, slowDur: def.slowDur || 0,
     freezeDur: def.freezeDur || 0, maxTargets: def.maxTargets || 1,
@@ -195,19 +198,57 @@ function tryBuild(slotIndex) {
   FX.build();
 }
 
-function tryUpgrade(t) {
-  if (t.level >= t.maxLevel) { FX.deny(); setMessage("Already served Dessert (max level)"); return; }
-  const cost = RULES.upgradeCost[t.level];
-  if (game.currency < cost) { FX.deny(); setMessage("Not enough Tips for the next course (need " + cost + ")"); return; }
-  game.currency -= cost;
-  t.level++;
-  const up = TOWER_BY_ID[t.typeId].up;
-  if (up.damage) t.damage += up.damage;
-  if (up.range) t.range += up.range;
-  if (up.cooldownMul) t.cooldown *= up.cooldownMul;
-  if (up.splash) t.splash += up.splash;
-  if (up.slowFactorAdd) t.slowFactor = Math.max(0.2, t.slowFactor + up.slowFactorAdd);
-  if (up.freezeDurAdd) t.freezeDur += up.freezeDurAdd;
+/* Upgrade paths (data/balance.json → TOWER_BY_ID[type].upgrades). Each tower has
+   two named paths; each path has two tiers { cost, ...deltas }. Buying tier 1 of
+   one path commits this PLACED tower to it and permanently locks the other. Tier
+   1 is a stat buff; tier 2 is a signature change to how the tower attacks. These
+   pure helpers are shared by the engine, the panel UI (render.js), and the
+   headless sims. */
+const MAX_TIER = 2;
+
+// The two paths for a tower type, in display order: [{ id, name, tiers }, ...].
+function towerPaths(typeId) {
+  const u = TOWER_BY_ID[typeId].upgrades;
+  return Object.keys(u).map((id) => ({ id, name: u[id].name, tiers: u[id].tiers }));
+}
+// Can this placed tower still buy into pathId? No if it's maxed or already
+// committed to the other path.
+function pathAvailable(t, pathId) {
+  if (t.upgradeTier >= MAX_TIER) return false;
+  return t.upgradePath === null || t.upgradePath === pathId;
+}
+// The next tier object the tower would buy on pathId (or null if unavailable).
+function nextTier(t, pathId) {
+  if (!pathAvailable(t, pathId)) return null;
+  return TOWER_BY_ID[t.typeId].upgrades[pathId].tiers[t.upgradeTier];
+}
+
+// Apply one tier's deltas onto a placed tower. Same delta vocabulary the sims
+// mirror (balance_sim.py apply_upgrade). `pierce` is the only engine-only flag.
+function applyUpgradeDeltas(t, d) {
+  if (d.damage) t.damage += d.damage;
+  if (d.range) t.range += d.range;
+  if (d.cooldownMul) t.cooldown *= d.cooldownMul;
+  if (d.splash) t.splash += d.splash;
+  if (d.slowFactorAdd) t.slowFactor = Math.max(0.2, t.slowFactor + d.slowFactorAdd);
+  if (d.freezeDurAdd) t.freezeDur += d.freezeDurAdd;
+  if (d.slowDurAdd) t.slowDur += d.slowDurAdd;
+  if (d.pierce) t.pierce = true;   // Fork Frenzy t2: the fork flies straight and skewers a second dish
+}
+
+// Buy the next tier of pathId for placed tower t. The first purchase commits the
+// tower to that path and locks the other out for good.
+function tryUpgrade(t, pathId) {
+  if (t.upgradeTier >= MAX_TIER) { FX.deny(); setMessage("This customer is fully upgraded"); return; }
+  const upgrades = TOWER_BY_ID[t.typeId].upgrades;
+  if (t.upgradePath && t.upgradePath !== pathId) { FX.deny(); setMessage("Locked into " + upgrades[t.upgradePath].name); return; }
+  const tier = nextTier(t, pathId);
+  if (!tier) { FX.deny(); return; }
+  if (game.currency < tier.cost) { FX.deny(); setMessage("Not enough Tips for " + upgrades[pathId].name + " (need " + tier.cost + ")"); return; }
+  game.currency -= tier.cost;
+  t.upgradePath = pathId;   // commit → the other path is now locked out
+  t.upgradeTier++;
+  applyUpgradeDeltas(t, tier);
   t.upgradeFlash = 0.6;
   spawnUpgradeSparkles(t);
   FX.upgrade();
@@ -376,6 +417,19 @@ function fireProjectile(t, target) {
     applyDamage(target, t.damage);
     return;
   }
+  // Fork Frenzy tier 2: the fork stops homing and flies STRAIGHT in the aim
+  // direction at release, skewering the first dish and carrying through to a
+  // second (movePiercing). The base arrow (no pierce) keeps the homing fork below.
+  if (t.typeId === "arrow" && t.pierce) {
+    const ang = Math.atan2(target.y - t.y, target.x - t.x), speed = 420;
+    game.projectiles.push({
+      x: t.x, y: t.y, x0: t.x, y0: t.y, typeId: "arrow", piercing: true, angle: ang,
+      vx: Math.cos(ang) * speed, vy: Math.sin(ang) * speed,
+      damage: t.damage, radius: 4, color: def.color, hits: [], maxHits: 2, life: 1.6,
+    });
+    FX.shoot(t.typeId);
+    return;
+  }
   game.projectiles.push({
     x: t.x, y: t.y, x0: t.x, y0: t.y, typeId: t.typeId, target,
     speed: 360,   // only arrow + frost reach here; the instant attackers returned above
@@ -387,12 +441,30 @@ function fireProjectile(t, target) {
 
 function moveProjectiles(step) {
   for (const p of game.projectiles) {
+    if (p.piercing) { movePiercing(p, step); continue; }
     if (!p.target || !game.enemies.includes(p.target)) { p.dead = true; continue; }
     const dx = p.target.x - p.x, dy = p.target.y - p.y, d = Math.hypot(dx, dy), stepDist = p.speed * step;
     if (d <= stepDist + p.target.radius) { resolveHit(p); p.dead = true; }
     else { p.x += (dx / d) * stepDist; p.y += (dy / d) * stepDist; }
   }
   game.projectiles = game.projectiles.filter((p) => !p.dead);
+}
+
+// A straight-line piercing fork (Fork Frenzy t2): advance along its fixed
+// velocity, damage each not-yet-hit dish it overlaps, and die after maxHits
+// skewers, once off-screen, or when its short life runs out. It pierces the
+// first dish and carries through to a second.
+function movePiercing(p, step) {
+  p.x += p.vx * step; p.y += p.vy * step; p.life -= step;
+  for (const e of [...game.enemies]) {
+    if (p.hits.includes(e)) continue;
+    if (distance(p, e) <= e.radius + p.radius) {
+      p.hits.push(e);
+      applyDamage(e, p.damage);
+      if (p.hits.length >= p.maxHits) { p.dead = true; return; }
+    }
+  }
+  if (p.life <= 0 || p.x < -20 || p.x > VIEW.w + 20 || p.y < -20 || p.y > VIEW.h + 20) p.dead = true;
 }
 
 function resolveHit(p) {

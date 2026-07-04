@@ -38,7 +38,6 @@ const BAL = window.BALANCE;
 const RULES = {
   startCurrency: BAL.economy.startCurrency,
   startLives: BAL.economy.startLives,
-  upgradeCost: BAL.economy.upgradeCost,
   earnPerWave: BAL.economy.earnPerWave,
   // "Call the wave early" bonus: full value if you start the wave the instant
   // prep begins, decaying linearly to 0 over earlyCallWindow seconds.
@@ -56,9 +55,6 @@ const TOWER_ART = {
   sniper: { color: "#c8a8ff", glow: "#7a4fd0" },
   zap:    { color: "#ffe08a", glow: "#b59a2b" },
 };
-// Upgrade levels 1→2→3 are presented as a three-course meal (display only; the
-// underlying level numbers are unchanged).
-const COURSE_NAMES = ["Appetizer", "Entrée", "Dessert"];
 // Fixed display order for the deck/toolbar.
 const TOWER_ORDER = ["arrow", "cannon", "frost", "sniper", "zap"];
 const TOWER_TYPES = TOWER_ORDER.map((id) => ({ id, ...BAL.towers[id], ...TOWER_ART[id] }));
