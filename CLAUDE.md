@@ -61,15 +61,27 @@ paying off — not before.
 
 ## Verification (prefer deterministic checks over opinions)
 
-Before a feature is "done": the game still runs and is playable; automated checks
-pass; and for anything touching difficulty, run the balance sim:
+CI (`.github/workflows/ci.yml`) runs on every PR: JS syntax, generated-file
+sync, and the balance band (`tools/balance_sim.py --check`). Never open a PR
+you expect to fail it.
 
-```
-python3 tools/balance_sim.py
-```
+**Definition of verified — do ALL of this yourself before requesting review.
+Never hand the developer an unverified change to preview:**
 
-The win-rate it reports — not a model's "looks balanced" — is the signal that
-tells the designer to tune `data/balance.json`. Aim inside the target band.
+1. **Everything:** serve the repo root (`python3 -m http.server`), load the
+   game, zero console errors.
+2. **Difficulty/economy:** run `python3 tools/balance_sim.py --check` and quote
+   the win-rate in the PR. The number — not a model's "looks balanced" — is
+   the signal that tells the designer to tune `data/balance.json`.
+3. **Any gameplay change:** run the smoke run in `tools/dev/harness.html`
+   (`?mode=smoke&seed=1`) and paste its JSON verdict in the PR. Same seed →
+   same run, so a failing seed is a repro URL.
+4. **Art:** render the contact sheet (`tools/dev/harness.html?mode=sheet`),
+   screenshot it, attach it to the PR, and self-check it against
+   `docs/ART_STYLE.md` first. Batch a whole art pass into ONE sheet and one
+   review round — never ping the developer per-asset.
+5. **Feel checks:** drive the real game in the harness's play section (speed
+   multiplier + frame-step) instead of asking the developer to click around.
 
 ## Human gates — never cross these without in-the-moment approval
 

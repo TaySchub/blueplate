@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<!--
+  Deckbound dev harness — the self-serve verification tool for agents (and
+  curious humans). Loads the REAL game code (../../balance.data.js + ../../main.js,
+  no copies, no mocks) and gives three things:
+
+    1. CONTACT SHEET — every customer (levels 1/2/3, attack fx, toolbar size) and
+       every food (fresh / ¾HP / ½HP / hurt / true belt size) drawn by the real
+       drawCustomer()/drawFood() onto one canvas. Screenshot THIS for art PRs —
+       one image, one review round, instead of per-asset back-and-forth.
+
+    2. SMOKE RUN — plays a full scripted run through the real update() loop with
+       a SEEDED RNG (same seed → same run, so a repro is a URL), checking
+       invariants every few steps (currency ≥ 0, lives in range, finite enemy
+       state, legal phases). Prints a JSON verdict. Paste that JSON in gameplay
+       PRs.
+
+    3. PLAY — the real game, live input, with a speed multiplier and
+       frame-stepping. The page freezes the game's own rAF loop at boot and
+       drives update()/render() itself, so fast-forward and stepping stay exact.
+
+  URL params (all optional):
+    ?mode=sheet | smoke | play      auto-run that section on load
+    &seed=1                         RNG seed (smoke always seeds; play seeds if given)
+    &build=arrow,cannon,frost,arrow tower ids placed in slot order (default = the
+                                    balance sim's reference board)
+    &speed=4                        play-mode updates per frame (1/2/4/8)
+
+  Serve the repo root (python3 -m http.server) and open
+    http://localhost:PORT/tools/dev/harness.html?mode=sheet
+  Dev tool only — not part of the game; safe to ignore in production.
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Deckbound dev harness</title>
+<style>
+  :root { --bg:#10131a; --panel:#171b24; --ink:#e8ecf3; --muted:#8b94a7; --accent:#6ea8fe; --good:#7dff9b; --bad:#ff6b6b; }
+  body { margin:0; padding:16px 20px 60px; background:var(--bg); color:var(--ink);
+         font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  h1 { font-size:20px; margin:0 0 2px; }
+  h2 { font-size:15px; margin:26px 0 8px; color:var(--accent); }
+  p.hint { color:var(--muted); font-size:12px; margin:2px 0 10px; max-width:820px; }
+  canvas { background:var(--panel); border:1px solid #2a3040; border-radius:8px; display:block; }
+  button, select { background:#2b3f66; color:var(--ink); border:1px solid #3a4a6e; border-radius:6px;
+                   padding:6px 12px; font-size:13px; cursor:pointer; margin:0 6px 6px 0; }
+  button:hover { background:#37518a; }
+  pre { background:#0b0e14; border:1px solid #2a3040; border-radius:8px; padding:10px 12px;
+        font-size:12px; max-width:820px; overflow-x:auto; white-space:pre-wrap; }
+  .pass { color:var(--good); } .fail { color:var(--bad); }
+</style>
+</head>
+<body>
+<h1>Deckbound dev harness</h1>
+<p class="hint">Real game code, no mocks. Sections: contact sheet (art PRs) · smoke run (gameplay PRs) · live play (feel checks).</p>
+
+<!-- ============ 1) CONTACT SHEET ============ -->
+<h2 id="sheet-title">1 · Contact sheet — screenshot this for art PRs</h2>
+<p class="hint">Drawn by the real drawCustomer()/drawFood(). Columns: customer levels 1–3 (bib at 2, sparkle at 3), attack fx where one exists, toolbar size (r=8); food fresh / ¾HP / ½HP / hurt-flash / true belt size. Self-check against <code>docs/ART_STYLE.md</code> before requesting review.</p>
+<button id="redraw-sheet">Redraw sheet</button>
+<canvas id="sheet-canvas" width="800" height="1060"></canvas>
+
+<!-- ============ 2) SMOKE RUN ============ -->
+<h2 id="smoke-title">2 · Smoke run — paste the JSON in gameplay PRs</h2>
+<p class="hint">Scripted full run through the real update() loop, seeded RNG (same seed → identical run), invariants checked as it goes. Builds in slot order, upgrades cheapest-first each prep (≈ the balance sim's reference strategy), calls every wave immediately. PASS = run ends in a clean win or loss with zero violations — it is a regression check, not the balance gauge (that's <code>tools/balance_sim.py</code>). Blocks the page for a few seconds while it runs.</p>
+<button id="run-smoke">Run smoke</button>
+<label style="font-size:13px;color:var(--muted)">seed <input id="smoke-seed" type="number" value="1" style="width:70px"></label>
+<pre id="smoke-out">not run yet</pre>
+
+<!-- ============ 3) PLAY ============ -->
+<h2 id="play-title">3 · Play — real game, live input, fast-forward</h2>
+<p class="hint">Click the canvas exactly like the shipped game (seat, upgrade, send waves). Speed multiplies update() calls per frame; Step advances one exact frame while paused.</p>
+<button id="play-start">Start run (auto-seat build)</button>
+<button id="play-pause">Pause</button>
+<button id="play-step">Step 1 frame</button>
+<select id="play-speed"><option>1</option><option>2</option><option selected>4</option><option>8</option></select>
+<canvas id="game-canvas" width="800" height="450"></canvas>
+
+<!-- Freeze the game's own rAF loop BEFORE main.js boots: startGameLoop() runs at
+     DOMContentLoaded and would otherwise fight the harness driver. The harness
+     restores real rAF for its own loop after boot. -->
+<script>
+  window.__realRAF = window.requestAnimationFrame.bind(window);
+  window.requestAnimationFrame = function () { return 0; };
+</script>
+<script src="../../balance.data.js"></script>
+<script src="../../main.js"></script>
+
+<script>
+(function () {
+  "use strict";
+
+  const params = new URLSearchParams(location.search);
+  const DEFAULT_BUILD = ["arrow", "cannon", "frost", "arrow"];   // = the sim's reference board
+  const parseBuild = () => {
+    const raw = (params.get("build") || "").split(",").map(s => s.trim()).filter(Boolean);
+    const valid = raw.filter(id => TOWER_BY_ID[id]);
+    return valid.length ? valid : DEFAULT_BUILD;
+  };
+
+  // Deterministic RNG: swap Math.random for a seeded generator. The game only
+  // calls Math.random at runtime (spawn shuffle, jitter, particles), never at
+  // load, so seeding just-in-time makes whole runs reproducible.
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  /* ---------------- 1) Contact sheet ---------------- */
+
+  function drawSheet() {
+    const c = document.getElementById("sheet-canvas");
+    const ctx = c.getContext("2d");
+    ctx.clearRect(0, 0, c.width, c.height);
+    ctx.fillStyle = "#10131a"; ctx.fillRect(0, 0, c.width, c.height);
+
+    const label = (text, x, y, size = 10, color = "#8b94a7", align = "center") => {
+      ctx.fillStyle = color; ctx.font = size + "px system-ui, sans-serif";
+      ctx.textAlign = align; ctx.fillText(text, x, y); ctx.textAlign = "left";
+    };
+    const title = (text, y) => label(text, 12, y, 13, "#e8ecf3", "left");
+
+    // --- Customers: one row each; cols L1, L2, L3, fx, toolbar size ---
+    title("CUSTOMERS — levels 1/2/3 · attack fx · toolbar r=8", 24);
+    const custCols = [200, 320, 440, 560, 700];
+    const colHead = ["level 1", "level 2 (bib)", "level 3 (sparkle)", "attack fx", "r=8"];
+    custCols.forEach((x, i) => label(colHead[i], x, 44));
+    // fx states only exist for these two; others just show their base pose.
+    const FX = { cannon: { bite: 0.8 }, frost: { firing: true } };
+    TOWER_ORDER.forEach((id, row) => {
+      const def = TOWER_BY_ID[id];
+      const cy = 96 + row * 100;
+      label(def.name, 12, cy, 12, "#e8ecf3", "left");
+      label("(" + id + ")", 12, cy + 14, 10, "#8b94a7", "left");
+      [1, 2, 3].forEach((lv, col) => drawCustomer(ctx, id, custCols[col], cy, 17, def.color, { level: lv }));
+      drawCustomer(ctx, id, custCols[3], cy, 17, def.color, { level: 1, ...(FX[id] || {}) });
+      if (!FX[id]) label("(no fx pose)", custCols[3], cy + 46);
+      drawCustomer(ctx, id, custCols[4], cy, 8, def.color, { level: 1 });
+    });
+
+    // --- Foods: one row each; cols fresh, ¾HP, ½HP, hurt, true belt size ---
+    const fy = 610;
+    title("FOODS — fresh · ¾HP bite · ½HP bite · hurt flash · TRUE size on belt", fy - 26);
+    const foodCols = [200, 320, 440, 560, 700];
+    const foodHead = ["fresh", "¾ HP", "½ HP", "hurt", "true size"];
+    foodCols.forEach((x, i) => label(foodHead[i], x, fy - 6));
+    Object.keys(ENEMY_TYPES).forEach((id, row) => {
+      const et = ENEMY_TYPES[id];
+      const cy = fy + 48 + row * 105;
+      label(et.name, 12, cy, 12, "#e8ecf3", "left");
+      label("(" + id + " · r=" + et.radius + ")", 12, cy + 14, 10, "#8b94a7", "left");
+      const R = et.radius * 1.6;   // enlarged for inspection
+      drawFood(ctx, id, foodCols[0], cy, R, et.color, et.edge, false, 0);
+      drawFood(ctx, id, foodCols[1], cy, R, et.color, et.edge, false, 1);
+      drawFood(ctx, id, foodCols[2], cy, R, et.color, et.edge, false, 2);
+      drawFood(ctx, id, foodCols[3], cy, R, et.color, et.edge, true, 0);
+      // true size on a belt-colored strip — the "reads at ~15px" check.
+      ctx.fillStyle = "#232a35"; ctx.fillRect(foodCols[4] - 45, cy - 24, 90, 48);
+      drawFood(ctx, id, foodCols[4], cy, et.radius, et.color, et.edge, false, 0);
+    });
+  }
+
+  /* ---------------- 2) Smoke run ---------------- */
+
+  function runSmoke(seed, build) {
+    const t0 = performance.now();
+    const violations = [], errors = [];
+    const realRandom = Math.random;
+    Math.random = mulberry32(seed);
+    let steps = 0;
+    const STEP_CAP = 60 * 60 * 30;   // 30 sim-minutes — a run should end long before
+    try {
+      META = freshMeta();            // deterministic meta: base 4 towers, no perks
+      chosenEndless = false;
+      startRun();
+      let nextSlot = 0;
+      const check = () => {
+        if (game.currency < 0) violations.push("currency " + game.currency + " < 0 @step " + steps);
+        if (game.lives < 0 || game.lives > game.maxLives) violations.push("lives " + game.lives + " out of [0," + game.maxLives + "] @step " + steps);
+        if (!["prep", "wave", "won", "lost"].includes(game.phase)) violations.push("illegal phase '" + game.phase + "' @step " + steps);
+        for (const e of game.enemies) {
+          if (!Number.isFinite(e.x) || !Number.isFinite(e.y) || !Number.isFinite(e.hp)) {
+            violations.push("non-finite enemy state @step " + steps); break;
+          }
+        }
+      };
+      // Prep policy ≈ the sim's reference strategy: fill slots in build order as
+      // affordable, then spend spare Tips on the cheapest upgrade, then call the wave.
+      const prep = () => {
+        while (nextSlot < SLOTS.length && nextSlot < build.length) {
+          const id = build[nextSlot];
+          if (game.currency < TOWER_BY_ID[id].cost) break;
+          game.selectedType = id;
+          tryBuild(nextSlot);
+          nextSlot++;
+        }
+        for (;;) {
+          const cands = game.towers.filter(t => t.level < t.maxLevel);
+          if (!cands.length) break;
+          const t = cands.reduce((a, b) => RULES.upgradeCost[a.level] <= RULES.upgradeCost[b.level] ? a : b);
+          if (game.currency < RULES.upgradeCost[t.level]) break;
+          tryUpgrade(t);
+        }
+      };
+      while (steps < STEP_CAP && game.phase !== "won" && game.phase !== "lost") {
+        if (game.phase === "prep") { prep(); startNextWave(); }
+        update(STEP);
+        steps++;
+        if (steps % 6 === 0) check();
+      }
+      check();
+      if (game.phase !== "won" && game.phase !== "lost") violations.push("run did not terminate within " + STEP_CAP + " steps");
+    } catch (err) {
+      errors.push(String(err && err.stack || err));
+    } finally {
+      Math.random = realRandom;
+    }
+    render();   // leave the end screen visible on the game canvas
+    const last = game.lastRun || {};
+    const result = {
+      verdict: (violations.length === 0 && errors.length === 0) ? "PASS" : "FAIL",
+      seed, build: build.join(","),
+      outcome: game.phase,
+      waveReached: last.wave != null ? last.wave : game.waveIndex + 1,
+      dishesEaten: last.killed != null ? last.killed : game.killed,
+      livesLeft: game.lives,
+      tipsLeft: game.currency,
+      steps, simMinutes: +(steps / 3600).toFixed(1),
+      violations, errors,
+      ms: Math.round(performance.now() - t0),
+    };
+    return result;
+  }
+
+  function smokeToPage(result) {
+    const out = document.getElementById("smoke-out");
+    out.textContent = JSON.stringify(result, null, 2);
+    out.className = result.verdict === "PASS" ? "pass" : "fail";
+    document.title = "SMOKE " + result.verdict + " — Deckbound harness";
+    console.log("SMOKE_RESULT " + JSON.stringify(result));
+  }
+
+  /* ---------------- 3) Play driver ---------------- */
+
+  const play = { on: false, speed: parseInt(params.get("speed") || "4", 10) || 4 };
+  function playLoop() {
+    if (play.on) {
+      for (let i = 0; i < play.speed; i++) update(STEP);
+      render();
+    }
+    window.__realRAF(playLoop);
+  }
+  function startPlay(build) {
+    if (params.get("seed")) Math.random = mulberry32(parseInt(params.get("seed"), 10) || 1);
+    META = freshMeta();
+    startRun();
+    // Auto-seat the build so a feel-check starts instantly; play on from there.
+    let slot = 0;
+    for (const id of build) {
+      if (slot >= SLOTS.length || game.currency < TOWER_BY_ID[id].cost) break;
+      game.selectedType = id;
+      tryBuild(slot++);
+    }
+    play.on = true;
+    render();
+  }
+
+  /* ---------------- boot ---------------- */
+
+  window.addEventListener("DOMContentLoaded", () => {
+    // main.js's DOMContentLoaded already ran (registered first): canvas wired,
+    // input live, its rAF loop dead thanks to the boot stub. Restore real rAF
+    // for the harness driver.
+    window.requestAnimationFrame = window.__realRAF;
+    drawSheet();
+    render();   // show the hub on the game canvas
+
+    document.getElementById("redraw-sheet").addEventListener("click", drawSheet);
+    document.getElementById("run-smoke").addEventListener("click", () => {
+      const seed = parseInt(document.getElementById("smoke-seed").value, 10) || 1;
+      smokeToPage(runSmoke(seed, parseBuild()));
+    });
+    document.getElementById("play-start").addEventListener("click", () => startPlay(parseBuild()));
+    document.getElementById("play-pause").addEventListener("click", (e) => {
+      play.on = !play.on; e.target.textContent = play.on ? "Pause" : "Resume";
+    });
+    document.getElementById("play-step").addEventListener("click", () => { update(STEP); render(); });
+    document.getElementById("play-speed").addEventListener("change", (e) => { play.speed = parseInt(e.target.value, 10); });
+    playLoop();
+
+    const mode = params.get("mode");
+    if (mode === "sheet") document.getElementById("sheet-title").scrollIntoView();
+    if (mode === "play") { startPlay(parseBuild()); document.getElementById("play-title").scrollIntoView(); }
+    if (mode === "smoke") {
+      document.getElementById("smoke-title").scrollIntoView();
+      const seed = parseInt(params.get("seed") || "1", 10) || 1;
+      document.getElementById("smoke-seed").value = seed;
+      // defer one tick so the page paints before the synchronous run blocks
+      setTimeout(() => smokeToPage(runSmoke(seed, parseBuild())), 30);
+    }
+  });
+})();
+</script>
+</body>
+</html>

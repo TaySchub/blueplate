@@ -104,6 +104,28 @@ Format is deliberately simple and plain-language.
     `main.js` (+ `index.html` cache-bust).
 
 ### Added
+- **Dev harness — self-serve verification for agents** (QA hat). New
+  `tools/dev/harness.html` loads the REAL game code (no copies, no mocks) and
+  formalizes the scratch-dir `gallery.html` trick as a committed tool:
+  - **Contact sheet:** every customer at levels 1/2/3 (+ attack fx poses +
+    toolbar size) and every food at fresh/¾HP/½HP/hurt/true belt size, drawn by
+    the real `drawCustomer()`/`drawFood()` onto one canvas — art PRs attach ONE
+    screenshot of this instead of per-asset back-and-forth.
+  - **Smoke run:** a scripted full run through the real `update()` loop with a
+    **seeded RNG** (same seed → identical run; a repro is a URL), invariant
+    checks (currency ≥ 0, lives in range, finite enemy state, legal phases),
+    and a JSON verdict. Verified: seed 1 = PASS (clean loss at wave 20, 31,461
+    steps, ~110 ms), byte-identical across reloads; seed 2 = PASS (win) — the
+    ~53% config genuinely bracketed.
+  - **Play driver:** the real game with live input plus a speed multiplier
+    (1–8×) and exact frame-stepping (the harness freezes the game's own rAF
+    loop at boot and drives `update()`/`render()` itself).
+  - URL params for automation: `?mode=sheet|smoke|play&seed=N&build=ids&speed=N`.
+  - `CLAUDE.md`'s Verification section is now a **definition of verified**:
+    sim number quoted, smoke JSON pasted, contact-sheet screenshot attached —
+    agents verify before requesting review, not the developer after.
+  No gameplay/balance change — `main.js` untouched. Files:
+  `tools/dev/harness.html`, `CLAUDE.md`.
 - **First real CI checks** (QA hat). A new `.github/workflows/ci.yml` runs on
   every PR and push to `main` — until now the only workflow was the Slack
   announcer, so "let Actions run its checks" checked nothing. Three gates, all
