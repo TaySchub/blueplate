@@ -336,7 +336,7 @@ const audio = {
         this.noiseBurst(0.035, 0.07, { filterType: "bandpass", freq: 2600, q: 2.2, attack: 0.002, release: 0.03 });
         this.voice(880 * r, { type: "triangle", detunes: [0, 9], dur: 0.07, gain: 0.05, freqTo: 1200, filterFreq: 3200, release: 0.06 });
         break;
-      case "sniper": // Chopstick Sensei — crisp, woody pluck/snap
+      case "sniper": // The Milkshake Slurper — crisp pluck/snap (a slurp/sip sound is a TODO for the audio pass)
         this.voice(520 * r, { type: "triangle", detunes: [-4, 4], dur: 0.1, gain: 0.08, freqTo: 220, attack: 0.004, release: 0.08, filterFreq: 2200, filterFreqTo: 900 });
         this.noiseBurst(0.02, 0.04, { filterType: "bandpass", freq: 3000, q: 1.5, attack: 0.001, release: 0.02 });
         break;
@@ -1125,8 +1125,8 @@ function drawTowerRanges(ctx) {
   }
 }
 
-// The trash chute (was the Wellspring core): a bin any dish reaching it clatters
-// into. The pulsing danger halo + the hurt flash on a leak are kept.
+// The trash chute (the core): a bin any dish reaching it clatters into. The
+// pulsing danger halo + the hurt flash on a leak are kept.
 function drawCore(ctx) {
   const hurt = game.coreHurtFlash > 0;
   const pulse = 0.5 + 0.5 * Math.sin(game.elapsed * 2);
@@ -1518,8 +1518,8 @@ function drawRegular(ctx, cx, cy, r, color, opts) {
   if (level >= 3) { ctx.fillStyle = "#fff2b0"; drawSpark4(ctx, cx - r * 1.0, hy - r * 0.7, r * 0.4); }
 }
 
-// Big Appetite (#cannon) — the round glutton mid-gulp: a huge open mouth, eager
-// eyes, and a fork & knife held up, ready to inhale a whole platter (the splash).
+// Big Appetite (#cannon) — the round glutton: a huge open mouth, eager eyes, and
+// a plate held up, ready to lunge in and take one huge bite (single-target).
 function drawBigAppetite(ctx, cx, cy, r, color, opts) {
   const level = opts.level || 1;
   const shirt = color, pants = "#39415a";
@@ -1649,8 +1649,8 @@ function drawPhotographer(ctx, cx, cy, r, color, opts) {
   if (level >= 3) { ctx.fillStyle = "#fff2b0"; drawSpark4(ctx, cx + r * 1.05, hy - r * 0.5, r * 0.4); }
 }
 
-// The Milkshake Slurper (#sniper) — the long-range diner: cradles a grape shake and
-// sends a ridiculously long bendy straw snaking across the room to slurp a far dish.
+// The Milkshake Slurper (#sniper) — the fast-drain diner: cradles a grape shake and
+// latches a bendy straw onto a nearby dish, sipping it away in a blur of tiny bites.
 function drawMilkshakeSlurper(ctx, cx, cy, r, color, opts) {
   const level = opts.level || 1;
   const shirt = color, pants = "#39415a", shake = "#b487ec", hy = cy - r * 0.58, headR = r * 0.56, shoulderY = cy - r * 0.02;

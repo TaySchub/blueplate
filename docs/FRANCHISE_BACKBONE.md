@@ -37,10 +37,10 @@ change.
 | Display name | Role | Internal ID | Personality |
 |---|---|---|---|
 | **The Regular** | Steady single-target | `arrow` | The dependable everyday diner — reliable fork-stabs, never flashy. |
-| **Big Appetite** | Splash / AoE | `cannon` | Never met a platter they couldn't inhale in one radius-clearing gulp. |
-| **The Photographer** | Slow | `frost` | Makes every dish freeze and pose for the shot before it's eaten. |
-| **The Milkshake Slurper** | Long range | `sniper` | Soda-jerk who sends a bendy straw clear across the room to slurp the farthest dish up in one pull. |
-| **The Kids' Table** | Cheap / fast / weak | `zap` | A rowdy cluster of kids grabbing fistfuls — fast, cheap, tiny bites. |
+| **Big Appetite** | Heavy single bite | `cannon` | Lunges at one dish and takes a huge, slow bite — big damage, long to reload. |
+| **The Photographer** | Freeze → slow | `frost` | A flash makes each dish freeze and pose for the shot (~1s), then it stumbles off slowed. |
+| **The Milkshake Slurper** | Fast drain | `sniper` | Soda-jerk who latches a bendy straw onto a nearby dish and sips it away in a blur of tiny bites. |
+| **The Kids' Table** | Multi-target | `zap` | A rowdy cluster of kids whose three hands grab up to three dishes at once (or all pile onto one). |
 
 ### Runaway food (enemies)
 

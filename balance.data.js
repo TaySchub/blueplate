@@ -164,7 +164,7 @@ window.BALANCE = {
       "cost": 85,
       "range": 104,
       "damage": 90,
-      "cooldown": 3.0,
+      "cooldown": 2.8,
       "behavior": "single",
       "up": {
         "damage": 48,

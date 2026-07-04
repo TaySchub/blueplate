@@ -17,6 +17,13 @@
 
 ## Naming map (display layer)
 
+> **Note (kept as the original re-theme brief; some names/roles evolved later):**
+> the sniper is now **The Milkshake Slurper** (not Chopstick Sensei) and the mote
+> is the **Hot Dog** (not Chicken Nugget), and the combat rework changed several
+> roles (Big Appetite is single-target, the Slurper is a fast short-range drain,
+> the Kids' Table is multi-target, the Photographer freezes-then-slows). The
+> current cast + roles live in `docs/FRANCHISE_BACKBONE.md`; see `CHANGELOG.md`.
+
 Rename in UI text, HUD labels, card names, hub/shop text, end screens, and code comments. Where a themed name is needed, use these:
 
 | Current | New display name | Fiction |
