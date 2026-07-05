@@ -18,6 +18,27 @@ function cardRect(i) {
 }
 function inRect(p, r) { return p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h; }
 
+// A cost pill: an inset chip with the Tips coin + amount. Gold when affordable,
+// red when not — the one shared way costs read across the toolbar, the hub deck,
+// and the tower panel. `anchor` places the pill relative to (ax, midY):
+// "center" (default), "right" (ax = right edge), or "left" (ax = left edge).
+// Returns the pill width.
+function drawCostChip(ctx, ax, midY, cost, affordable, h = 15, anchor = "center") {
+  const label = "" + cost;
+  ctx.font = "bold " + (h - 5) + "px system-ui, sans-serif";
+  const coinR = h * 0.3;
+  const w = 8 + coinR * 2 + 3 + ctx.measureText(label).width + 7;
+  const x = anchor === "right" ? ax - w : anchor === "left" ? ax : ax - w / 2;
+  const y = midY - h / 2;
+  const col = affordable ? COLOR.gold : COLOR.bad;
+  ctx.fillStyle = COLOR.chip; roundRect(ctx, x, y, w, h, h / 2); ctx.fill();
+  drawCurrencyIcon(ctx, x + 7 + coinR, midY, col, coinR);
+  ctx.fillStyle = col; ctx.textAlign = "left"; ctx.textBaseline = "middle";
+  ctx.fillText(label, x + 7 + coinR * 2 + 3, midY + 0.5);
+  ctx.textBaseline = "alphabetic"; ctx.textAlign = "left";
+  return w;
+}
+
 /* =========================================================================
    10) RENDER
    ========================================================================= */
@@ -96,27 +117,21 @@ function drawMenu(ctx) {
   const deck = deckTypes();
   let dx = 46;
   for (const def of deck) {
-    ctx.fillStyle = "#1b2230";
-    roundRect(ctx, dx, 168, 64, 78, 8); ctx.fill();
-    ctx.strokeStyle = def.color; ctx.lineWidth = 1.5;
-    roundRect(ctx, dx, 168, 64, 78, 8); ctx.stroke();
-    drawCustomer(ctx, def.id, dx + 32, 199, 11, def.color);
-    ctx.fillStyle = COLOR.ink; ctx.font = "bold 9px system-ui, sans-serif"; ctx.textAlign = "center";
-    ctx.fillText(fitText(ctx, def.name, 60), dx + 32, 226);
-    ctx.fillStyle = COLOR.gold; ctx.font = "10px system-ui, sans-serif";
-    ctx.fillText("◆" + def.cost, dx + 32, 240);
-    ctx.textAlign = "left";
+    // Collection cards use the same card language as the toolbar (portrait /
+    // name / Tips-cost chip). Not interactive here, so no selected/hover state.
+    drawDeckCard(ctx, { x: dx, y: 168, w: 64, h: 78 }, def, false, false, true, 13);
     dx += 72;
   }
-  // Locked slot hint if Sniper not yet unlocked.
+  // Locked slot hint if Sniper not yet unlocked — same card frame, a vector
+  // padlock (not a glyph), consistent with the deck.
   if (!META.unlocked.includes("sniper")) {
-    ctx.fillStyle = "#151a24";
+    ctx.fillStyle = COLOR.chip;
     roundRect(ctx, dx, 168, 64, 78, 8); ctx.fill();
-    ctx.strokeStyle = "#2a3242"; ctx.setLineDash([4, 4]); ctx.lineWidth = 1.5;
+    ctx.strokeStyle = COLOR.ctrlLine; ctx.setLineDash([4, 4]); ctx.lineWidth = 1.5;
     roundRect(ctx, dx, 168, 64, 78, 8); ctx.stroke(); ctx.setLineDash([]);
-    ctx.fillStyle = COLOR.muted; ctx.textAlign = "center"; ctx.font = "20px system-ui, sans-serif";
-    ctx.fillText("🔒", dx + 32, 205);
-    ctx.font = "10px system-ui, sans-serif"; ctx.fillText("locked", dx + 32, 232);
+    drawLockIcon(ctx, dx + 32, 200, 9, COLOR.muted);
+    ctx.fillStyle = COLOR.muted; ctx.textAlign = "center"; ctx.font = "10px system-ui, sans-serif"; ctx.textBaseline = "alphabetic";
+    ctx.fillText("locked", dx + 32, 228);
     ctx.textAlign = "left";
   }
 
@@ -279,7 +294,12 @@ function drawPlacementGhost(ctx) {
 function drawTowerRanges(ctx) {
   for (const t of game.towers) {
     const hover = distance(game.pointer, t) <= t.range;
-    ctx.strokeStyle = TOWER_BY_ID[t.typeId].color; ctx.globalAlpha = hover ? 0.18 : 0.05; ctx.lineWidth = 1.5;
+    const col = TOWER_BY_ID[t.typeId].color;
+    if (hover) {   // a faint fill so the hovered customer's reach reads at a glance
+      ctx.globalAlpha = 0.06; ctx.fillStyle = col;
+      ctx.beginPath(); ctx.arc(t.x, t.y, t.range, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.strokeStyle = col; ctx.globalAlpha = hover ? 0.35 : 0.05; ctx.lineWidth = 1.5;
     ctx.beginPath(); ctx.arc(t.x, t.y, t.range, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 1;
   }
 }
@@ -390,6 +410,8 @@ function drawTowers(ctx) {
     const def = TOWER_BY_ID[t.typeId];
     const idx = t.upgradeTier, radius = 13 + idx * 2;
     const glowStrength = 0.12 + idx * 0.12 + Math.max(0, t.upgradeFlash);
+    // Grounding shadow so the seated customer lifts off the floor/pad.
+    drawSoftShadow(ctx, t.x, t.y + radius * 0.72, radius * 0.92, radius * 0.34, COLOR.unitShadow);
     // Lunge toward the target on attack: peaks mid-animation, back to rest at the
     // ends. Big Appetite lunges much farther — he really goes for the dish.
     let ox = 0, oy = 0;
@@ -412,7 +434,11 @@ function drawTowers(ctx) {
     if (distance(game.pointer, t) <= 18 && t.upgradeTier < MAX_TIER) {
       let cheapest = Infinity;
       for (const pp of towerPaths(t.typeId)) { const nt = nextTier(t, pp.id); if (nt && nt.cost < cheapest) cheapest = nt.cost; }
-      if (cheapest < Infinity) { ctx.fillStyle = game.currency >= cheapest ? COLOR.good : COLOR.bad; ctx.font = "11px system-ui, sans-serif"; ctx.textAlign = "center"; ctx.fillText("upgrade ◆" + cheapest, t.x, t.y - radius - 24); }
+      if (cheapest < Infinity) {
+        ctx.fillStyle = COLOR.ink; ctx.font = "bold 10px system-ui, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
+        ctx.fillText("upgrade", t.x, t.y - radius - 26);
+        drawCostChip(ctx, t.x, t.y - radius - 15, cheapest, game.currency >= cheapest, 13);
+      }
     }
   }
 }
@@ -428,22 +454,44 @@ function drawParticles(ctx) {
   ctx.globalAlpha = 1;
 }
 
+// A deck card: prominent portrait on top, legible name, a Tips cost chip, and
+// three unmistakable states — selected (color frame + accent bar), hover
+// (lifted border), unaffordable (dimmed, red cost). Shared by the toolbar and
+// the hub deck so both speak one card language. `r` is the card rect.
+function drawDeckCard(ctx, r, def, selected, hover, affordable, portraitR) {
+  ctx.fillStyle = selected ? COLOR.ctrlSel : COLOR.ctrlBg;
+  roundRect(ctx, r.x, r.y, r.w, r.h, 6); ctx.fill();
+  ctx.lineWidth = selected ? 2 : 1;
+  ctx.strokeStyle = selected ? def.color : (hover ? COLOR.ctrlLineHi : COLOR.ctrlLine);
+  roundRect(ctx, r.x, r.y, r.w, r.h, 6); ctx.stroke();
+  if (selected) { ctx.fillStyle = def.color; roundRect(ctx, r.x + 4, r.y + 2.5, r.w - 8, 2.5, 1.2); ctx.fill(); }
+  ctx.globalAlpha = affordable ? 1 : 0.42;
+  const cx = r.x + r.w / 2;
+  const py = r.y + (r.h - 22) / 2;   // portrait centered in the space above the 22px name+chip zone
+  drawSoftShadow(ctx, cx, py + portraitR * 0.9, portraitR * 0.95, portraitR * 0.3, COLOR.unitShadow);
+  drawCustomer(ctx, def.id, cx, py, portraitR, def.color);
+  // Name — centered, "The " dropped so more reads; wraps to 2 lines on the
+  // taller hub cards, 1 line (ellipsized) on the short toolbar cards.
+  const twoLine = r.h >= 60;
+  ctx.fillStyle = affordable ? COLOR.ink : COLOR.muted;
+  ctx.font = "bold " + (twoLine ? 8 : 8.5) + "px system-ui, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
+  const lines = wrapLabel(ctx, def.name.replace(/^The /, ""), r.w - 6, twoLine ? 2 : 1);
+  const chipY = r.y + r.h - 7;
+  let ny = chipY - 9 - (lines.length - 1) * 9;
+  for (const ln of lines) { ctx.fillText(ln, cx, ny); ny += 9; }
+  drawCostChip(ctx, cx, chipY, def.cost, affordable, 13);
+  ctx.globalAlpha = 1;
+}
+
 function drawToolbar(ctx) {
   ctx.fillStyle = COLOR.panel; ctx.fillRect(0, TOOLBAR.y - 2, VIEW.w, VIEW.h - TOOLBAR.y + 2);
   const deck = deckTypes();
   for (let i = 0; i < deck.length; i++) {
     const def = deck[i], r = cardRect(i);
-    const selected = game.selectedType === def.id, affordable = game.currency >= def.cost, hover = inRect(game.pointer, r);
-    ctx.fillStyle = selected ? "#26324a" : "#1b2230"; roundRect(ctx, r.x, r.y, r.w, r.h, 6); ctx.fill();
-    ctx.lineWidth = selected ? 2 : 1; ctx.strokeStyle = selected ? def.color : (hover ? "#4a5670" : "#2a3242"); roundRect(ctx, r.x, r.y, r.w, r.h, 6); ctx.stroke();
-    ctx.globalAlpha = affordable ? 1 : 0.4;
-    drawCustomer(ctx, def.id, r.x + 15, r.y + r.h / 2, 8, def.color);
-    ctx.fillStyle = COLOR.ink; ctx.font = "bold 9px system-ui, sans-serif"; ctx.textAlign = "left"; ctx.fillText(fitText(ctx, def.name, r.w - 30), r.x + 28, r.y + 17);
-    ctx.fillStyle = affordable ? COLOR.gold : COLOR.bad; ctx.font = "11px system-ui, sans-serif"; ctx.fillText("◆" + def.cost, r.x + 28, r.y + 33);
-    ctx.globalAlpha = 1;
+    drawDeckCard(ctx, r, def, game.selectedType === def.id, inRect(game.pointer, r), game.currency >= def.cost, 9);
   }
   const def = TOWER_BY_ID[game.selectedType];
-  ctx.fillStyle = COLOR.muted; ctx.font = "11px system-ui, sans-serif"; ctx.textAlign = "left";
+  ctx.fillStyle = COLOR.muted; ctx.font = "11px system-ui, sans-serif"; ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
   const cardsEnd = TOOLBAR.startX + deck.length * (TOOLBAR.cardW + TOOLBAR.gap);
   ctx.fillText(def.name + ": " + def.blurb, cardsEnd + 6, TOOLBAR.y + 16);
 }
@@ -497,9 +545,13 @@ function drawSelectedTowerPanel(ctx) {
   if (!t || game.phase === "menu") return;
   const def = TOWER_BY_ID[t.typeId];
   const p = towerPanel(t);
-  // Highlight ring on the selected tower.
-  ctx.strokeStyle = COLOR.core; ctx.lineWidth = 2; ctx.setLineDash([4, 3]);
-  ctx.beginPath(); ctx.arc(t.x, t.y, 22, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+  // Selection ring — a crisp solid ring plus a faint dashed halo so the chosen
+  // customer reads clearly against the board.
+  ctx.strokeStyle = COLOR.core; ctx.globalAlpha = 0.95; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(t.x, t.y, 21, 0, Math.PI * 2); ctx.stroke();
+  ctx.globalAlpha = 0.4; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
+  ctx.beginPath(); ctx.arc(t.x, t.y, 25, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+  ctx.globalAlpha = 1;
   // Panel background.
   ctx.fillStyle = "rgba(14,18,28,0.96)"; roundRect(ctx, p.rect.x, p.rect.y, p.rect.w, p.rect.h, 8); ctx.fill();
   ctx.strokeStyle = def.color; ctx.lineWidth = 1; roundRect(ctx, p.rect.x, p.rect.y, p.rect.w, p.rect.h, 8); ctx.stroke();
@@ -512,8 +564,8 @@ function drawSelectedTowerPanel(ctx) {
   const cur = t.targeting || "first";
   for (const b of p.modes) {
     const on = cur === b.mode;
-    ctx.fillStyle = on ? "#26324a" : "#1b2230"; roundRect(ctx, b.rect.x, b.rect.y, b.rect.w, b.rect.h, 5); ctx.fill();
-    ctx.strokeStyle = on ? def.color : "#2a3242"; ctx.lineWidth = on ? 1.5 : 1; roundRect(ctx, b.rect.x, b.rect.y, b.rect.w, b.rect.h, 5); ctx.stroke();
+    ctx.fillStyle = on ? COLOR.ctrlSel : COLOR.ctrlBg; roundRect(ctx, b.rect.x, b.rect.y, b.rect.w, b.rect.h, 5); ctx.fill();
+    ctx.strokeStyle = on ? def.color : COLOR.ctrlLine; ctx.lineWidth = on ? 1.5 : 1; roundRect(ctx, b.rect.x, b.rect.y, b.rect.w, b.rect.h, 5); ctx.stroke();
     ctx.fillStyle = on ? COLOR.ink : COLOR.muted; ctx.font = "9px system-ui, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
     ctx.fillText(b.label, b.rect.x + b.rect.w / 2, b.rect.y + b.rect.h / 2 + 0.5);
   }
@@ -534,29 +586,36 @@ function drawSelectedTowerPanel(ctx) {
     ctx.globalAlpha = lockedOut ? 0.5 : 1;
     ctx.fillStyle = bg; roundRect(ctx, r.x, r.y, r.w, r.h, 5); ctx.fill();
     ctx.strokeStyle = border; ctx.lineWidth = committed ? 1.5 : 1; roundRect(ctx, r.x, r.y, r.w, r.h, 5); ctx.stroke();
-    // Path name (left) + cost/state tag (right).
-    ctx.fillStyle = lockedOut ? COLOR.muted : COLOR.ink; ctx.textAlign = "left";
-    ctx.fillText(fitText(ctx, pb.name, r.w - 54), r.x + 8, r.y + r.h / 2 + 0.5);
-    ctx.textAlign = "right";
-    let tag;
-    if (lockedOut) { ctx.fillStyle = COLOR.muted; tag = "🔒 locked"; }
-    else if (maxed) { ctx.fillStyle = COLOR.good; tag = "✓ max"; }
-    else { ctx.fillStyle = afford ? COLOR.gold : COLOR.bad; tag = "◆" + tier.cost; }
-    ctx.fillText(tag, r.x + r.w - 8, r.y + r.h / 2 + 0.5);
+    // Path name (left) + cost/state tag (right) — a Tips cost pill when buyable,
+    // a vector padlock when locked out, "MAX" when maxed.
+    const mid = r.y + r.h / 2;
+    ctx.fillStyle = lockedOut ? COLOR.muted : COLOR.ink; ctx.textAlign = "left"; ctx.textBaseline = "middle";
+    ctx.fillText(fitText(ctx, pb.name, r.w - 60), r.x + 8, mid + 0.5);
+    ctx.font = "bold 10px system-ui, sans-serif";
+    if (lockedOut) {
+      ctx.fillStyle = COLOR.muted; ctx.textAlign = "right"; ctx.fillText("locked", r.x + r.w - 8, mid + 0.5);
+      drawLockIcon(ctx, r.x + r.w - 8 - ctx.measureText("locked").width - 9, mid, 4.5, COLOR.muted);
+    } else if (maxed) {
+      ctx.fillStyle = COLOR.good; ctx.textAlign = "right"; ctx.fillText("MAX", r.x + r.w - 8, mid + 0.5);
+    } else {
+      drawCostChip(ctx, r.x + r.w - 8, mid, tier.cost, afford, 15, "right");
+      ctx.font = "bold 10px system-ui, sans-serif";
+    }
   }
   ctx.globalAlpha = 1;
-  // Sell row — destructive affordance in muted red, showing the live refund.
+  // Sell row — destructive affordance (muted red), with the live refund shown as
+  // a gold payout pill (you get Tips back).
   const sr = p.sell.rect;
   const refund = Math.floor(RULES.sellRefund * t.spent);
   const sellHover = inRect(game.pointer, sr);
+  const smid = sr.y + sr.h / 2;
   ctx.fillStyle = sellHover ? "#33181b" : "#241418";
   roundRect(ctx, sr.x, sr.y, sr.w, sr.h, 5); ctx.fill();
   ctx.strokeStyle = sellHover ? COLOR.bad : "#7e3634"; ctx.lineWidth = 1;
   roundRect(ctx, sr.x, sr.y, sr.w, sr.h, 5); ctx.stroke();
-  ctx.fillStyle = sellHover ? COLOR.bad : "#c98a8a"; ctx.textAlign = "left";
-  ctx.fillText("Sell — refund", sr.x + 8, sr.y + sr.h / 2 + 0.5);
-  ctx.textAlign = "right";
-  ctx.fillText("◆" + refund, sr.x + sr.w - 8, sr.y + sr.h / 2 + 0.5);
+  ctx.fillStyle = sellHover ? COLOR.bad : "#c98a8a"; ctx.textAlign = "left"; ctx.textBaseline = "middle"; ctx.font = "bold 10px system-ui, sans-serif";
+  ctx.fillText("Sell tower", sr.x + 8, smid + 0.5);
+  drawCostChip(ctx, sr.x + sr.w - 8, smid, refund, true, 15, "right");
   ctx.textBaseline = "alphabetic"; ctx.textAlign = "left";
 }
 
@@ -564,18 +623,23 @@ function drawHUD(ctx) {
   ctx.textAlign = "left"; ctx.textBaseline = "top";
   const lowLives = game.lives > 0 && game.lives <= game.maxLives * 0.25;
   const pulse = lowLives ? 0.5 + 0.5 * Math.sin(game.elapsed * 9) : 0;
-  ctx.fillStyle = lowLives ? `rgba(255,${60 - Math.round(30 * pulse)},${60 - Math.round(30 * pulse)},0.4)` : "rgba(0,0,0,0.4)";
-  ctx.fillRect(6, 6, game.endless ? 408 : 320, 26);
+  // Backing (rounded readout bar; flushes red when the Health Rating is low).
+  ctx.fillStyle = lowLives ? `rgba(255,${60 - Math.round(30 * pulse)},${60 - Math.round(30 * pulse)},0.42)` : COLOR.hudBg;
+  roundRect(ctx, 6, 6, game.endless ? 408 : 320, 28, 8); ctx.fill();
   ctx.font = "bold 14px system-ui, sans-serif";
-  drawRatingIcon(ctx, 14, 17, lowLives && pulse > 0.5 ? "#ffffff" : COLOR.bad);
-  ctx.fillStyle = lowLives && pulse > 0.5 ? "#ffffff" : COLOR.bad; ctx.fillText("" + game.lives, 26, 11);
-  drawCurrencyIcon(ctx, 76, 17, COLOR.gold);
-  ctx.fillStyle = COLOR.gold; ctx.fillText("" + game.currency, 88, 11);
+  // Health Rating (lives) — star placard + count; whitens on the low-lives pulse.
+  const rc = lowLives && pulse > 0.5 ? "#ffffff" : COLOR.bad;
+  drawRatingIcon(ctx, 21, 20, rc, 8);
+  ctx.fillStyle = rc; ctx.fillText("" + game.lives, 34, 13);
+  // Tips (currency) — coin + count.
+  drawCurrencyIcon(ctx, 82, 20, COLOR.gold, 8);
+  ctx.fillStyle = COLOR.gold; ctx.fillText("" + game.currency, 94, 13);
+  // Wave + phase — same typographic weight, phase muted.
   ctx.fillStyle = COLOR.ink;
   const waveLabel = game.endless ? "Wave " + (game.waveIndex + 1) : "Wave " + Math.min(game.waveIndex + 1, WAVES.length) + "/" + WAVES.length;
-  ctx.fillText(waveLabel, 160, 11);
-  if (game.endless) { ctx.fillStyle = COLOR.essence; ctx.fillText("★ " + game.score, 250, 11); }
-  ctx.fillStyle = COLOR.muted; ctx.font = "12px system-ui, sans-serif"; ctx.fillText(game.phase === "wave" ? "serving…" : "prep", game.endless ? 348 : 262, 12);
+  ctx.fillText(waveLabel, 166, 13);
+  if (game.endless) { ctx.fillStyle = COLOR.essence; ctx.fillText("★ " + game.score, 256, 13); }
+  ctx.fillStyle = COLOR.muted; ctx.font = "12px system-ui, sans-serif"; ctx.fillText(game.phase === "wave" ? "serving…" : "prep", game.endless ? 352 : 262, 14);
   ctx.textBaseline = "alphabetic";
 }
 
