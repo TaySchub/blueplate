@@ -269,7 +269,7 @@
 
   /* ---------------- 2) Smoke run ---------------- */
 
-  function runSmoke(seed, build, pathMode = "stat") {
+  function runSmoke(seed, build, pathMode = "stat", mapId = null) {
     const pathMap = pathMapFor(pathMode);
     const t0 = performance.now();
     const violations = [], errors = [];
@@ -280,6 +280,7 @@
     try {
       META = freshMeta();            // deterministic meta: base 4 towers, no perks
       chosenEndless = false;
+      loadMap(mapId);                // map platform: null -> default maps[0] (diner)
       startRun();
       let nextSlot = 0;
       const check = () => {
@@ -295,7 +296,7 @@
       // Prep policy ≈ the sim's reference strategy: build at the map's simAnchors
       // (the former slot coordinates, in order — free placement has no slots) as
       // affordable, then spend spare Tips on the cheapest upgrade, then call the wave.
-      const anchors = BAL.map.simAnchors;
+      const anchors = MAP.simAnchors;
       const prep = () => {
         while (nextSlot < anchors.length && nextSlot < build.length) {
           const id = build[nextSlot];
@@ -363,13 +364,14 @@
     }
     window.__realRAF(playLoop);
   }
-  function startPlay(build) {
+  function startPlay(build, mapId = null) {
     if (params.get("seed")) Math.random = mulberry32(parseInt(params.get("seed"), 10) || 1);
     META = freshMeta();
+    loadMap(mapId);   // map platform: null -> default maps[0] (diner)
     startRun();
     // Auto-seat the build so a feel-check starts instantly; play on from there.
-    // Seats go at the simAnchors (free placement — no fixed slots anymore).
-    const anchors = BAL.map.simAnchors;
+    // Seats go at the active map's simAnchors (free placement — no fixed slots).
+    const anchors = MAP.simAnchors;
     let slot = 0;
     for (const id of build) {
       if (slot >= anchors.length || game.currency < TOWER_BY_ID[id].cost) break;
@@ -406,13 +408,13 @@
 
     const mode = params.get("mode");
     if (mode === "sheet") document.getElementById("sheet-title").scrollIntoView();
-    if (mode === "play") { startPlay(parseBuild()); document.getElementById("play-title").scrollIntoView(); }
+    if (mode === "play") { startPlay(parseBuild(), params.get("map")); document.getElementById("play-title").scrollIntoView(); }
     if (mode === "smoke") {
       document.getElementById("smoke-title").scrollIntoView();
       const seed = parseInt(params.get("seed") || "1", 10) || 1;
       document.getElementById("smoke-seed").value = seed;
       // defer one tick so the page paints before the synchronous run blocks
-      setTimeout(() => smokeToPage(runSmoke(seed, parseBuild(), parsePaths())), 30);
+      setTimeout(() => smokeToPage(runSmoke(seed, parseBuild(), parsePaths(), params.get("map"))), 30);
     }
   });
 })();

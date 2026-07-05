@@ -6,7 +6,7 @@ import { loadEngine, assert, done } from "./_engine.mjs";
 
 const E = loadEngine();
 const BAL = globalThis.window.BALANCE;
-const anchor = BAL.map.simAnchors[0];
+const anchor = BAL.maps[0].simAnchors[0];   // default map (the diner)
 
 E.reset();
 E.game.towers = [];

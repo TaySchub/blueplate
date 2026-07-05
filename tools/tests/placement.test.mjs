@@ -7,7 +7,7 @@ import { loadEngine, assert, done } from "./_engine.mjs";
 
 const E = loadEngine();
 const BAL = globalThis.window.BALANCE;
-const { path, placement, obstacles } = BAL.map;
+const { path, placement, obstacles } = BAL.maps[0];   // default map (the diner)
 const { pathBuffer, towerSpacing, bounds } = placement;
 
 /* ---- local oracle (independent of the engine's implementation) ---- */

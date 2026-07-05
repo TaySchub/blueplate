@@ -25,6 +25,7 @@ window.addEventListener("DOMContentLoaded", () => {
   game.canvas = canvas;
   game.ctx = canvas.getContext("2d");
   META = loadMeta();
+  loadMap(META.mapId);   // restore the last-picked map (null/unknown → default maps[0])
   game.phase = "menu";
   setupInput(canvas);
   console.log("Deckbound v1 loaded. Essence:", META.essence);
@@ -51,6 +52,14 @@ function setupInput(canvas) {
     if (game.phase === "menu") {
       for (const b of shopButtonRects()) {
         if (inRect(p, b.rect)) { tryBuyShop(b.item); return; }
+      }
+      if (inRect(p, MAP_BTN)) {
+        // Cycle to the next map, remember it, and load it so the hub label +
+        // the coming run both reflect the choice. One map today = a no-op click.
+        const i = MAPS.findIndex((m) => m.id === MAP.id);
+        const next = MAPS[(i + 1) % MAPS.length];
+        loadMap(next.id); META.mapId = next.id; saveMeta();
+        audio.build(); return;
       }
       if (inRect(p, MODE_BTN)) { chosenEndless = !chosenEndless; audio.build(); return; }
       if (inRect(p, PLAY_BTN)) { startRun(); return; }

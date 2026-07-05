@@ -25,6 +25,7 @@ export function loadEngine() {
     `\n;globalThis.__ENGINE = {
        game, startRun, tryBuild, tryUpgrade, sellTower, fireProjectile, moveProjectiles, update,
        applyUpgradeDeltas, towerPaths, nextTier, updateTowers, TOWER_BY_ID, RULES, canPlace, distance,
+       loadMap, MAPS, pointAtDistance,
        // reset() MUST set lives — at 0 lives checkLoss() flips the phase to "lost"
        // on the first update() tick and silently freezes all movement (bit two PR-2
        // review probes). Also give sane currency + a clean wave so update()-driven

@@ -24,7 +24,8 @@
     node tools/sim.mjs                       # 200 seeded games, report
     node tools/sim.mjs --sims 500 --seed 1
     node tools/sim.mjs --build arrow,cannon,frost,arrow
-    node tools/sim.mjs --check               # exit non-zero outside the band
+    node tools/sim.mjs --check               # gate every tuned map; exit non-zero if any is off-band
+    node tools/sim.mjs --map diner           # play a specific map (default: first)
     node tools/sim.mjs --dump-waves out.json # waves 0..24 for the parity check
 */
 import { readFileSync, writeFileSync } from "node:fs";
@@ -43,6 +44,7 @@ const opt = (name, dflt) => {
 const has = (name) => args.includes("--" + name);
 const SIMS = parseInt(opt("sims", "200"), 10);
 const SEED = parseInt(opt("seed", "1"), 10);
+const MAP_ARG = opt("map", null);   // which map to play (default: first); --check gates every tuned map
 const BUILD = opt("build", "arrow,cannon,frost,arrow").split(",").map((s) => s.trim());
 // The reference player commits each tower to one fixed upgrade path and buys its
 // two tiers in order — mirrors tools/balance_sim.py SIM_PATHS (the pure-stat paths;
@@ -72,7 +74,7 @@ const bundle =
   `
 ;globalThis.ENGINE = {
   game, startRun, startNextWave, tryBuild, tryUpgrade, update, makeWave,
-  TOWER_BY_ID, RULES, WAVES, towerPaths, nextTier,
+  TOWER_BY_ID, RULES, WAVES, towerPaths, nextTier, loadMap, MAPS,
   reset() { META = freshMeta(); chosenEndless = false; },
 };`;
 vm.runInThisContext(bundle, { filename: "deckbound-engine-bundle.js" });
@@ -99,16 +101,24 @@ if (has("dump-waves")) {
   process.exit(0);
 }
 
+// --- map selection -----------------------------------------------------------
+// --map <id> picks a map (default: the first). A missing id is a hard error so a
+// typo can't silently gauge the wrong map.
+function resolveMap(id) {
+  const m = id ? E.MAPS.find((x) => x.id === id) : E.MAPS[0];
+  if (!m) { console.error(`no such map: ${id} (have: ${E.MAPS.map((x) => x.id).join(", ")})`); process.exit(2); }
+  return m;
+}
+
 // --- one full seeded game through the real engine ----------------------------
-function playGame(seed, build) {
+function playGame(seed, build, map) {
   const realRandom = Math.random;
   Math.random = mulberry32(seed);
   try {
     E.reset();
-    E.startRun();
-    // Free placement: the scripted player still builds at the map's simAnchors
-    // (the former slot coordinates, in order) so the gauge is layout-stable.
-    const ANCHORS = window.BALANCE.map.simAnchors;
+    E.loadMap(map);   // the active map drives canPlace/PATH; the scripted player
+    E.startRun();     // builds at THIS map's simAnchors (layout-stable gauge)
+    const ANCHORS = map.simAnchors;
     let nextSlot = 0, steps = 0;
     const CAP = 60 * 60 * 30; // 30 sim-minutes
     while (steps < CAP && E.game.phase !== "won" && E.game.phase !== "lost") {
@@ -146,30 +156,47 @@ function playGame(seed, build) {
   }
 }
 
-// --- evaluate ----------------------------------------------------------------
-const t0 = Date.now();
-const results = [];
-for (let i = 0; i < SIMS; i++) results.push(playGame(SEED + i, BUILD));
-const wins = results.filter((r) => r.won).length;
-const waves = results.map((r) => r.wave).sort((a, b) => a - b);
-const winRate = wins / SIMS;
-const medianWave = waves[Math.floor(waves.length / 2)];
-const inBand = winRate >= BAND[0] && winRate <= BAND[1];
-// Died-at-wave distribution (lost runs only): the SHAPE check — are losses spread
-// across the mid-to-late waves, or piled on a single endgame cliff?
-const hist = {};
-for (const r of results) if (!r.won) hist[r.wave] = (hist[r.wave] || 0) + 1;
-const deathDist = Object.keys(hist).sort((a, b) => a - b).map((w) => `w${w}:${hist[w]}`).join(" ") || "(none — all won)";
+// --- evaluate + report one map ----------------------------------------------
+function runOnMap(map) {
+  const t0 = Date.now();
+  const results = [];
+  for (let i = 0; i < SIMS; i++) results.push(playGame(SEED + i, BUILD, map));
+  const wins = results.filter((r) => r.won).length;
+  const waves = results.map((r) => r.wave).sort((a, b) => a - b);
+  const winRate = wins / SIMS;
+  const medianWave = waves[Math.floor(waves.length / 2)];
+  const inBand = winRate >= BAND[0] && winRate <= BAND[1];
+  // Died-at-wave distribution (lost runs only): the SHAPE check — are losses spread
+  // across the mid-to-late waves, or piled on a single endgame cliff?
+  const hist = {};
+  for (const r of results) if (!r.won) hist[r.wave] = (hist[r.wave] || 0) + 1;
+  const deathDist = Object.keys(hist).sort((a, b) => a - b).map((w) => `w${w}:${hist[w]}`).join(" ") || "(none — all won)";
 
-const overridden = Object.keys(PATH_OVERRIDE).length ? `  (paths: ${Object.entries(PATH_OVERRIDE).map(([k, v]) => k + "=" + v).join(", ")})` : "";
-console.log(`REAL-ENGINE sim (src/engine.js, no mirror)`);
-console.log(`  build        : ${BUILD.join(", ")}${overridden}`);
-console.log(`  sims / seed  : ${SIMS} / ${SEED}`);
-console.log(`  win rate     : ${(winRate * 100).toFixed(1)}%`);
-console.log(`  median waves : ${medianWave}`);
-console.log(`  died-at-wave : ${deathDist}  [lost ${SIMS - wins}/${SIMS}]`);
-console.log(`  target band  : ${(BAND[0] * 100).toFixed(0)}%-${(BAND[1] * 100).toFixed(0)}% -> ${inBand ? "inside" : "OUTSIDE"}`);
-console.log(`  runtime      : ${((Date.now() - t0) / 1000).toFixed(1)}s`);
-console.log(`  note         : real mechanics (projectile travel, straw-lock, no HP jitter) — expect a different reading than balance_sim.py's gauge`);
+  const overridden = Object.keys(PATH_OVERRIDE).length ? `  (paths: ${Object.entries(PATH_OVERRIDE).map(([k, v]) => k + "=" + v).join(", ")})` : "";
+  console.log(`REAL-ENGINE sim (src/engine.js, no mirror)`);
+  console.log(`  build        : ${BUILD.join(", ")}${overridden}`);
+  console.log(`  sims / seed  : ${SIMS} / ${SEED}`);
+  console.log(`  win rate     : ${(winRate * 100).toFixed(1)}%`);
+  console.log(`  median waves : ${medianWave}`);
+  console.log(`  died-at-wave : ${deathDist}  [lost ${SIMS - wins}/${SIMS}]`);
+  console.log(`  target band  : ${(BAND[0] * 100).toFixed(0)}%-${(BAND[1] * 100).toFixed(0)}% -> ${inBand ? "inside" : "OUTSIDE"}${map.tuned ? "" : "  (untuned — report only)"}`);
+  console.log(`  runtime      : ${((Date.now() - t0) / 1000).toFixed(1)}s`);
+  console.log(`  note         : real mechanics (projectile travel, straw-lock, no HP jitter) — expect a different reading than balance_sim.py's gauge`);
+  return inBand;
+}
 
-if (has("check")) process.exit(inBand ? 0 : 1);
+// --- run ---------------------------------------------------------------------
+// --check gates EVERY tuned map (untuned maps report only); a normal run plays
+// just the selected/default map. Per-map headers appear only when there's more
+// than one map, so a single-map repo prints exactly today's block.
+if (has("check")) {
+  let failed = false;
+  E.MAPS.forEach((m, i) => {
+    if (E.MAPS.length > 1) { if (i > 0) console.log(""); console.log(`=== ${m.name} (${m.id})${m.tuned ? "" : " — untuned, report only"} ===`); }
+    const inBand = runOnMap(m);
+    if (m.tuned && !inBand) failed = true;
+  });
+  process.exit(failed ? 1 : 0);
+} else {
+  runOnMap(resolveMap(MAP_ARG));
+}

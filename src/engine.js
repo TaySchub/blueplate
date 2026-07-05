@@ -22,7 +22,7 @@ const FX = {
 
 const META_KEY = "deckbound.meta.v1";
 function freshMeta() {
-  return { essence: 0, unlocked: ["arrow", "cannon", "frost", "zap"], boughtCurrency: false, boughtLives: false };
+  return { essence: 0, unlocked: ["arrow", "cannon", "frost", "zap"], boughtCurrency: false, boughtLives: false, mapId: null };
 }
 function loadMeta() {
   try {
@@ -52,15 +52,37 @@ function deckTypes() {
    2) LEVEL
    ========================================================================= */
 
-// Map geometry (path + free-placement rules + obstacles) comes from
-// data/balance.json via BAL.map, so a map can be redesigned by editing data —
-// no code change. The core sits at the end of the path.
-const PATH = BAL.map.path;
-const CORE = { x: PATH[PATH.length - 1].x, y: PATH[PATH.length - 1].y, radius: BAL.map.coreRadius };
+// Maps are CONTENT. data/balance.json ships a maps[] list; loadMap(id|obj)
+// rebinds every per-map binding below — the active map object, PATH, CORE,
+// segment lengths, placement rules, obstacles, sim anchors, and the render
+// THEME — so adding a map is a JSON block plus a few prop drawers, no engine
+// surgery. maps[0] is the default; the menu picker + boot choose the active one.
+const MAPS = BAL.maps;
 
 function distance(a, b) { return Math.hypot(b.x - a.x, b.y - a.y); }
-const SEGMENT_LENGTHS = PATH.slice(1).map((p, i) => distance(PATH[i], p));
-const PATH_LENGTH = SEGMENT_LENGTHS.reduce((sum, len) => sum + len, 0);
+
+// Per-map state. `let`, not const, precisely because the map can change between
+// runs; every reader below (and in render.js) sees the active map through these.
+let MAP, PATH, CORE, SEGMENT_LENGTHS, PATH_LENGTH, PLACEMENT, OBSTACLES, SIM_ANCHORS, THEME;
+
+// Swap in a map by id, or by a raw map object (the behavior test injects a
+// fixture). Pure state rebind — consumes NO Math.random, so the seeded sim is
+// untouched. A missing/unknown id falls back to the default map.
+function loadMap(idOrMap) {
+  let m = typeof idOrMap === "string" ? MAPS.find((x) => x.id === idOrMap) : idOrMap;
+  if (!m) m = MAPS[0];
+  MAP = m;
+  PATH = m.path;
+  CORE = { x: PATH[PATH.length - 1].x, y: PATH[PATH.length - 1].y, radius: m.coreRadius };
+  SEGMENT_LENGTHS = PATH.slice(1).map((p, i) => distance(PATH[i], p));
+  PATH_LENGTH = SEGMENT_LENGTHS.reduce((sum, len) => sum + len, 0);
+  PLACEMENT = m.placement;
+  OBSTACLES = m.obstacles;
+  SIM_ANCHORS = m.simAnchors;
+  THEME = m.theme;
+  return m;
+}
+loadMap(MAPS[0]);   // boot default — load order + behavior unchanged from the single-map era
 function pointAtDistance(dist) {
   if (dist <= 0) return { x: PATH[0].x, y: PATH[0].y };
   let remaining = dist;
@@ -86,18 +108,18 @@ function distToSegment(px, py, a, b) {
 // Free placement (replaced the 10 fixed slots): a tower can sit anywhere on the
 // diner floor that is inside placement.bounds, more than pathBuffer off the
 // belt centerline, at least towerSpacing from every seated customer, and not
-// inside an obstacle rect. All four rules read from BAL.map — obstacles are
-// placement blockers ONLY (no line-of-sight in this game; they never affect
-// shots or enemies). There is deliberately NO tower cap: the economy limits
-// how many customers you can seat.
+// inside an obstacle rect. All four rules read the ACTIVE map's bound state
+// (PLACEMENT/OBSTACLES, set by loadMap) — obstacles are placement blockers ONLY
+// (no line-of-sight in this game; they never affect shots or enemies). There is
+// deliberately NO tower cap: the economy limits how many customers you can seat.
 function canPlace(x, y) {
-  const P = BAL.map.placement, b = P.bounds;
+  const P = PLACEMENT, b = P.bounds;
   if (x < b.x0 || x > b.x1 || y < b.y0 || y > b.y1) return false;
   for (let i = 0; i < PATH.length - 1; i++) {
     if (distToSegment(x, y, PATH[i], PATH[i + 1]) <= P.pathBuffer) return false;
   }
   for (const t of game.towers) if (distance({ x, y }, t) < P.towerSpacing) return false;
-  for (const o of BAL.map.obstacles) {
+  for (const o of OBSTACLES) {
     if (x >= o.x && x <= o.x + o.w && y >= o.y && y <= o.y + o.h) return false;
   }
   return true;
@@ -153,7 +175,7 @@ function buildSpawnQueue(wave) {
 // phase: "menu" (hub/shop) | "prep" | "wave" | "won" | "lost"
 const game = {
   canvas: null, ctx: null,
-  phase: "menu",
+  phase: "menu", mapId: null,   // the active map's id, recorded at startRun (menu picker loads it)
   currency: 0, lives: 0, maxLives: 0, waveIndex: 0,
   selectedType: "arrow",
   selectedTower: null, // the placed tower whose targeting/upgrade panel is open
@@ -173,6 +195,7 @@ let chosenEndless = false;
 // Begin a fresh run from the hub, applying permanent perks + your unlocked deck.
 function startRun() {
   game.phase = "prep";
+  game.mapId = MAP.id;   // record the active map (the menu picker already loaded it)
   game.currency = RULES.startCurrency + (META.boughtCurrency ? 50 : 0);
   game.maxLives = RULES.startLives + (META.boughtLives ? 3 : 0);
   game.lives = game.maxLives;

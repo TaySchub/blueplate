@@ -10,6 +10,7 @@ const START_BTN = { x: 470, y: 402, w: 210, h: 38 };
 const CONTINUE_BTN = { x: VIEW.w / 2 - 85, y: VIEW.h / 2 + 44, w: 170, h: 38 };
 const PLAY_BTN = { x: VIEW.w / 2 - 90, y: 372, w: 180, h: 44 };
 const MODE_BTN = { x: VIEW.w / 2 - 90, y: 328, w: 180, h: 30 };
+const MAP_BTN = { x: VIEW.w / 2 - 90, y: 298, w: 180, h: 26 };   // hub map picker (shares geometry w/ hit-testing)
 const TOOLBAR = { y: 398, cardW: 66, cardH: 44, gap: 6, startX: 8 };
 
 function cardRect(i) {
@@ -138,6 +139,17 @@ function drawMenu(ctx) {
     ctx.textAlign = "left";
   }
 
+  // Map picker (one entry today; ships the plumbing — future maps slot straight
+  // in). Click cycles maps; the label shows the active map's name.
+  const mapHover = inRect(game.pointer, MAP_BTN);
+  ctx.fillStyle = mapHover ? "#26324a" : "#1b2230";
+  roundRect(ctx, MAP_BTN.x, MAP_BTN.y, MAP_BTN.w, MAP_BTN.h, 8); ctx.fill();
+  ctx.strokeStyle = "#4a5670"; ctx.lineWidth = 1;
+  roundRect(ctx, MAP_BTN.x, MAP_BTN.y, MAP_BTN.w, MAP_BTN.h, 8); ctx.stroke();
+  ctx.fillStyle = COLOR.muted; ctx.font = "12px system-ui, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillText("Map:  " + MAP.name, VIEW.w / 2, MAP_BTN.y + MAP_BTN.h / 2);
+  ctx.textBaseline = "alphabetic"; ctx.textAlign = "left";
+
   // Mode toggle (Finite vs Endless).
   const modeHover = inRect(game.pointer, MODE_BTN);
   ctx.fillStyle = modeHover ? "#26324a" : "#1b2230";
@@ -161,19 +173,22 @@ function drawMenu(ctx) {
 /* ---- In-run drawing ---- */
 
 function drawBackground(ctx) {
-  // American-diner floor: a low-contrast checkerboard so the belt, customers, and
-  // food stay the things that pop.
-  ctx.fillStyle = COLOR.bg; ctx.fillRect(0, 0, VIEW.w, VIEW.h);
-  const tile = 45;
-  ctx.fillStyle = "#141a24";
+  // Floor surface from the active map's theme (THEME, bound by engine loadMap):
+  // a low-contrast checkerboard so the belt, customers, and food stay the things
+  // that pop.
+  const fl = THEME.floor;
+  ctx.fillStyle = fl.bg; ctx.fillRect(0, 0, VIEW.w, VIEW.h);
+  const tile = fl.tileSize;
+  ctx.fillStyle = fl.tile;
   for (let gy = 0; gy < TOOLBAR.y; gy += tile)
     for (let gx = 0; gx < VIEW.w; gx += tile)
       if (((gx / tile) + (gy / tile)) & 1) ctx.fillRect(gx, gy, tile, tile);
   // A booth/table pad under each PLACED tower — the table appears when the
   // customer sits down (free placement has no fixed seats to pre-draw).
+  const pad = THEME.boothPad;
   for (const t of game.towers) {
-    ctx.fillStyle = "#1b222d"; roundRect(ctx, t.x - 21, t.y - 15, 42, 30, 7); ctx.fill();
-    ctx.strokeStyle = "#262f3d"; ctx.lineWidth = 1.5; roundRect(ctx, t.x - 21, t.y - 15, 42, 30, 7); ctx.stroke();
+    ctx.fillStyle = pad.fill; roundRect(ctx, t.x - 21, t.y - 15, 42, 30, 7); ctx.fill();
+    ctx.strokeStyle = pad.stroke; ctx.lineWidth = 1.5; roundRect(ctx, t.x - 21, t.y - 15, 42, 30, 7); ctx.stroke();
   }
 }
 
@@ -181,15 +196,16 @@ function drawBackground(ctx) {
 // rails + a belt surface, with slats that animate toward the chute (the
 // fixed-timestep loop drives the offset off game.elapsed).
 function drawPath(ctx) {
+  const b = THEME.belt;
   ctx.lineJoin = "round"; ctx.lineCap = "round";
   const trace = () => { ctx.beginPath(); ctx.moveTo(PATH[0].x, PATH[0].y); for (let i = 1; i < PATH.length; i++) ctx.lineTo(PATH[i].x, PATH[i].y); };
-  ctx.strokeStyle = "#0e1118"; ctx.lineWidth = 46; trace(); ctx.stroke();  // rail shadow
-  ctx.strokeStyle = "#333c4b"; ctx.lineWidth = 40; trace(); ctx.stroke();  // rail metal
-  ctx.strokeStyle = "#232a35"; ctx.lineWidth = 34; trace(); ctx.stroke();  // belt surface
+  ctx.strokeStyle = b.shadow; ctx.lineWidth = b.shadowWidth; trace(); ctx.stroke();  // rail shadow
+  ctx.strokeStyle = b.metal; ctx.lineWidth = b.metalWidth; trace(); ctx.stroke();  // rail metal
+  ctx.strokeStyle = b.surface; ctx.lineWidth = b.surfaceWidth; trace(); ctx.stroke();  // belt surface
   // Moving slats across the belt, marching toward the chute.
-  const spacing = 26, half = 15;
-  const offset = (game.elapsed * 42) % spacing;
-  ctx.strokeStyle = "rgba(255,255,255,0.07)"; ctx.lineWidth = 4; ctx.lineCap = "butt";
+  const spacing = b.slatSpacing, half = b.slatHalf;
+  const offset = (game.elapsed * b.slatSpeed) % spacing;
+  ctx.strokeStyle = b.slat; ctx.lineWidth = b.slatWidth; ctx.lineCap = "butt";
   let acc = 0;
   for (let i = 0; i < SEGMENT_LENGTHS.length; i++) {
     const A = PATH[i], B = PATH[i + 1], len = SEGMENT_LENGTHS[i];
@@ -208,24 +224,26 @@ function drawPath(ctx) {
 // The kitchen the dishes escape from — a doorway with swinging half-doors at the
 // belt's spawn (left edge); the belt emerges from its dark mouth.
 function drawKitchenDoor(ctx) {
+  const k = THEME.kitchen;
   const y = PATH[0].y, doorW = 40, gap = 18;
   const top = y - 40, bot = y + 40;
-  ctx.fillStyle = "#0b0e14"; ctx.fillRect(0, top, doorW, bot - top);          // dark interior
-  ctx.fillStyle = "#2c3543"; ctx.strokeStyle = "#3f4a5c"; ctx.lineWidth = 1;   // swinging half-doors
+  ctx.fillStyle = k.interior; ctx.fillRect(0, top, doorW, bot - top);          // dark interior
+  ctx.fillStyle = k.door; ctx.strokeStyle = k.doorEdge; ctx.lineWidth = 1;      // swinging half-doors
   ctx.fillRect(2, top + 2, doorW - 4, (y - gap) - (top + 2)); ctx.strokeRect(2, top + 2, doorW - 4, (y - gap) - (top + 2));
   ctx.fillRect(2, y + gap, doorW - 4, (bot - 2) - (y + gap)); ctx.strokeRect(2, y + gap, doorW - 4, (bot - 2) - (y + gap));
-  ctx.strokeStyle = "#4a5568"; ctx.lineWidth = 3;                              // door frame (right jamb + lintel + sill)
+  ctx.strokeStyle = k.frame; ctx.lineWidth = 3;                                // door frame (right jamb + lintel + sill)
   ctx.beginPath(); ctx.moveTo(doorW, top); ctx.lineTo(doorW, bot); ctx.moveTo(0, top); ctx.lineTo(doorW, top); ctx.moveTo(0, bot); ctx.lineTo(doorW, bot); ctx.stroke();
-  ctx.fillStyle = "#8b94a7"; ctx.font = "bold 8px system-ui, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-  ctx.fillText("KITCHEN", doorW / 2, bot + 8);
+  ctx.fillStyle = COLOR.muted; ctx.font = "bold 8px system-ui, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillText(k.label, doorW / 2, bot + 8);
   ctx.textBaseline = "alphabetic";
 }
 
-// Diner set dressing from BAL.map.obstacles, drawn between the belt and the
-// units. Placement blockers ONLY — there is no line-of-sight in this game, so
-// props never affect shots or enemies. Per-kind vector art lives in art.js.
+// Set dressing from the active map's OBSTACLES (bound by engine loadMap), drawn
+// between the belt and the units. Placement blockers ONLY — there is no
+// line-of-sight in this game, so props never affect shots or enemies. Per-kind
+// vector art lives in art.js.
 function drawObstacles(ctx) {
-  for (const o of BAL.map.obstacles) drawObstacle(ctx, o);
+  for (const o of OBSTACLES) drawObstacle(ctx, o);
 }
 
 // The free-placement ghost (replaced the fixed-slot markers): follows the
@@ -235,7 +253,7 @@ function drawObstacles(ctx) {
 // panel, and existing towers (hovering those means select, not build).
 function drawPlacementGhost(ctx) {
   if (game.phase !== "prep" && game.phase !== "wave") return;
-  const p = game.pointer, b = BAL.map.placement.bounds;
+  const p = game.pointer, b = PLACEMENT.bounds;
   if (p.x < b.x0 || p.x > b.x1 || p.y < b.y0 || p.y > b.y1) return;
   if (game.selectedTower && inRect(p, towerPanel(game.selectedTower).rect)) return;
   for (const t of game.towers) if (distance(p, t) <= 18) return;
@@ -269,30 +287,31 @@ function drawTowerRanges(ctx) {
 // The trash chute (the core): a bin any dish reaching it clatters into. The
 // pulsing danger halo + the hurt flash on a leak are kept.
 function drawCore(ctx) {
+  const c = THEME.chute;
   const hurt = game.coreHurtFlash > 0;
   const pulse = 0.5 + 0.5 * Math.sin(game.elapsed * 2);
-  const col = hurt ? COLOR.coreHurt : COLOR.core;
+  const col = hurt ? COLOR.coreHurt : COLOR.core;   // halo/outline = the danger signal (shared palette)
   const x = CORE.x, y = CORE.y, R = CORE.radius;
   // Danger halo.
   ctx.strokeStyle = col; ctx.globalAlpha = 0.15 + 0.25 * pulse; ctx.lineWidth = 3;
   ctx.beginPath(); ctx.arc(x, y, R + 8 + pulse * 6, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 1;
   // Bin body (a trapezoid, wider at the top).
   const topW = R * 1.6, botW = R * 1.15, topY = y - R * 0.5, botY = y + R * 1.05;
-  ctx.fillStyle = hurt ? "#5a2626" : "#2b3346";
+  ctx.fillStyle = hurt ? c.bodyHurt : c.body;
   ctx.beginPath(); ctx.moveTo(x - topW / 2, topY); ctx.lineTo(x + topW / 2, topY); ctx.lineTo(x + botW / 2, botY); ctx.lineTo(x - botW / 2, botY); ctx.closePath();
   ctx.fill(); ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.stroke();
   // Vertical ridges.
-  ctx.strokeStyle = "rgba(255,255,255,0.10)"; ctx.lineWidth = 1.5;
+  ctx.strokeStyle = c.ridge; ctx.lineWidth = 1.5;
   for (const f of [-0.3, 0, 0.3]) { ctx.beginPath(); ctx.moveTo(x + f * topW, topY + 3); ctx.lineTo(x + f * botW, botY - 3); ctx.stroke(); }
   // Lid + handle.
   const lidW = topW * 1.14, lidH = R * 0.32, lidY = topY - R * 0.34;
-  ctx.fillStyle = hurt ? COLOR.coreHurt : "#3a465e";
+  ctx.fillStyle = hurt ? COLOR.coreHurt : c.lid;
   roundRect(ctx, x - lidW / 2, lidY, lidW, lidH, 3); ctx.fill();
   ctx.strokeStyle = col; ctx.lineWidth = 2; roundRect(ctx, x - lidW / 2, lidY, lidW, lidH, 3); ctx.stroke();
   ctx.fillStyle = col; ctx.fillRect(x - R * 0.12, lidY - R * 0.2, R * 0.24, R * 0.22);
   // Label.
   ctx.fillStyle = COLOR.ink; ctx.font = "bold 12px system-ui, sans-serif"; ctx.textAlign = "center";
-  ctx.fillText("TRASH", x, botY + 15);
+  ctx.fillText(c.label, x, botY + 15);
 }
 
 function drawEnemies(ctx) {

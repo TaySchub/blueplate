@@ -1,5 +1,5 @@
 {
-  "_note": "Single source of truth for DIFFICULTY, ECONOMY, and MAP GEOMETRY. tools/balance_sim.py reads this file directly; the game reads it via the generated balance.data.js (run tools/gen_balance.py after editing). Only pure art (colors/shapes) stays in main.js; tower/enemy display names + blurbs live here too, so a theme reskin is JSON-only. Rule: if the balance sim needs a number to compute win-rate, it belongs in this file — including each tower's per-path upgrade deltas ('upgrades'), the map (path + free-placement rules + obstacles + simAnchors), and the wave generator (waveGen). Placement: towers go anywhere inside placement.bounds that is > pathBuffer off the belt centerline, >= towerSpacing from other towers, and outside every obstacle rect; simAnchors are the OLD slot coordinates the headless sims still build at, in build order, so the difficulty gauge stays layout-stable — never reorder them. Upgrades: 2 named paths per tower, each with 2 tiers { cost, ...deltas }; buying a tier of one path locks the other for that placed tower. Difficulty is now tuned against the REAL-ENGINE sim (node tools/sim.mjs --check), the CI gate as of Issue #54 PR 5; tools/balance_sim.py is a report-only second opinion. Costs/deltas are per tower and per tier (signatures are tier 2).",
+  "_note": "Single source of truth for DIFFICULTY, ECONOMY, and MAP GEOMETRY. tools/balance_sim.py reads this file directly; the game reads it via the generated balance.data.js (run tools/gen_balance.py after editing). Only pure art (colors/shapes) stays in main.js; tower/enemy display names + blurbs live here too, so a theme reskin is JSON-only. Rule: if the balance sim needs a number to compute win-rate, it belongs in this file — including each tower's per-path upgrade deltas ('upgrades'), the maps (maps[] — each with theme + path + free-placement rules + obstacles + simAnchors), and the wave generator (waveGen). Maps are content: maps[0] is the default; each map's 'theme' block holds every surface color/label the renderer draws (floor, belt, booth pads, kitchen, trash chute), so a diner reskin is literally JSON-only and per-kind prop art stays in src/art.js. 'tuned:true' marks a map whose difficulty is calibrated (node tools/sim.mjs --check enforces the band on it); future maps ship tuned:false until tuned. Placement: towers go anywhere inside placement.bounds that is > pathBuffer off the belt centerline, >= towerSpacing from other towers, and outside every obstacle rect; simAnchors are the OLD slot coordinates the headless sims still build at, in build order, so the difficulty gauge stays layout-stable — never reorder them. Upgrades: 2 named paths per tower, each with 2 tiers { cost, ...deltas }; buying a tier of one path locks the other for that placed tower. Difficulty is now tuned against the REAL-ENGINE sim (node tools/sim.mjs --check), the CI gate as of Issue #54 PR 5; tools/balance_sim.py is a report-only second opinion. Costs/deltas are per tower and per tier (signatures are tier 2).",
   "target_win_rate": [0.50, 0.60],
   "economy": {
     "startCurrency": 150,
@@ -9,35 +9,53 @@
     "earlyCallWindow": 8,
     "sellRefund": 0.7
   },
-  "map": {
-    "path": [
-      { "x": -30, "y": 70 },  { "x": 60, "y": 70 },   { "x": 60, "y": 350 },
-      { "x": 200, "y": 350 }, { "x": 200, "y": 70 },  { "x": 340, "y": 70 },
-      { "x": 340, "y": 350 }, { "x": 480, "y": 350 }, { "x": 480, "y": 70 },
-      { "x": 620, "y": 70 },  { "x": 620, "y": 350 }, { "x": 740, "y": 350 },
-      { "x": 740, "y": 210 }
-    ],
-    "placement": {
-      "pathBuffer": 40,
-      "towerSpacing": 40,
-      "bounds": { "x0": 16, "y0": 16, "x1": 784, "y1": 382 }
-    },
-    "obstacles": [
-      { "x": 100, "y": 40,  "w": 52,  "h": 54, "kind": "mopbucket" },
-      { "x": 240, "y": 316, "w": 60,  "h": 62, "kind": "jukebox" },
-      { "x": 370, "y": 176, "w": 80,  "h": 88, "kind": "counter" },
-      { "x": 650, "y": 176, "w": 60,  "h": 88, "kind": "booths" },
-      { "x": 660, "y": 44,  "w": 100, "h": 70, "kind": "dessert" }
-    ],
-    "simAnchors": [
-      { "x": 130, "y": 150 }, { "x": 130, "y": 290 },
-      { "x": 270, "y": 150 }, { "x": 270, "y": 290 },
-      { "x": 410, "y": 150 }, { "x": 410, "y": 290 },
-      { "x": 550, "y": 150 }, { "x": 550, "y": 290 },
-      { "x": 680, "y": 150 }, { "x": 680, "y": 290 }
-    ],
-    "coreRadius": 24
-  },
+  "maps": [
+    {
+      "id": "diner",
+      "name": "The American Diner",
+      "tuned": true,
+      "theme": {
+        "floor": { "bg": "#10131a", "tile": "#141a24", "tileSize": 45 },
+        "belt": {
+          "shadow": "#0e1118", "shadowWidth": 46,
+          "metal": "#333c4b", "metalWidth": 40,
+          "surface": "#232a35", "surfaceWidth": 34,
+          "slat": "rgba(255,255,255,0.07)", "slatWidth": 4,
+          "slatSpacing": 26, "slatHalf": 15, "slatSpeed": 42
+        },
+        "boothPad": { "fill": "#1b222d", "stroke": "#262f3d" },
+        "kitchen": { "interior": "#0b0e14", "door": "#2c3543", "doorEdge": "#3f4a5c", "frame": "#4a5568", "label": "KITCHEN" },
+        "chute": { "body": "#2b3346", "bodyHurt": "#5a2626", "lid": "#3a465e", "ridge": "rgba(255,255,255,0.10)", "label": "TRASH" }
+      },
+      "path": [
+        { "x": -30, "y": 70 },  { "x": 60, "y": 70 },   { "x": 60, "y": 350 },
+        { "x": 200, "y": 350 }, { "x": 200, "y": 70 },  { "x": 340, "y": 70 },
+        { "x": 340, "y": 350 }, { "x": 480, "y": 350 }, { "x": 480, "y": 70 },
+        { "x": 620, "y": 70 },  { "x": 620, "y": 350 }, { "x": 740, "y": 350 },
+        { "x": 740, "y": 210 }
+      ],
+      "coreRadius": 24,
+      "placement": {
+        "pathBuffer": 40,
+        "towerSpacing": 40,
+        "bounds": { "x0": 16, "y0": 16, "x1": 784, "y1": 382 }
+      },
+      "obstacles": [
+        { "x": 100, "y": 40,  "w": 52,  "h": 54, "kind": "mopbucket" },
+        { "x": 240, "y": 316, "w": 60,  "h": 62, "kind": "jukebox" },
+        { "x": 370, "y": 176, "w": 80,  "h": 88, "kind": "counter" },
+        { "x": 650, "y": 176, "w": 60,  "h": 88, "kind": "booths" },
+        { "x": 660, "y": 44,  "w": 100, "h": 70, "kind": "dessert" }
+      ],
+      "simAnchors": [
+        { "x": 130, "y": 150 }, { "x": 130, "y": 290 },
+        { "x": 270, "y": 150 }, { "x": 270, "y": 290 },
+        { "x": 410, "y": 150 }, { "x": 410, "y": 290 },
+        { "x": 550, "y": 150 }, { "x": 550, "y": 290 },
+        { "x": 680, "y": 150 }, { "x": 680, "y": 290 }
+      ]
+    }
+  ],
   "enemyTypes": {
     "mote":   { "name": "Hot Dog",        "hpMul": 1.0,  "speedMul": 1.0, "reward": 5 },
     "runner": { "name": "The Slider",     "hpMul": 0.6,  "speedMul": 1.7, "reward": 5 },

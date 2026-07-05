@@ -61,7 +61,7 @@ def load_config(path: str) -> dict:
     with open(path) as f:
         cfg = json.load(f)
     cfg.pop("_note", None)
-    for key in ("economy", "enemyTypes", "towers", "waveGen", "map"):
+    for key in ("economy", "enemyTypes", "towers", "waveGen", "maps"):
         if key not in cfg:
             raise SystemExit(f"balance config missing '{key}': {path}")
     return cfg
@@ -90,10 +90,22 @@ def make_wave(n: int, cfg: dict) -> dict:
     return {"hp": hp, "speed": speed, "interval": interval, "comp": comp}
 
 
-def build_path(cfg: dict) -> dict:
-    """Precompute the path polyline + segment lengths from the map. Total length
+def get_map(cfg: dict, map_id: str | None = None) -> dict:
+    """Pick a map from the maps[] list: by id, else the first (the default).
+    Mirrors the engine's loadMap fallback so the report-only gauge and the game
+    agree on which map is being played."""
+    maps = cfg["maps"]
+    if map_id:
+        for m in maps:
+            if m["id"] == map_id:
+                return m
+    return maps[0]
+
+
+def build_path(m: dict) -> dict:
+    """Precompute the path polyline + segment lengths from a map. Total length
     is the enemy travel distance (the game's PATH_LENGTH)."""
-    pts = [(p["x"], p["y"]) for p in cfg["map"]["path"]]
+    pts = [(p["x"], p["y"]) for p in m["path"]]
     seg = [math.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1])
            for i in range(len(pts) - 1)]
     return {"pts": pts, "seg": seg, "total": sum(seg)}
@@ -298,7 +310,7 @@ def buy_upgrades(towers: list[dict], currency: float) -> float:
 
 
 def play_game(build: list[str], cfg: dict, seed: int, early_bonus: float = 0.0,
-              max_waves: int | None = None) -> tuple[bool, int]:
+              max_waves: int | None = None, map_id: str | None = None) -> tuple[bool, int]:
     """Play a run with an economy-limited build-then-upgrade strategy.
     early_bonus models a player who calls every wave early for the max bonus
     (the sim can't represent the prep-time cost, so this is a free-income upper
@@ -307,10 +319,11 @@ def play_game(build: list[str], cfg: dict, seed: int, early_bonus: float = 0.0,
     rng = random.Random(seed)
     econ = cfg["economy"]
     # Free placement: the game has no fixed slots anymore; the sims keep
-    # building at map.simAnchors (the former slot coordinates, in order) so the
-    # gauge stays layout-stable.
-    anchors = cfg["map"]["simAnchors"]
-    path = build_path(cfg)
+    # building at the map's simAnchors (the former slot coordinates, in order) so
+    # the gauge stays layout-stable. Maps live in maps[]; default = the first.
+    m = get_map(cfg, map_id)
+    anchors = m["simAnchors"]
+    path = build_path(m)
     currency = econ["startCurrency"]
     lives = econ["startLives"]
     towers: list[dict] = []
