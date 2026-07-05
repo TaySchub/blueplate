@@ -5,6 +5,32 @@ Format is deliberately simple and plain-language.
 
 ## [Unreleased]
 
+### Changed
+- **UI & icon pass — chrome readability** (Issue #71, Implementer hat). A
+  legibility + iconography pass on the game's chrome; **no gameplay or number
+  changes** (the real-engine gate is byte-identical at 58.0% / median 20 /
+  w20:84, and both smoke JSONs match main exactly — chrome reads game state,
+  never writes it). What changed: the HUD gets proper **vector icons** (a
+  rating-star placard for the Health Rating, a coin for Tips) instead of bare
+  glyphs, on a rounded readout bar. Deck cards (toolbar **and** hub) share one
+  card language — prominent portrait, legible name (hub cards wrap long names to
+  two lines; "The " dropped so more reads), a **Tips-coin cost chip**, and three
+  unmistakable states (selected with a color frame + accent bar, hover, and
+  dimmed-with-red-cost when you can't afford it). The selected-tower panel adopts
+  the same chip/button language (cost chips on the upgrade paths + a gold
+  sell-refund chip; a vector padlock replaces the 🔒/✓ glyphs). Seated customers
+  get a soft grounding shadow, a crisper selection ring, and a clearer hover
+  range ring. **Palette discipline:** everything reuses the existing `COLOR`
+  palette; the handful of genuinely shared chrome surfaces became **named
+  `COLOR` entries** (`ctrlBg`/`ctrlSel`/`ctrlLine`/`ctrlLineHi`/`chip`/`hudBg`/
+  `unitShadow`) so the coming diner remaster re-points chrome in one place — no
+  new color direction, and `maps[].theme` (map surfaces) untouched. Icons are
+  reusable `src/art.js` helpers (`drawRatingIcon`/`drawCurrencyIcon`/
+  `drawLockIcon`/`drawSoftShadow`/`wrapLabel`), never assets or text glyphs.
+  Hit-test geometry stays the single source of truth (`cardRect`/`towerPanel`
+  unchanged, so `src/main.js` needed no edit); the toolbar strip stays at
+  `TOOLBAR.y = 398`. Mascot identities were **not** redrawn.
+
 ### Added
 - **Map platform — maps are now content** (Issue #69, Implementer hat). Turns
   "the map" into a `maps[]` list in `data/balance.json`: adding a map is one JSON

@@ -160,3 +160,17 @@ Render `tools/dev/harness.html?mode=sheet` and check:
   They block tower **placement only**; this game has no line-of-sight, so
   props never affect shots or enemies. Booth pads now draw under **placed**
   towers (the table appears when the customer sits down), not at fixed seats.
+- **2026-07-05** (UI & icon pass, Issue #71) — **Chrome speaks one card
+  language.** HUD/toolbar/hub-deck/panel all reuse the same vocabulary:
+  vector-only icons (never glyphs) — a **rating-star placard** for the Health
+  Rating (lives), a **coin** for Tips (one mark at HUD size and shrunk onto
+  chips), a **vector padlock** for locked; costs always render as an inset
+  **Tips-coin cost chip** (gold affordable / red not). Deck cards read
+  portrait-on-top → name → cost chip, with three unmistakable states —
+  selected (color frame + top accent bar, stays crisp even when unaffordable),
+  hover (lifted border), unaffordable (dimmed + red cost). Chrome surface
+  colors are **named `COLOR` entries** (`ctrlBg/ctrlSel/ctrlLine/ctrlLineHi/
+  chip/hudBg/unitShadow`) so the coming diner remaster re-points chrome in one
+  place; this pass sets **structure/legibility, not a new palette**. Seated
+  customers get a soft grounding shadow to lift them off the floor — mascot
+  identities themselves were **not** redrawn.
