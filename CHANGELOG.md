@@ -5,6 +5,30 @@ Format is deliberately simple and plain-language.
 
 ## [Unreleased]
 
+### Added
+- **Blue-Plate Special — the new default map** (Issue #73, Implementer hat).
+  The first content map on the maps[] platform (#70), built from the developer's
+  ratified mockup (`docs/art-refs/blue-plate-special-1a.png`): a 50s-retro,
+  3-lane out-and-back diner — dishes leave the kitchen top-left, run the full top
+  lane, wrap down the right and back along the bottom, then the middle lane
+  returns them to the **dish return** (the core) at the kitchen. It's now
+  `maps[0]` (the fresh-META default); the existing **diner stays in the list,
+  byte-for-byte unchanged** (SHA-256-proven identical frame) as the `tuned:true`
+  reference that keeps the 58.0% CI gate alive. Blue-Plate ships `tuned:false`
+  (report-only) — its reference build reads **59.0%**, a healthy baseline the
+  upcoming retune PR calibrates and then gates. The map adds three **data-driven,
+  default-OFF** theme capabilities (so every other map renders exactly as before):
+  a `wallFrame` drawn in the bounds margin (costs no floor), belt direction
+  `chevrons`, and `coreStyle:"dishReturn"` (kitchen-wall slot + placard vs the
+  chute). New props (kitchen structure, register, counter+stools, prep) plus the
+  shared jukebox/booths/dessert recolored via an optional `theme.props` palette
+  that defaults to the diner's exact colors. The belt keeps a **dark surface**
+  under silver rails so the foods still pop (verified mid-wave). Also: the
+  authorized `GAME_BRIEF.md` core-line amendment (trash chute → dish return,
+  per-map), and a cache-bust fix for the dev harness so a warm browser can't
+  serve stale src during verification. No engine changes; no gameplay numbers
+  changed outside the new map entry.
+
 ### Changed
 - **UI & icon pass — chrome readability** (Issue #71, Implementer hat). A
   legibility + iconography pass on the game's chrome; **no gameplay or number

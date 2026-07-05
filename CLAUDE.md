@@ -121,7 +121,11 @@ The backlog is GitHub Issues — the single roadmap. Don't create a parallel one
   boot loads `maps[0]`, the hub `MAP_BTN` picker + `game.mapId` choose it
   (remembered in `META.mapId`). `loadMap` consumes no RNG. Adding a map = a JSON
   block + prop drawers; `tools/maplint.mjs` validates every map via real
-  `canPlace`.
+  `canPlace`. Per-map `theme` capabilities are **data-driven, default-OFF** so
+  new maps don't disturb existing ones: `wallFrame` (margin trim), belt
+  `chevrons`, `coreStyle` ("chute" | "dishReturn"), and `theme.props` (recolors
+  shared obstacle drawers; absent → the drawers' hardcoded defaults). Two maps
+  ship: `blueplate` (default, tuned:false) + `diner` (tuned:true, the gate).
 - **`src/engine.js` — upgrades (paths):** two exclusive paths per tower
   (`towerPaths`/`pathAvailable`/`nextTier`); `tryUpgrade(t, pathId)` commits a
   path (locks the other) and applies a tier's deltas via `applyUpgradeDeltas`
