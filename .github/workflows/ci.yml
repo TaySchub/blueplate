@@ -45,19 +45,23 @@ jobs:
             exit 1
           }
 
-      - name: Balance sim in band
-        run: python3 tools/balance_sim.py --check --sims 200
+      # THE balance gate (Issue #54 PR 5 switched it here from balance_sim.py):
+      # the real engine, no mirror — real projectile travel, straw-lock, knockback,
+      # double-freeze. Difficulty is tuned against this. Fails outside the band.
+      - name: Balance band (real-engine sim)
+        run: node tools/sim.mjs --check --sims 200
 
       # The Python sim re-implements the wave formula; JS and Python round
       # differently (Math.round vs banker's round), so this gate turns any
-      # silent formula drift into a red run.
+      # silent formula drift into a red run. Stays while balance_sim.py exists.
       - name: Wave parity (real engine vs Python sim)
         run: |
           node tools/sim.mjs --dump-waves /tmp/waves.json
           python3 tools/check_parity.py /tmp/waves.json
 
-      # Report-only for now: the real-engine gauge (no mirror, real projectile
-      # travel/straw-lock). The Python sim above stays the pass/fail gate until
-      # the developer decides which gauge difficulty is tuned against.
-      - name: Real-engine win-rate (report only)
-        run: node tools/sim.mjs --sims 200
+      # Report-only second opinion (demoted from the gate in PR 5): the Python
+      # model reads higher than the real engine (it has HP jitter + no real
+      # mechanics). Kept during the transition; the developer may retire it.
+      - name: Python difficulty model (report only)
+        continue-on-error: true
+        run: python3 tools/balance_sim.py --check --sims 200

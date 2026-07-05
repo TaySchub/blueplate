@@ -67,8 +67,12 @@ no bundler — `file://` double-click still works):**
 - `balance.data.js` — generated mirror; never edit by hand.
 
 **Verification:**
-- `.github/workflows/ci.yml` — JS syntax, generated-file sync, sim band gate.
-- `tools/balance_sim.py` — the difficulty gauge (`--check` is the CI gate).
+- `.github/workflows/ci.yml` — JS syntax, mechanic tests, generated-file sync,
+  the real-engine band gate, wave parity.
+- `tools/sim.mjs` — the difficulty gauge: the REAL engine run headless
+  (`--check` is the CI gate as of Issue #54 PR 5). `tools/balance_sim.py` is a
+  report-only second opinion (a 1-D model that reads higher — HP jitter, no
+  real mechanics); the wave-parity gate keeps it honest while it exists.
 - `tools/dev/harness.html` — contact sheet, seeded smoke run, play driver.
 
 **Docs:**
@@ -131,7 +135,8 @@ worker's branch.
 
 CI (`.github/workflows/ci.yml`) runs on every PR: JS syntax, the mechanic
 behavior tests (`tools/tests/*.test.mjs`), generated-file sync, the balance band
-(`tools/balance_sim.py --check`), and wave parity. Never open a PR you expect to
+(`node tools/sim.mjs --check` — the real engine; `balance_sim.py` is a
+report-only second opinion), and wave parity. Never open a PR you expect to
 fail it.
 
 **Definition of verified — do ALL of this yourself before requesting review.
@@ -139,9 +144,10 @@ Never hand the developer an unverified change to preview:**
 
 1. **Everything:** serve the repo root (`python3 -m http.server`), load the
    game, zero console errors.
-2. **Difficulty/economy:** run `python3 tools/balance_sim.py --check` and quote
-   the win-rate in the PR. The number — not a model's "looks balanced" — is
-   the signal that tells the designer to tune `data/balance.json`.
+2. **Difficulty/economy:** run `node tools/sim.mjs --check` (the real-engine
+   gate) and quote the win-rate in the PR. The number — not a model's "looks
+   balanced" — is the signal that tells the designer to tune `data/balance.json`.
+   (`python3 tools/balance_sim.py --check` is a report-only second opinion.)
 3. **Any gameplay change:** run the smoke run in `tools/dev/harness.html`
    (`?mode=smoke&seed=1`) and paste its JSON verdict in the PR. Same seed →
    same run, so a failing seed is a repro URL. For engine changes also run

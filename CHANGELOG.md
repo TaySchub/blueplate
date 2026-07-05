@@ -5,6 +5,41 @@ Format is deliberately simple and plain-language.
 
 ## [Unreleased]
 
+### Changed
+- **The balance pass + the CI gauge switch (PR 5 — the final phase of the Issue
+  #54 upgrade rework)** (Implementer hat). Numbers, costs, and CI policy only —
+  no mechanic or test changes (the seven `tools/tests/*.test.mjs` pass UNEDITED;
+  `src/engine.js`/`render.js`/`art.js`/`audio.js` untouched).
+  - **The CI difficulty gate is now the REAL engine.** `node tools/sim.mjs
+    --check` (runs `src/engine.js` headless — real projectile travel, straw-lock,
+    knockback, double-freeze) replaces `tools/balance_sim.py --check` as the
+    blocking band gate. **Honest framing:** the Python model was gauge-flattered —
+    it has HP jitter and can't model the signatures, so it read ~53–58% while the
+    real engine read ~20% at the rework's start and ~43% before this pass.
+    `balance_sim.py` is demoted to a **report-only** second opinion (it now reads
+    ~61%, above band — kept during the transition; the wave-parity gate still
+    keeps it honest). Tooling: `sim.mjs` gained a `--paths tower=pathId` override
+    and a died-at-wave line (for the path-value matrix).
+  - **Tuned to the band against the real engine:** the reference board reads
+    **56.7% / 58.7% / 55.0%** at seeds 1 / 1000 / 5000 (was 43%).
+  - **Trap picks closed.** Before, 4 of 5 signature paths were severe traps (the
+    1-D-ish real board rewards focused damage, so spread/AoE signatures lagged by
+    15–69 points). Buffed their mechanics' tunables (pierce/crumb/silly-straw/
+    4th-kid damage) so sibling paths now land within ~7 points — except **frost
+    Paparazzi** (double-freeze), which stays ~10.6 points above Long Exposure;
+    nerfing it would gut the signature, so it's flagged for the developer.
+  - **Real per-tower/per-tier upgrade prices** (the flat 70/100 placeholders are
+    gone; tier 2 costs more than tier 1; cheaper towers get cheaper upgrades).
+  - **Known caveat for the playtest (documented, not a defect):** the real-engine
+    sim uses one fixed reference build with no HP jitter, so at ~55% win the board
+    fails at the peak wave — losses cluster at wave 20 rather than spreading over
+    15–20. Genuine spread is a difficulty-curve *design* call (best made on feel);
+    `waveGen` was deliberately left unchanged. Files: `data/balance.json`,
+    `tools/sim.mjs`, `.github/workflows/ci.yml`, `CLAUDE.md`, `SETUP-AND-LAUNCH.md`,
+    `.claude/agents/designer.md` + `qa.md` (+ generated `balance.data.js` &
+    `index.html`). **Awaiting the developer's playtest + a full Fable checkpoint
+    before merge.**
+
 ### Added
 - **The Kids' Table's tier-2 signatures — the 4th kid + the teen glow-up (PR 4,
   the last mechanic PR of the Issue #54 rework)** (Implementer hat).

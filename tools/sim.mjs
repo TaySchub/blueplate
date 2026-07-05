@@ -47,6 +47,12 @@ const BUILD = opt("build", "arrow,cannon,frost,arrow").split(",").map((s) => s.t
 // two tiers in order — mirrors tools/balance_sim.py SIM_PATHS (the pure-stat paths;
 // the signature paths carry mechanics this gauge doesn't need to pick).
 const SIM_PATHS = { arrow: "carvingStation", cannon: "oneBigBite", frost: "longExposure", sniper: "extraSlurp", zap: "teenageTable" };
+// --paths tower=pathId,... overrides which path a tower commits to (for the PR-5
+// path-value matrix). Unlisted towers fall back to SIM_PATHS.
+const PATH_OVERRIDE = Object.fromEntries(
+  (opt("paths", "") || "").split(",").map((s) => s.trim()).filter(Boolean).map((kv) => kv.split("=").map((x) => x.trim()))
+);
+const pathFor = (typeId) => PATH_OVERRIDE[typeId] || SIM_PATHS[typeId];
 
 // --- load the real engine ---------------------------------------------------
 // The game files are classic browser scripts sharing one global lexical scope,
@@ -113,14 +119,14 @@ function playGame(seed, build) {
         // Each tower commits to its fixed SIM_PATHS path and buys both tiers,
         // cheapest next tier first (mirrors balance_sim.py buy_upgrades).
         for (;;) {
-          // Only towers whose fixed path still has a next tier — guards a missing id
+          // Only towers whose chosen path still has a next tier — guards a missing id
           // or a maxed/locked path so a future tower without a mapping won't crash.
-          const cands = E.game.towers.filter((t) => { const p = SIM_PATHS[t.typeId]; return p && E.nextTier(t, p); });
+          const cands = E.game.towers.filter((t) => { const p = pathFor(t.typeId); return p && E.nextTier(t, p); });
           if (!cands.length) break;
-          const cost = (t) => E.nextTier(t, SIM_PATHS[t.typeId]).cost;
+          const cost = (t) => E.nextTier(t, pathFor(t.typeId)).cost;
           const t = cands.reduce((a, b) => (cost(a) <= cost(b) ? a : b));
           if (E.game.currency < cost(t)) break;
-          E.tryUpgrade(t, SIM_PATHS[t.typeId]);
+          E.tryUpgrade(t, pathFor(t.typeId));
         }
         // Steady reference: let the early-call window lapse so the bonus is 0.
         E.game.prepElapsed = E.RULES.earlyCallWindow + 1;
@@ -137,23 +143,26 @@ function playGame(seed, build) {
 
 // --- evaluate ----------------------------------------------------------------
 const t0 = Date.now();
-let wins = 0;
-const waves = [];
-for (let i = 0; i < SIMS; i++) {
-  const r = playGame(SEED + i, BUILD);
-  wins += r.won ? 1 : 0;
-  waves.push(r.wave);
-}
-waves.sort((a, b) => a - b);
+const results = [];
+for (let i = 0; i < SIMS; i++) results.push(playGame(SEED + i, BUILD));
+const wins = results.filter((r) => r.won).length;
+const waves = results.map((r) => r.wave).sort((a, b) => a - b);
 const winRate = wins / SIMS;
 const medianWave = waves[Math.floor(waves.length / 2)];
 const inBand = winRate >= BAND[0] && winRate <= BAND[1];
+// Died-at-wave distribution (lost runs only): the SHAPE check — are losses spread
+// across the mid-to-late waves, or piled on a single endgame cliff?
+const hist = {};
+for (const r of results) if (!r.won) hist[r.wave] = (hist[r.wave] || 0) + 1;
+const deathDist = Object.keys(hist).sort((a, b) => a - b).map((w) => `w${w}:${hist[w]}`).join(" ") || "(none — all won)";
 
+const overridden = Object.keys(PATH_OVERRIDE).length ? `  (paths: ${Object.entries(PATH_OVERRIDE).map(([k, v]) => k + "=" + v).join(", ")})` : "";
 console.log(`REAL-ENGINE sim (src/engine.js, no mirror)`);
-console.log(`  build        : ${BUILD.join(", ")}`);
+console.log(`  build        : ${BUILD.join(", ")}${overridden}`);
 console.log(`  sims / seed  : ${SIMS} / ${SEED}`);
 console.log(`  win rate     : ${(winRate * 100).toFixed(1)}%`);
 console.log(`  median waves : ${medianWave}`);
+console.log(`  died-at-wave : ${deathDist}  [lost ${SIMS - wins}/${SIMS}]`);
 console.log(`  target band  : ${(BAND[0] * 100).toFixed(0)}%-${(BAND[1] * 100).toFixed(0)}% -> ${inBand ? "inside" : "OUTSIDE"}`);
 console.log(`  runtime      : ${((Date.now() - t0) / 1000).toFixed(1)}s`);
 console.log(`  note         : real mechanics (projectile travel, straw-lock, no HP jitter) — expect a different reading than balance_sim.py's gauge`);

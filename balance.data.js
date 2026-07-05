@@ -1,7 +1,7 @@
 // AUTO-GENERATED from data/balance.json by tools/gen_balance.py.
 // Do NOT edit by hand — edit data/balance.json and re-run the generator.
 window.BALANCE = {
-  "_note": "Single source of truth for DIFFICULTY, ECONOMY, and MAP GEOMETRY. tools/balance_sim.py reads this file directly; the game reads it via the generated balance.data.js (run tools/gen_balance.py after editing). Only pure art (colors/shapes) stays in main.js; tower/enemy display names + blurbs live here too, so a theme reskin is JSON-only. Rule: if the balance sim needs a number to compute win-rate, it belongs in this file \u2014 including each tower's per-path upgrade deltas ('upgrades'), the map (path + slots), and the wave generator (waveGen). Upgrades: 2 named paths per tower, each with 2 tiers { cost, ...deltas }; buying a tier of one path locks the other for that placed tower. Numbers here are PLACEHOLDERS balanced only to keep the Python gate in band \u2014 the real per-tower/per-upgrade tuning is the balance pass (Issue #54, PR 5).",
+  "_note": "Single source of truth for DIFFICULTY, ECONOMY, and MAP GEOMETRY. tools/balance_sim.py reads this file directly; the game reads it via the generated balance.data.js (run tools/gen_balance.py after editing). Only pure art (colors/shapes) stays in main.js; tower/enemy display names + blurbs live here too, so a theme reskin is JSON-only. Rule: if the balance sim needs a number to compute win-rate, it belongs in this file \u2014 including each tower's per-path upgrade deltas ('upgrades'), the map (path + slots), and the wave generator (waveGen). Upgrades: 2 named paths per tower, each with 2 tiers { cost, ...deltas }; buying a tier of one path locks the other for that placed tower. Difficulty is now tuned against the REAL-ENGINE sim (node tools/sim.mjs --check), the CI gate as of Issue #54 PR 5; tools/balance_sim.py is a report-only second opinion. Costs/deltas are per tower and per tier (signatures are tier 2).",
   "target_win_rate": [
     0.5,
     0.6
@@ -152,13 +152,13 @@ window.BALANCE = {
           "name": "Fork Frenzy",
           "tiers": [
             {
-              "cost": 70,
-              "cooldownMul": 0.62
+              "cost": 55,
+              "cooldownMul": 0.6
             },
             {
-              "cost": 100,
+              "cost": 95,
               "pierce": true,
-              "damage": 10,
+              "damage": 18,
               "range": 14
             }
           ]
@@ -167,13 +167,13 @@ window.BALANCE = {
           "name": "Carving Station",
           "tiers": [
             {
-              "cost": 70,
-              "damage": 27,
+              "cost": 55,
+              "damage": 28,
               "range": 14
             },
             {
-              "cost": 100,
-              "damage": 27,
+              "cost": 95,
+              "damage": 28,
               "range": 14
             }
           ]
@@ -197,10 +197,10 @@ window.BALANCE = {
               "cooldownMul": 0.72
             },
             {
-              "cost": 100,
-              "cooldownMul": 0.82,
-              "crumbRadius": 46,
-              "crumbDamage": 34
+              "cost": 120,
+              "cooldownMul": 0.7,
+              "crumbRadius": 50,
+              "crumbDamage": 42
             }
           ]
         },
@@ -209,12 +209,12 @@ window.BALANCE = {
           "tiers": [
             {
               "cost": 70,
-              "damage": 66,
+              "damage": 62,
               "range": 8
             },
             {
-              "cost": 100,
-              "damage": 66,
+              "cost": 120,
+              "damage": 62,
               "range": 8,
               "knockbackBase": 100,
               "knockbackSizeRef": 12
@@ -239,13 +239,13 @@ window.BALANCE = {
           "name": "Long Exposure",
           "tiers": [
             {
-              "cost": 70,
+              "cost": 60,
               "freezeDurAdd": 0.2,
               "damage": 3,
               "range": 12
             },
             {
-              "cost": 100,
+              "cost": 105,
               "freezeDurAdd": 0.2,
               "damage": 3,
               "range": 12,
@@ -258,11 +258,11 @@ window.BALANCE = {
           "name": "Paparazzi",
           "tiers": [
             {
-              "cost": 70,
+              "cost": 60,
               "range": 20
             },
             {
-              "cost": 100,
+              "cost": 105,
               "range": 12,
               "freezeTargets": 2
             }
@@ -288,7 +288,7 @@ window.BALANCE = {
               "range": 15
             },
             {
-              "cost": 100,
+              "cost": 115,
               "damage": 4,
               "range": 15
             }
@@ -302,9 +302,10 @@ window.BALANCE = {
               "range": 20
             },
             {
-              "cost": 100,
+              "cost": 115,
               "range": 10,
-              "drainTargets": 2
+              "drainTargets": 2,
+              "damage": 2
             }
           ]
         }
@@ -324,13 +325,14 @@ window.BALANCE = {
           "name": "Birthday Party",
           "tiers": [
             {
-              "cost": 70,
+              "cost": 45,
               "cooldownMul": 0.78
             },
             {
-              "cost": 100,
+              "cost": 85,
               "cooldownMul": 0.85,
-              "maxTargetsAdd": 1
+              "maxTargetsAdd": 1,
+              "damage": 5
             }
           ]
         },
@@ -338,12 +340,12 @@ window.BALANCE = {
           "name": "Teenage Table",
           "tiers": [
             {
-              "cost": 70,
+              "cost": 45,
               "damage": 8,
               "range": 8
             },
             {
-              "cost": 100,
+              "cost": 85,
               "damage": 8,
               "range": 8
             }

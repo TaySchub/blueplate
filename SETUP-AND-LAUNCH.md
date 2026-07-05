@@ -153,7 +153,8 @@ Pages' ~10-minute cached copy. So run `gen_balance.py` before deploying after
 **Check difficulty without playing 100 games:**
 
 ```bash
-python3 tools/balance_sim.py
+node tools/sim.mjs            # the real-engine gauge (the CI gate); add --check to pass/fail
+python3 tools/balance_sim.py  # report-only second opinion (a 1-D model, reads higher)
 ```
 
 It plays the game headlessly and reports a win-rate — aim for the
