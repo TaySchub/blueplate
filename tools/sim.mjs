@@ -113,7 +113,9 @@ function playGame(seed, build) {
         // Each tower commits to its fixed SIM_PATHS path and buys both tiers,
         // cheapest next tier first (mirrors balance_sim.py buy_upgrades).
         for (;;) {
-          const cands = E.game.towers.filter((t) => t.upgradeTier < 2);
+          // Only towers whose fixed path still has a next tier — guards a missing id
+          // or a maxed/locked path so a future tower without a mapping won't crash.
+          const cands = E.game.towers.filter((t) => { const p = SIM_PATHS[t.typeId]; return p && E.nextTier(t, p); });
           if (!cands.length) break;
           const cost = (t) => E.nextTier(t, SIM_PATHS[t.typeId]).cost;
           const t = cands.reduce((a, b) => (cost(a) <= cost(b) ? a : b));

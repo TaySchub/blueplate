@@ -31,6 +31,12 @@ jobs:
           node --check balance.data.js
           for f in src/*.js; do node --check "$f"; done
 
+      # Targeted behavior tests for each engine mechanic (pierce, crumb splash,
+      # knockback, …). They load the REAL engine headless and assert BEHAVIOR, not
+      # tuned numbers, so PR 5's balance pass can retune freely without breaking them.
+      - name: Mechanic behavior tests
+        run: for t in tools/tests/*.test.mjs; do echo "-- $t"; node "$t"; done
+
       - name: Generated files in sync (balance.data.js + cache-bust stamps)
         run: |
           python3 tools/gen_balance.py

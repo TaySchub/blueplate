@@ -187,6 +187,8 @@ function tryBuild(slotIndex) {
     // Upgrade state: one of the two paths, committed on the first purchase, then
     // 0/1/2 tiers deep. upgradePath === null means "unupgraded, both paths open".
     upgradePath: null, upgradeTier: 0, pierce: false,
+    // Big Appetite tier-2 signature flags (0/unset until the path is bought).
+    crumbRadius: 0, crumbDamage: 0, knockbackBase: 0, knockbackSizeRef: 0,
     range: def.range, damage: def.damage, cooldown: def.cooldown,
     splash: def.splash || 0, slowFactor: def.slowFactor || 1, slowDur: def.slowDur || 0,
     freezeDur: def.freezeDur || 0, maxTargets: def.maxTargets || 1,
@@ -234,6 +236,11 @@ function applyUpgradeDeltas(t, d) {
   if (d.freezeDurAdd) t.freezeDur += d.freezeDurAdd;
   if (d.slowDurAdd) t.slowDur += d.slowDurAdd;
   if (d.pierce) t.pierce = true;   // Fork Frenzy t2: the fork flies straight and skewers a second dish
+  // Big Appetite tier-2 signatures (PR 2), read by fireProjectile's cannon branch.
+  if (d.crumbRadius) t.crumbRadius = d.crumbRadius;         // Speed Eater t2: bite splashes crumbs
+  if (d.crumbDamage) t.crumbDamage = d.crumbDamage;
+  if (d.knockbackBase) t.knockbackBase = d.knockbackBase;   // One Big Bite t2: spit a surviving dish backward
+  if (d.knockbackSizeRef) t.knockbackSizeRef = d.knockbackSizeRef;
 }
 
 // Buy the next tier of pathId for placed tower t. The first purchase commits the
@@ -401,6 +408,23 @@ function fireProjectile(t, target) {
     t.lungeTimer = LUNGE_DUR; t.lungeAngle = Math.atan2(ty - t.y, tx - t.x);   // lunge in; his mouth does the chomp
     applyDamage(target, t.damage);
     spawnBite(tx, ty, "#c98a45");   // crumb spray at the dish
+    // Speed Eater t2 — crumb splash: the bite scatters damaging crumbs onto OTHER
+    // dishes near the bitten one (small AoE). The target already took the full bite.
+    if (t.crumbRadius > 0) {
+      for (const e of [...game.enemies]) {
+        if (e !== target && distance({ x: tx, y: ty }, e) <= t.crumbRadius) applyDamage(e, t.crumbDamage);
+      }
+      spawnCrumbSplash(tx, ty, t.crumbRadius);
+    }
+    // One Big Bite t2 — knockback: a dish that SURVIVES the bite is spit backward
+    // along the belt. Lighter dishes fly farther (radius as the mass proxy, factor
+    // clamped 0.5x–2x); clamp at the kitchen door (dist >= 0). Dead dishes don't
+    // fly. moveEnemies re-derives x/y from the new dist next tick.
+    if (t.knockbackBase > 0 && game.enemies.includes(target)) {
+      const factor = Math.max(0.5, Math.min(2, (t.knockbackSizeRef || target.radius) / target.radius));
+      target.dist = Math.max(0, target.dist - t.knockbackBase * factor);
+      spawnKnockbackPuff(tx, ty);
+    }
     FX.shoot(t.typeId);
     return;
   }
@@ -561,6 +585,24 @@ function spawnBite(x, y, color) {
   for (let i = 0; i < 12; i++) {
     const a = Math.random() * Math.PI * 2, sp = 90 + Math.random() * 150;
     game.particles.push({ type: "spark", x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r: 2.4 + Math.random() * 2.6, life: 0.34 + Math.random() * 0.3, maxLife: 0.64, color: crumbs[i % crumbs.length] });
+  }
+}
+// Speed Eater t2: the crumb-splash AoE — a ring at the splash radius plus a wider,
+// heavier crumb spray than a plain bite, so the "it hit the neighbours too" reads.
+function spawnCrumbSplash(x, y, radius) {
+  spawnRing(x, y, "#e8c58a", radius, 0.3);
+  const crumbs = ["#e8c58a", "#c98a45", "#f2ca3c"];
+  for (let i = 0; i < 12; i++) {
+    const a = Math.random() * Math.PI * 2, sp = 80 + Math.random() * (radius * 3);
+    game.particles.push({ type: "spark", x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r: 1.6 + Math.random() * 2, life: 0.3 + Math.random() * 0.3, maxLife: 0.6, color: crumbs[i % crumbs.length] });
+  }
+}
+// One Big Bite t2: a quick puff at the bite spot as the dish is spit backward.
+function spawnKnockbackPuff(x, y) {
+  spawnRing(x, y, "#ffe1b0", 24, 0.22);
+  for (let i = 0; i < 7; i++) {
+    const a = Math.random() * Math.PI * 2, sp = 70 + Math.random() * 110;
+    game.particles.push({ type: "spark", x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r: 1.5 + Math.random() * 1.5, life: 0.22 + Math.random() * 0.16, maxLife: 0.38, color: "#d9b98a" });
   }
 }
 // A little kid hand that reaches in from a random side and clenches on a dish

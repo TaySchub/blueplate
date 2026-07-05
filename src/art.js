@@ -305,6 +305,10 @@ function drawRegular(ctx, cx, cy, r, color, opts) {
 // a plate held up, ready to lunge in and take one huge bite (single-target).
 function drawBigAppetite(ctx, cx, cy, r, color, opts) {
   const level = opts.level || 1;
+  // Path escalations: One Big Bite grows the maw (a bigger bite each tier);
+  // Speed Eater scatters more crumbs (a fast, messy eater). Other paths keep base.
+  const mawTier = opts.path === "oneBigBite" ? (opts.tier || 0) : 0;
+  const crumbTier = opts.path === "speedEater" ? (opts.tier || 0) : 0;
   const shirt = color, pants = "#39415a";
   const bodyCy = cy + r * 0.46, bodyRx = r * 1.02, bodyRy = r * 0.98;
   const hy = cy - r * 0.5, headR = r * 0.72;
@@ -339,7 +343,8 @@ function drawBigAppetite(ctx, cx, cy, r, color, opts) {
   // Huge open mouth — the identity: dark maw, red interior, a tongue. It snaps shut
   // when `bite` rises (the chomp is now *his* mouth, synced to the lunge).
   const bite = opts.bite || 0;
-  const mCy = hy + headR * 0.34, mRx = headR * 0.46, mRy = headR * 0.42 * (1 - bite * 0.82);
+  const mawScale = 1 + mawTier * 0.22;   // One Big Bite: a bigger maw each tier
+  const mCy = hy + headR * 0.34, mRx = headR * 0.46 * mawScale, mRy = headR * 0.42 * mawScale * (1 - bite * 0.82);
   ctx.fillStyle = "#2a0d0d"; ctx.strokeStyle = MDARK; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.ellipse(cx, mCy, mRx, mRy, 0, 0, 7); ctx.fill(); ctx.stroke();
   if (bite < 0.6) { ctx.fillStyle = "#d0524f"; ctx.beginPath(); ctx.ellipse(cx, mCy + mRy * 0.42, mRx * 0.66, mRy * 0.42, 0, 0, Math.PI); ctx.fill(); }   // tongue
@@ -355,6 +360,13 @@ function drawBigAppetite(ctx, cx, cy, r, color, opts) {
   ctx.strokeStyle = MDARK; ctx.lineWidth = Math.max(1.2, headR * 0.1); ctx.lineCap = "round";
   ctx.beginPath(); ctx.moveTo(cx - eyeDx - eyeR, eyeY - eyeR * 1.7); ctx.lineTo(cx - eyeDx + eyeR * 0.6, eyeY - eyeR * 1.3);
   ctx.moveTo(cx + eyeDx + eyeR, eyeY - eyeR * 1.7); ctx.lineTo(cx + eyeDx - eyeR * 0.6, eyeY - eyeR * 1.3); ctx.stroke();   // raised brows
+  // Speed Eater: crumb specks flung around the fast, messy eater — more each tier
+  // (deterministic spots so the contact sheet is stable).
+  if (crumbTier > 0) {
+    const spots = [[-1.18, 0.25], [1.22, 0.4], [-0.95, 0.9], [1.05, 0.95], [-1.32, 0.62], [1.38, 0.1]];
+    const tone = ["#e8c58a", "#c98a45"];
+    for (let i = 0; i < crumbTier * 3; i++) { const [sx, sy] = spots[i % spots.length]; fillCircle(ctx, cx + sx * r, cy + sy * r, r * 0.1, tone[i % 2]); }
+  }
   if (level >= 3) { ctx.fillStyle = "#fff2b0"; drawSpark4(ctx, cx + r * 1.15, hy - r * 0.7, r * 0.4); }
 }
 

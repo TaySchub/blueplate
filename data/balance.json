@@ -44,8 +44,8 @@
       "name": "Big Appetite", "blurb": "Grabs one dish and takes a huge, slow bite (single-target)",
       "cost": 85, "range": 104, "damage": 90, "cooldown": 2.8, "behavior": "single",
       "upgrades": {
-        "speedEater": { "name": "Speed Eater",  "tiers": [ { "cost": 70, "cooldownMul": 0.72 }, { "cost": 100, "cooldownMul": 0.82, "damage": 30 } ] },
-        "oneBigBite": { "name": "One Big Bite", "tiers": [ { "cost": 70, "damage": 66, "range": 8 }, { "cost": 100, "damage": 66, "range": 8 } ] }
+        "speedEater": { "name": "Speed Eater",  "tiers": [ { "cost": 70, "cooldownMul": 0.72 }, { "cost": 100, "cooldownMul": 0.82, "crumbRadius": 46, "crumbDamage": 34 } ] },
+        "oneBigBite": { "name": "One Big Bite", "tiers": [ { "cost": 70, "damage": 66, "range": 8 }, { "cost": 100, "damage": 66, "range": 8, "knockbackBase": 100, "knockbackSizeRef": 12 } ] }
       }
     },
     "frost": {

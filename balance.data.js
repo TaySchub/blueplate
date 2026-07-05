@@ -199,7 +199,8 @@ window.BALANCE = {
             {
               "cost": 100,
               "cooldownMul": 0.82,
-              "damage": 30
+              "crumbRadius": 46,
+              "crumbDamage": 34
             }
           ]
         },
@@ -214,7 +215,9 @@ window.BALANCE = {
             {
               "cost": 100,
               "damage": 66,
-              "range": 8
+              "range": 8,
+              "knockbackBase": 100,
+              "knockbackSizeRef": 12
             }
           ]
         }

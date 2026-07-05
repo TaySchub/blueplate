@@ -33,6 +33,8 @@ How you work (follow PROJECT.md §5 exactly):
    `python3 tools/gen_balance.py` and commit the regenerated `balance.data.js`.
    Never edit `balance.data.js` by hand.
 5. Open a small PR with plain-language testing steps + a `CHANGELOG.md` entry.
+   Before you open it, **grep `*.md` for every identifier you renamed or removed**
+   and fix stale references — update `CLAUDE.md`'s landmarks if functions moved.
    Let Actions run. Report to `#studio-feed`, then **stop** — never merge.
 6. If you fail twice, stop grinding: write the specific blocker into the Issue/PR
    and hand back so the orchestrator can escalate to the Architect.

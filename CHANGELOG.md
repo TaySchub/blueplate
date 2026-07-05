@@ -5,6 +5,49 @@ Format is deliberately simple and plain-language.
 
 ## [Unreleased]
 
+### Added
+- **Big Appetite's two tier-2 signatures + a mechanic-test harness (PR 2 of the
+  Issue #54 rework)** (Implementer hat). Extends PR 1's path pattern with the
+  first two *signature* mechanics and the standing test machinery the PR-1 review
+  asked for.
+  - **Speed Eater t2 — crumb splash:** each cannon bite now also scatters
+    damaging crumbs onto other dishes within a small radius of the bitten one
+    (a real AoE — the base bite is still single-target). Tunables `crumbRadius`/
+    `crumbDamage` in `data/balance.json`.
+  - **One Big Bite t2 — knockback (the game's first backward path movement):** a
+    dish that *survives* the bite is spit backward along the belt. Distance is
+    **scaled by dish size** — a light fry sails, the Tough Steak barely budges
+    (radius as the mass proxy, factor clamped 0.5×–2×) — clamps at the kitchen
+    door (`dist ≥ 0`), and **dead dishes don't fly**. Tunables `knockbackBase`/
+    `knockbackSizeRef`. Knocked-back dishes re-enter upstream ranges — intended.
+  - **Big Appetite art escalations** (`src/art.js`): One Big Bite grows the maw
+    each tier (a bigger bite); Speed Eater scatters more crumbs (a fast, messy
+    eater). Contact sheet gains his path row.
+  - **Mechanic behavior tests** (`tools/tests/*.test.mjs`, new CI step): headless
+    tests that load the real engine and assert **behavior, not tuned numbers**
+    (pierce skewers exactly 2 collinear dishes / off-ray takes 0; crumb hits
+    inside the radius only; knockback pushes a survivor back, lighter flies
+    farther, clamps at 0, dead dishes don't fly). This is now repo law — see
+    CLAUDE.md's "definition of verified". The pierce test back-fills PR 1.
+  - **Signature-paths smoke** (`?mode=smoke&paths=signature`): the scripted smoke
+    player can now commit to the *signature* paths, so a full run exercises the
+    tier-2 mechanics, not just stats. `SIM_PATHS` lookups in `tools/sim.mjs` +
+    the harness are guarded against a missing/locked path (no crash).
+  - **Numbers are placeholders** to keep the band gate green — cannon's gate path
+    (`oneBigBite`) keeps its PR-1 damage, and the Python gauge ignores the
+    signature flags, so `balance_sim.py --check` is unchanged at **54.5%**. Real
+    tuning is PR 5. Docs followed the code: fixed the stale `CLAUDE.md`
+    `tryUpgrade`/`up` landmark and `docs/ART_STYLE.md`'s course-name references;
+    added a grep-`*.md` step to `implementer.md`.
+  - **Verified:** balance gate 54.5% (unchanged); `tools/tests/*.test.mjs` green;
+    wave-parity OK; real-engine `sim.mjs` **41.0%** (report-only, up from 36% now
+    that knockback is live); smoke seed 1 stat = clean loss, signature = clean
+    loss, both PASS with zero violations and same-seed byte-identical. Files:
+    `data/balance.json`, `src/engine.js`, `src/art.js`, `tools/tests/*`,
+    `tools/dev/harness.html`, `tools/sim.mjs`, `.github/workflows/ci.yml`,
+    `CLAUDE.md`, `docs/ART_STYLE.md`, `.claude/agents/implementer.md`
+    (+ generated `balance.data.js` & `index.html` stamps).
+
 ### Fixed
 - **Blocky canvas scaling on Retina/iPhone screens.** `style.css` forced
   `image-rendering: pixelated` on the game canvas ("crisp edges when we draw

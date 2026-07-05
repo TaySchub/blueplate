@@ -24,6 +24,8 @@
     &seed=1                         RNG seed (smoke always seeds; play seeds if given)
     &build=arrow,cannon,frost,arrow tower ids placed in slot order (default = the
                                     balance sim's reference board)
+    &paths=stat | signature         which upgrade path each tower takes in the smoke
+                                    (default stat; signature exercises the tier-2 mechanics)
     &speed=4                        play-mode updates per frame (1/2/4/8)
 
   Serve the repo root (python3 -m http.server) and open
@@ -59,7 +61,7 @@
 <h2 id="sheet-title">1 · Contact sheet — screenshot this for art PRs</h2>
 <p class="hint">Drawn by the real drawCustomer()/drawFood(). Rows: customers by tiers bought (bib at tier 1, sparkle at tier 2), attack fx where one exists, toolbar size (r=8); The Regular's upgrade-path fork escalation; food fresh / ¾HP / ½HP / hurt-flash / true belt size. Self-check against <code>docs/ART_STYLE.md</code> before requesting review.</p>
 <button id="redraw-sheet">Redraw sheet</button>
-<canvas id="sheet-canvas" width="800" height="1260"></canvas>
+<canvas id="sheet-canvas" width="800" height="1380"></canvas>
 
 <!-- ============ 2) SMOKE RUN ============ -->
 <h2 id="smoke-title">2 · Smoke run — paste the JSON in gameplay PRs</h2>
@@ -101,6 +103,11 @@
   // Reference upgrade strategy (mirrors tools/balance_sim.py + tools/sim.mjs): each
   // tower commits to one fixed path and buys its two tiers cheapest-next-first.
   const SIM_PATHS = { arrow: "carvingStation", cannon: "oneBigBite", frost: "longExposure", sniper: "extraSlurp", zap: "teenageTable" };
+  // The signature path per tower — ?paths=signature drives the smoke down these so
+  // it exercises the tier-2 mechanics (pierce, crumb, knockback, …), not just stats.
+  const SIGNATURE_PATHS = { arrow: "forkFrenzy", cannon: "speedEater", frost: "paparazzi", sniper: "sillyStraw", zap: "birthdayParty" };
+  const pathMapFor = mode => (mode === "signature" ? SIGNATURE_PATHS : SIM_PATHS);
+  const parsePaths = () => (params.get("paths") === "signature" ? "signature" : "stat");
   const parseBuild = () => {
     const raw = (params.get("build") || "").split(",").map(s => s.trim()).filter(Boolean);
     const valid = raw.filter(id => TOWER_BY_ID[id]);
@@ -169,8 +176,26 @@
     ];
     rpStates.forEach((st, i) => drawCustomer(ctx, "arrow", rpCols[i], rpY + 90, 17, TOWER_BY_ID.arrow.color, st));
 
+    // --- Big Appetite: upgrade-PATH art states (PR 2 signatures) ---
+    // One Big Bite grows the maw (bigger bite → the knockback path); Speed Eater
+    // scatters more crumbs (fast, messy eater → the crumb-splash path). Bib at tier
+    // 1, sparkle at tier 2, same as everyone.
+    const bpY = 730;
+    title("BIG APPETITE — upgrade paths (maw grows on One Big Bite; crumbs on Speed Eater)", bpY);
+    const bpCols = [130, 290, 450, 600, 730];
+    const bpHead = ["base", "Speed Eater 1", "Speed Eater 2", "One Big Bite 1", "One Big Bite 2"];
+    bpCols.forEach((x, i) => label(bpHead[i], x, bpY + 22));
+    const bpStates = [
+      { level: 1 },
+      { level: 2, path: "speedEater", tier: 1 },
+      { level: 3, path: "speedEater", tier: 2 },
+      { level: 2, path: "oneBigBite", tier: 1 },
+      { level: 3, path: "oneBigBite", tier: 2 },
+    ];
+    bpStates.forEach((st, i) => drawCustomer(ctx, "cannon", bpCols[i], bpY + 92, 17, TOWER_BY_ID.cannon.color, st));
+
     // --- Foods: one row each; cols fresh, ¾HP, ½HP, hurt, true belt size ---
-    const fy = 800;
+    const fy = 940;
     title("FOODS — fresh · ¾HP bite · ½HP bite · hurt flash · TRUE size on belt", fy - 26);
     const foodCols = [200, 320, 440, 560, 700];
     const foodHead = ["fresh", "¾ HP", "½ HP", "hurt", "true size"];
@@ -193,7 +218,8 @@
 
   /* ---------------- 2) Smoke run ---------------- */
 
-  function runSmoke(seed, build) {
+  function runSmoke(seed, build, pathMode = "stat") {
+    const pathMap = pathMapFor(pathMode);
     const t0 = performance.now();
     const violations = [], errors = [];
     const realRandom = Math.random;
@@ -226,12 +252,14 @@
           nextSlot++;
         }
         for (;;) {
-          const cands = game.towers.filter(t => t.upgradeTier < 2);
+          // Only towers whose chosen path still has a next tier — guards a missing
+          // id or a maxed/locked path so a future tower without a mapping won't crash.
+          const cands = game.towers.filter(t => { const p = pathMap[t.typeId]; return p && nextTier(t, p); });
           if (!cands.length) break;
-          const cost = t => nextTier(t, SIM_PATHS[t.typeId]).cost;
+          const cost = t => nextTier(t, pathMap[t.typeId]).cost;
           const t = cands.reduce((a, b) => cost(a) <= cost(b) ? a : b);
           if (game.currency < cost(t)) break;
-          tryUpgrade(t, SIM_PATHS[t.typeId]);
+          tryUpgrade(t, pathMap[t.typeId]);
         }
       };
       while (steps < STEP_CAP && game.phase !== "won" && game.phase !== "lost") {
@@ -251,7 +279,7 @@
     const last = game.lastRun || {};
     const result = {
       verdict: (violations.length === 0 && errors.length === 0) ? "PASS" : "FAIL",
-      seed, build: build.join(","),
+      seed, paths: pathMode, build: build.join(","),
       outcome: game.phase,
       waveReached: last.wave != null ? last.wave : game.waveIndex + 1,
       dishesEaten: last.killed != null ? last.killed : game.killed,
@@ -310,7 +338,7 @@
     document.getElementById("redraw-sheet").addEventListener("click", drawSheet);
     document.getElementById("run-smoke").addEventListener("click", () => {
       const seed = parseInt(document.getElementById("smoke-seed").value, 10) || 1;
-      smokeToPage(runSmoke(seed, parseBuild()));
+      smokeToPage(runSmoke(seed, parseBuild(), parsePaths()));
     });
     document.getElementById("play-start").addEventListener("click", () => startPlay(parseBuild()));
     document.getElementById("play-pause").addEventListener("click", (e) => {
@@ -328,7 +356,7 @@
       const seed = parseInt(params.get("seed") || "1", 10) || 1;
       document.getElementById("smoke-seed").value = seed;
       // defer one tick so the page paints before the synchronous run blocks
-      setTimeout(() => smokeToPage(runSmoke(seed, parseBuild())), 30);
+      setTimeout(() => smokeToPage(runSmoke(seed, parseBuild(), parsePaths())), 30);
     }
   });
 })();

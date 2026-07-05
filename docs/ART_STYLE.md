@@ -92,9 +92,11 @@ cheap smooth canvas vectors.
 - **Freeze (Photographer)** = a *snapshot pose*: overexposed white tint +
   camera-viewfinder corner brackets. **Explicitly no ice, no frost.**
 - **Slow** = thin cyan ring around the dish.
-- **Upgrades:** level 2 = napkin bib; level 3 = chef's-kiss sparkle
-  (`drawSpark4`); plus the existing grow/glow/pips. "Appetizer → Entrée →
-  Dessert" is display language only.
+- **Upgrades (paths):** each tower has two exclusive upgrade paths, two tiers
+  each. Tier 1 = napkin bib; tier 2 = chef's-kiss sparkle (`drawSpark4`); plus
+  the existing grow/glow/pips. The committed path also drives per-tower art (the
+  Regular's Carving Station fork; Big Appetite's One Big Bite maw vs Speed Eater
+  crumbs) — `drawCustomer` opts carry `path` + `tier`.
 - **Kill** = CHOMP: bite-flash pop + crumb spray + "+$N tip" popup.
 
 ## Attack visual language
@@ -131,6 +133,10 @@ Render `tools/dev/harness.html?mode=sheet` and check:
 
 - **2026-07-02** — Kept **"Wave"** (not "Course") for the wave counter: "Course"
   collides with the Appetizer/Entrée/Dessert upgrade names.
+- **2026-07-04** (upgrade rework, Issue #54) — **course names
+  (Appetizer/Entrée/Dessert) retired**; upgrades are now two named paths × two
+  tiers, art escalating per committed path (see "Upgrades (paths)" above). The
+  "Wave" call above stands — it never collided with a path name.
 - **2026-07-03** (art deep-dive, PR #43) — **Foods are faceless** and
   food-forward; silhouette + panic-motion carry the character. **Developer
   confirmed 2026-07-04:** `FRANCHISE_BACKBONE.md`'s tone rules aligned and the

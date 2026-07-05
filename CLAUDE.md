@@ -99,9 +99,12 @@ The backlog is GitHub Issues — the single roadmap. Don't create a parallel one
 - **`src/engine.js` — run loop & economy:** `startRun` · `startNextWave` +
   `earlyCallBonusNow` · `checkWaveEnd` · `endRun`; meta in `META`/`SHOP`/
   `loadMeta`; particles as pure data via `spawn*`/`updateParticles`.
-- **`src/engine.js` — upgrades:** `tryUpgrade` applies `up` deltas from
-  balance.json (sim mirror: `apply_upgrade`/`buy_upgrades`); rework tracked in
-  pinned Issue #54.
+- **`src/engine.js` — upgrades (paths):** two exclusive paths per tower
+  (`towerPaths`/`pathAvailable`/`nextTier`); `tryUpgrade(t, pathId)` commits a
+  path (locks the other) and applies a tier's deltas via `applyUpgradeDeltas`
+  (stat keys + signature flags: `pierce`, `crumbRadius`/`crumbDamage`,
+  `knockbackBase`/`knockbackSizeRef`). Sim mirror: `apply_upgrade`/`buy_upgrades`
+  on a fixed `SIM_PATHS` path. Rework tracked in pinned Issue #54.
 - **`src/art.js`:** `drawCustomer()` → `drawRegular`/`drawBigAppetite`/
   `drawPhotographer`/`drawMilkshakeSlurper`/`drawKidsTable` · `drawFood()` +
   `drawFoodBites`/`BITE_SPOTS` · shared helpers `drawFace`/`drawLimb`/
@@ -125,9 +128,10 @@ worker's branch.
 
 ## Verification (prefer deterministic checks over opinions)
 
-CI (`.github/workflows/ci.yml`) runs on every PR: JS syntax, generated-file
-sync, and the balance band (`tools/balance_sim.py --check`). Never open a PR
-you expect to fail it.
+CI (`.github/workflows/ci.yml`) runs on every PR: JS syntax, the mechanic
+behavior tests (`tools/tests/*.test.mjs`), generated-file sync, the balance band
+(`tools/balance_sim.py --check`), and wave parity. Never open a PR you expect to
+fail it.
 
 **Definition of verified — do ALL of this yourself before requesting review.
 Never hand the developer an unverified change to preview:**
@@ -148,6 +152,10 @@ Never hand the developer an unverified change to preview:**
    review round — never ping the developer per-asset.
 5. **Feel checks:** drive the real game in the harness's play section (speed
    multiplier + frame-step) instead of asking the developer to click around.
+6. **New mechanic:** it ships with a targeted test in `tools/tests/` (assert
+   BEHAVIOR, not tuned numbers, so PR 5 can retune freely; CI runs
+   `tools/tests/*.test.mjs`) AND the signature-paths smoke JSON
+   (`?mode=smoke&paths=signature`) pasted alongside the stat one.
 
 ## Human gates — never cross these without in-the-moment approval
 
