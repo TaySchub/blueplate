@@ -174,3 +174,19 @@ Render `tools/dev/harness.html?mode=sheet` and check:
   place; this pass sets **structure/legibility, not a new palette**. Seated
   customers get a soft grounding shadow to lift them off the floor — mascot
   identities themselves were **not** redrawn.
+- **2026-07-05** (Blue-Plate Special, Issue #73) — **Map theme is per-map;
+  props are palette-driven.** The ratified mockup (`docs/art-refs/blue-plate-
+  special-1a.png`) is the 50s-retro reference: cream `#F2E6C6` / navy `#3B4552`
+  floor, teal `#2FB4A6` wall frame, red `#E8473F` / yellow `#FFC64B` / silver
+  `#C6CCD5` / mint `#BFE3E0` accents. Three new **data-driven, default-OFF**
+  theme capabilities let a map opt in without touching others: a `wallFrame`
+  (drawn in the bounds margin, costs no floor), belt `chevrons`, and
+  `coreStyle:"dishReturn"` (a kitchen-wall slot + "← DISH RETURN" placard vs the
+  diner's chute). **Belt surface stays dark even with silver rails** — the foods
+  were designed to pop on a dark belt (verified mid-wave). Shared props
+  (jukebox/booths/dessert) take an optional `theme.props` palette that
+  **defaults to the diner's exact colors**, so the diner stays byte-identical
+  (SHA-256-proven) while Blue-Plate recolors; new props (kitchen structure,
+  register, counter+stools, prep) are their own kinds. The kitchen is an
+  obstacle *structure* here (not the diner's swing-door), entrance dressing
+  (OPEN sign + windows) lives in the right margin.

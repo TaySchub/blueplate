@@ -52,6 +52,8 @@ function render() {
     ctx.translate((Math.random() - 0.5) * game.shake, (Math.random() - 0.5) * game.shake);
   }
   drawBackground(ctx);
+  drawWallFrame(ctx);
+  drawEntrance(ctx);
   drawPath(ctx);
   drawKitchenDoor(ctx);
   drawObstacles(ctx);
@@ -234,12 +236,65 @@ function drawPath(ctx) {
     acc += len;
   }
   ctx.lineCap = "round";
+  // Direction chevrons (new theme option; off for the diner) — arrows along the
+  // belt pointing the way the dishes travel, one or two per long segment.
+  if (b.chevrons) {
+    ctx.fillStyle = b.chevrons; ctx.globalAlpha = 0.5;
+    const cw = 6, ahead = 8, back = 3;
+    for (let i = 0; i < SEGMENT_LENGTHS.length; i++) {
+      const A = PATH[i], B = PATH[i + 1], len = SEGMENT_LENGTHS[i];
+      if (len < 70) continue;
+      const dx = (B.x - A.x) / len, dy = (B.y - A.y) / len, px = -dy, py = dx;
+      for (let s = 55; s < len - 40; s += 150) {
+        const cx = A.x + dx * s, cy = A.y + dy * s;
+        ctx.beginPath();
+        ctx.moveTo(cx + dx * ahead, cy + dy * ahead);
+        ctx.lineTo(cx - dx * back + px * cw, cy - dy * back + py * cw);
+        ctx.lineTo(cx - dx * back - px * cw, cy - dy * back - py * cw);
+        ctx.closePath(); ctx.fill();
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+}
+
+// A themed teal wall frame drawn INSIDE the bounds margin (costs no floor) and
+// the right-wall entrance dressing — both off for the diner (no THEME.wallFrame /
+// THEME.entrance), so the diner renders exactly as before.
+function drawWallFrame(ctx) {
+  const wf = THEME.wallFrame;
+  if (!wf) return;
+  const m = 8, t = wf.thickness || 6;
+  ctx.strokeStyle = wf.color; ctx.lineWidth = t; ctx.lineJoin = "round";
+  roundRect(ctx, m + t / 2, m + t / 2, VIEW.w - 2 * m - t, (TOOLBAR.y - 3) - 2 * m - t, 16);
+  ctx.stroke();
+}
+
+function drawEntrance(ctx) {
+  const en = THEME.entrance;
+  if (!en) return;
+  const cx = VIEW.w - 22;   // right dressing band, just past the belt's right rail
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  // OPEN sign near the top-right corner.
+  ctx.fillStyle = en.sign; ctx.strokeStyle = "#20262f"; ctx.lineWidth = 1.4;
+  roundRect(ctx, cx - 17, 60, 34, 16, 3); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = "#ffffff"; ctx.font = "bold 8px system-ui, sans-serif";
+  ctx.fillText("OPEN", cx, 69);
+  // Two door-glass window panes below.
+  for (const wy of [104, 168]) {
+    ctx.fillStyle = en.glass; ctx.strokeStyle = en.frame; ctx.lineWidth = 2;
+    roundRect(ctx, cx - 15, wy, 30, 46, 3); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = "rgba(255,255,255,0.45)"; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(cx, wy + 3); ctx.lineTo(cx, wy + 43); ctx.moveTo(cx - 13, wy + 23); ctx.lineTo(cx + 13, wy + 23); ctx.stroke();
+  }
+  ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
 }
 
 // The kitchen the dishes escape from — a doorway with swinging half-doors at the
 // belt's spawn (left edge); the belt emerges from its dark mouth.
 function drawKitchenDoor(ctx) {
   const k = THEME.kitchen;
+  if (!k) return;   // maps without a themed swing-door (e.g. Blue-Plate) draw their kitchen as an obstacle structure
   const y = PATH[0].y, doorW = 40, gap = 18;
   const top = y - 40, bot = y + 40;
   ctx.fillStyle = k.interior; ctx.fillRect(0, top, doorW, bot - top);          // dark interior
@@ -258,7 +313,7 @@ function drawKitchenDoor(ctx) {
 // line-of-sight in this game, so props never affect shots or enemies. Per-kind
 // vector art lives in art.js.
 function drawObstacles(ctx) {
-  for (const o of OBSTACLES) drawObstacle(ctx, o);
+  for (const o of OBSTACLES) drawObstacle(ctx, o, THEME.props);
 }
 
 // The free-placement ghost (replaced the fixed-slot markers): follows the
@@ -307,6 +362,7 @@ function drawTowerRanges(ctx) {
 // The trash chute (the core): a bin any dish reaching it clatters into. The
 // pulsing danger halo + the hurt flash on a leak are kept.
 function drawCore(ctx) {
+  if (THEME.coreStyle === "dishReturn") { drawDishReturn(ctx); return; }   // Blue-Plate: a return slot, not a chute
   const c = THEME.chute;
   const hurt = game.coreHurtFlash > 0;
   const pulse = 0.5 + 0.5 * Math.sin(game.elapsed * 2);
@@ -332,6 +388,35 @@ function drawCore(ctx) {
   // Label.
   ctx.fillStyle = COLOR.ink; ctx.font = "bold 12px system-ui, sans-serif"; ctx.textAlign = "center";
   ctx.fillText(c.label, x, botY + 15);
+}
+
+// coreStyle "dishReturn" (Blue-Plate): the core is a slot in the kitchen wall
+// where escaped dishes vanish, with the "← DISH RETURN" placard. Same pulsing
+// danger halo + hurt flash as the chute.
+function drawDishReturn(ctx) {
+  const dr = THEME.dishReturn || {};
+  const hurt = game.coreHurtFlash > 0;
+  const pulse = 0.5 + 0.5 * Math.sin(game.elapsed * 2);
+  const accent = dr.accent || "#2FB4A6";
+  const col = hurt ? COLOR.coreHurt : accent;
+  const x = CORE.x, y = CORE.y, R = CORE.radius;
+  // Danger halo.
+  ctx.strokeStyle = col; ctx.globalAlpha = 0.15 + 0.3 * pulse; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.arc(x, y, R + 7 + pulse * 6, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 1;
+  // The return opening (a dark slot the dishes disappear into).
+  const sw = 46, sh = 34;
+  ctx.fillStyle = hurt ? "#3a1414" : (dr.slot || "#2a323d"); ctx.strokeStyle = MDARK; ctx.lineWidth = 2;
+  roundRect(ctx, x - sw / 2, y - sh / 2, sw, sh, 5); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = "rgba(0,0,0,0.55)"; roundRect(ctx, x - sw / 2 + 4, y - sh / 2 + 4, sw - 8, sh - 8, 3); ctx.fill();
+  ctx.strokeStyle = col; ctx.globalAlpha = 0.55; ctx.lineWidth = 1.4;   // a returned-plate hint
+  ctx.beginPath(); ctx.arc(x + 3, y, 6, 0, 7); ctx.stroke(); ctx.globalAlpha = 1;
+  // "← DISH RETURN" placard along the middle lane (on a dark tab).
+  const lw = 132, ly = y - sh / 2 - 21;
+  ctx.fillStyle = dr.labelBg || "#20262f"; ctx.strokeStyle = MDARK; ctx.lineWidth = 1.2;
+  roundRect(ctx, x - sw / 2, ly, lw, 18, 5); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = accent; ctx.font = "bold 10px system-ui, sans-serif"; ctx.textAlign = "left"; ctx.textBaseline = "middle";
+  ctx.fillText("← " + (dr.label || "DISH RETURN"), x - sw / 2 + 9, ly + 10);
+  ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
 }
 
 function drawEnemies(ctx) {

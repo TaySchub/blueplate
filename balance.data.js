@@ -16,6 +16,228 @@ window.BALANCE = {
   },
   "maps": [
     {
+      "id": "blueplate",
+      "name": "Blue-Plate Special",
+      "tuned": false,
+      "theme": {
+        "floor": {
+          "bg": "#F2E6C6",
+          "tile": "#3B4552",
+          "tileSize": 45
+        },
+        "wallFrame": {
+          "color": "#2FB4A6",
+          "thickness": 6
+        },
+        "belt": {
+          "shadow": "#181d24",
+          "shadowWidth": 46,
+          "metal": "#C6CCD5",
+          "metalWidth": 40,
+          "surface": "#2a323d",
+          "surfaceWidth": 34,
+          "slat": "rgba(255,255,255,0.12)",
+          "slatWidth": 4,
+          "slatSpacing": 26,
+          "slatHalf": 15,
+          "slatSpeed": 42,
+          "chevrons": "#F2E6C6"
+        },
+        "boothPad": {
+          "fill": "#e3d5b0",
+          "stroke": "#c7b078"
+        },
+        "coreStyle": "dishReturn",
+        "dishReturn": {
+          "slot": "#2a323d",
+          "labelBg": "#20262f",
+          "accent": "#2FB4A6",
+          "label": "DISH RETURN"
+        },
+        "entrance": {
+          "door": "#BFE3E0",
+          "frame": "#C6CCD5",
+          "sign": "#E8473F",
+          "glass": "#cfe9e6"
+        },
+        "props": {
+          "boothRed": "#E8473F",
+          "boothTable": "#e3d5b0",
+          "boothSeam": "#f7cabf",
+          "jukeboxTop": "#E8473F",
+          "jukeboxAccent": "#FFC64B",
+          "jukeboxBody": "#8a5a3a",
+          "jukeboxBase": "#2FB4A6",
+          "dessertGlass": "#BFE3E0",
+          "dessertBase": "#8a5a3a",
+          "silver": "#C6CCD5",
+          "wood": "#8a5a3a",
+          "red": "#E8473F",
+          "yellow": "#FFC64B",
+          "teal": "#2FB4A6",
+          "navy": "#3B4552"
+        }
+      },
+      "path": [
+        {
+          "x": 30,
+          "y": 115
+        },
+        {
+          "x": 748,
+          "y": 115
+        },
+        {
+          "x": 748,
+          "y": 305
+        },
+        {
+          "x": 372,
+          "y": 305
+        },
+        {
+          "x": 372,
+          "y": 210
+        },
+        {
+          "x": 95,
+          "y": 210
+        }
+      ],
+      "coreRadius": 22,
+      "placement": {
+        "pathBuffer": 40,
+        "towerSpacing": 40,
+        "bounds": {
+          "x0": 16,
+          "y0": 16,
+          "x1": 784,
+          "y1": 382
+        }
+      },
+      "obstacles": [
+        {
+          "x": 16,
+          "y": 66,
+          "w": 40,
+          "h": 236,
+          "kind": "kitchen"
+        },
+        {
+          "x": 140,
+          "y": 34,
+          "w": 62,
+          "h": 40,
+          "kind": "booths"
+        },
+        {
+          "x": 359,
+          "y": 34,
+          "w": 62,
+          "h": 40,
+          "kind": "booths"
+        },
+        {
+          "x": 572,
+          "y": 34,
+          "w": 62,
+          "h": 40,
+          "kind": "booths"
+        },
+        {
+          "x": 473,
+          "y": 326,
+          "w": 62,
+          "h": 40,
+          "kind": "booths"
+        },
+        {
+          "x": 660,
+          "y": 326,
+          "w": 62,
+          "h": 40,
+          "kind": "booths"
+        },
+        {
+          "x": 436,
+          "y": 142,
+          "w": 99,
+          "h": 42,
+          "kind": "dessert"
+        },
+        {
+          "x": 610,
+          "y": 140,
+          "w": 70,
+          "h": 92,
+          "kind": "jukebox"
+        },
+        {
+          "x": 475,
+          "y": 236,
+          "w": 101,
+          "h": 38,
+          "kind": "register"
+        },
+        {
+          "x": 80,
+          "y": 250,
+          "w": 130,
+          "h": 34,
+          "kind": "counterStools"
+        },
+        {
+          "x": 246,
+          "y": 250,
+          "w": 66,
+          "h": 34,
+          "kind": "prep"
+        }
+      ],
+      "simAnchors": [
+        {
+          "x": 455,
+          "y": 210
+        },
+        {
+          "x": 560,
+          "y": 210
+        },
+        {
+          "x": 250,
+          "y": 162
+        },
+        {
+          "x": 180,
+          "y": 330
+        },
+        {
+          "x": 320,
+          "y": 162
+        },
+        {
+          "x": 705,
+          "y": 210
+        },
+        {
+          "x": 110,
+          "y": 330
+        },
+        {
+          "x": 280,
+          "y": 330
+        },
+        {
+          "x": 415,
+          "y": 250
+        },
+        {
+          "x": 620,
+          "y": 258
+        }
+      ]
+    },
+    {
       "id": "diner",
       "name": "The American Diner",
       "tuned": true,

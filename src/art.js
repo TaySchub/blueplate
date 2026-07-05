@@ -664,17 +664,24 @@ function drawGrabHand(ctx, p) {
    actors): floor-adjacent bodies, muted accents, MDARK outlines. Each prop
    scales off its balance.json rect (x/y/w/h) so layouts stay data-driven. */
 
-function drawObstacle(ctx, o) {
+// `pal` is the active map's theme.props palette (undefined for the diner, whose
+// drawers then use their original hardcoded colors → byte-identical). Blue-Plate
+// passes the retro palette to recolor the shared props + draw its new ones.
+function drawObstacle(ctx, o, pal = {}) {
   ctx.save();
   ctx.lineJoin = "round"; ctx.lineCap = "round";
   // Shared grounding shadow, like the foods' soft ellipse.
   ctx.fillStyle = "rgba(0,0,0,0.28)";
   ctx.beginPath(); ctx.ellipse(o.x + o.w / 2, o.y + o.h - 1, o.w * 0.5, Math.max(4, o.h * 0.07), 0, 0, 7); ctx.fill();
-  if (o.kind === "jukebox") drawJukebox(ctx, o.x, o.y, o.w, o.h);
+  if (o.kind === "jukebox") drawJukebox(ctx, o.x, o.y, o.w, o.h, pal);
   else if (o.kind === "counter") drawCounterIsland(ctx, o.x, o.y, o.w, o.h);
-  else if (o.kind === "booths") drawBoothBank(ctx, o.x, o.y, o.w, o.h);
-  else if (o.kind === "dessert") drawDessertCase(ctx, o.x, o.y, o.w, o.h);
+  else if (o.kind === "booths") drawBoothBank(ctx, o.x, o.y, o.w, o.h, pal);
+  else if (o.kind === "dessert") drawDessertCase(ctx, o.x, o.y, o.w, o.h, pal);
   else if (o.kind === "mopbucket") drawMopBucket(ctx, o.x, o.y, o.w, o.h);
+  else if (o.kind === "kitchen") drawKitchen(ctx, o.x, o.y, o.w, o.h, pal);
+  else if (o.kind === "register") drawRegister(ctx, o.x, o.y, o.w, o.h, pal);
+  else if (o.kind === "counterStools") drawCounterStools(ctx, o.x, o.y, o.w, o.h, pal);
+  else if (o.kind === "prep") drawPrep(ctx, o.x, o.y, o.w, o.h, pal);
   else {
     // Unknown kind: a plain crate, so a data typo shows up instead of vanishing.
     ctx.fillStyle = "#2c3543"; ctx.strokeStyle = MDARK; ctx.lineWidth = 2;
@@ -685,7 +692,8 @@ function drawObstacle(ctx, o) {
 
 // Arch-top jukebox against the wall: dark record window with a warm glow arc,
 // bubble-tube shoulders, speaker grille below.
-function drawJukebox(ctx, x, y, w, h) {
+function drawJukebox(ctx, x, y, w, h, pal = {}) {
+  const bodyCol = pal.jukeboxBody || "#5c4030", glowCol = pal.jukeboxAccent || "#e8a04c";
   const r = w * 0.42;
   const body = () => {
     ctx.beginPath();
@@ -696,8 +704,17 @@ function drawJukebox(ctx, x, y, w, h) {
     ctx.lineTo(x + w - 2, y + h - 2);
     ctx.closePath();
   };
-  ctx.fillStyle = "#5c4030"; ctx.strokeStyle = MDARK; ctx.lineWidth = 2;
+  ctx.fillStyle = bodyCol; ctx.strokeStyle = MDARK; ctx.lineWidth = 2;
   body(); ctx.fill(); ctx.stroke();
+  // Blue-Plate flourish (pal only, so the diner is untouched): a bright arch cap
+  // + a colored base band, the 50s look.
+  if (pal.jukeboxTop) {
+    ctx.save(); body(); ctx.clip();
+    ctx.fillStyle = pal.jukeboxTop; ctx.fillRect(x, y, w, h * 0.24);
+    ctx.fillStyle = pal.jukeboxBase || "#2FB4A6"; ctx.fillRect(x, y + h - h * 0.14, w, h * 0.14);
+    ctx.restore();
+    ctx.strokeStyle = MDARK; ctx.lineWidth = 2; body(); ctx.stroke();
+  }
   // Record window (inner arch) + spinning record + glow arc.
   const wx = x + 10, ww = w - 20, wy = y + 9, wr = ww * 0.5, wb = y + h * 0.54;
   ctx.beginPath();
@@ -708,8 +725,8 @@ function drawJukebox(ctx, x, y, w, h) {
   ctx.fillStyle = "#1a1420"; ctx.fill();
   ctx.strokeStyle = MDARK; ctx.lineWidth = 1.4; ctx.stroke();
   fillCircle(ctx, x + w / 2, y + h * 0.35, w * 0.13, "#241c2e", 1.1);
-  fillCircle(ctx, x + w / 2, y + h * 0.35, w * 0.045, "#e8a04c", 1);
-  ctx.strokeStyle = "#e8a04c"; ctx.globalAlpha = 0.65; ctx.lineWidth = 2;
+  fillCircle(ctx, x + w / 2, y + h * 0.35, w * 0.045, glowCol, 1);
+  ctx.strokeStyle = glowCol; ctx.globalAlpha = 0.65; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.arc(x + w / 2, y + h * 0.37, w * 0.23, Math.PI * 1.15, Math.PI * 1.85); ctx.stroke();
   ctx.globalAlpha = 1;
   // Bubble tubes along the shoulders.
@@ -745,15 +762,16 @@ function drawCounterIsland(ctx, x, y, w, h) {
 }
 
 // A bank of two booths: facing red vinyl benches with a wooden table between.
-function drawBoothBank(ctx, x, y, w, h) {
+function drawBoothBank(ctx, x, y, w, h, pal = {}) {
+  const red = pal.boothRed || "#7e3634", table = pal.boothTable || "#8a6a45", seam = pal.boothSeam || "rgba(255,255,255,0.10)";
   const unit = (uy, uh) => {
     const benchH = uh * 0.30, tableH = uh * 0.26;
-    ctx.fillStyle = "#7e3634"; ctx.strokeStyle = MDARK; ctx.lineWidth = 1.8;
+    ctx.fillStyle = red; ctx.strokeStyle = MDARK; ctx.lineWidth = 1.8;
     roundRect(ctx, x + 2, uy, w - 4, benchH, 4); ctx.fill(); ctx.stroke();
     roundRect(ctx, x + 2, uy + uh - benchH, w - 4, benchH, 4); ctx.fill(); ctx.stroke();
-    ctx.fillStyle = "rgba(255,255,255,0.10)";   // vinyl seam highlight
+    ctx.fillStyle = seam;   // vinyl seam highlight
     ctx.fillRect(x + 6, uy + 3, w - 12, 2); ctx.fillRect(x + 6, uy + uh - benchH + 3, w - 12, 2);
-    ctx.fillStyle = "#8a6a45"; ctx.strokeStyle = MDARK; ctx.lineWidth = 1.8;   // table
+    ctx.fillStyle = table; ctx.strokeStyle = MDARK; ctx.lineWidth = 1.8;   // table
     roundRect(ctx, x + 6, uy + (uh - tableH) / 2, w - 12, tableH, 3); ctx.fill(); ctx.stroke();
     fillCircle(ctx, x + w / 2, uy + uh / 2, Math.min(5, w * 0.09), "#dfe5ee", 1.1);   // waiting plate
   };
@@ -763,13 +781,16 @@ function drawBoothBank(ctx, x, y, w, h) {
 }
 
 // Glass dessert display case on a steel base — cake slice, pie, donuts inside.
-function drawDessertCase(ctx, x, y, w, h) {
+function drawDessertCase(ctx, x, y, w, h, pal = {}) {
+  const baseCol = pal.dessertBase || "#3f4a5c";
   const baseH = h * 0.30, glassH = h - baseH - 2;
-  ctx.fillStyle = "#3f4a5c"; ctx.strokeStyle = MDARK; ctx.lineWidth = 2;   // base cabinet
+  ctx.fillStyle = baseCol; ctx.strokeStyle = MDARK; ctx.lineWidth = 2;   // base cabinet
   roundRect(ctx, x + 2, y + 2 + glassH, w - 4, baseH - 2, 3); ctx.fill(); ctx.stroke();
   ctx.fillStyle = "rgba(255,255,255,0.08)"; ctx.fillRect(x + 6, y + 4 + glassH, w - 12, 2);
-  ctx.fillStyle = "rgba(127,224,255,0.10)"; ctx.strokeStyle = MDARK; ctx.lineWidth = 1.8;   // glass
-  roundRect(ctx, x + 2, y + 2, w - 4, glassH, 4); ctx.fill(); ctx.stroke();
+  if (pal.dessertGlass) { ctx.globalAlpha = 0.5; ctx.fillStyle = pal.dessertGlass; }
+  else ctx.fillStyle = "rgba(127,224,255,0.10)";
+  ctx.strokeStyle = MDARK; ctx.lineWidth = 1.8;   // glass
+  roundRect(ctx, x + 2, y + 2, w - 4, glassH, 4); ctx.fill(); ctx.stroke(); ctx.globalAlpha = 1;
   const shelfY = y + 2 + glassH * 0.52;
   ctx.strokeStyle = "rgba(255,255,255,0.20)"; ctx.lineWidth = 1.4;
   ctx.beginPath(); ctx.moveTo(x + 5, shelfY); ctx.lineTo(x + w - 5, shelfY); ctx.stroke();
@@ -804,6 +825,79 @@ function drawMopBucket(ctx, x, y, w, h) {
   ctx.fillStyle = "#8f7522"; ctx.fillRect(bx - bw / 2, by, bw, 3.4);   // wringer band
   ctx.fillStyle = "rgba(127,224,255,0.12)";   // the wet floor itself
   ctx.beginPath(); ctx.ellipse(x + w * 0.42, y + h - 3, w * 0.32, 3.4, 0, 0, 7); ctx.fill();
+}
+
+/* ---- Blue-Plate props (new; only this map uses these kinds) -------------- */
+
+// The kitchen wall structure on the left edge: a navy panel with pass-through
+// slots, a teal service light, and the "KITCHEN" placard. The belt emerges
+// through it (drawn by drawPath); this is the placement-blocking structure.
+function drawKitchen(ctx, x, y, w, h, pal = {}) {
+  const navy = pal.navy || "#3B4552", teal = pal.teal || "#2FB4A6";
+  ctx.fillStyle = navy; ctx.strokeStyle = MDARK; ctx.lineWidth = 2;
+  roundRect(ctx, x, y, w, h, 6); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = "rgba(255,255,255,0.06)"; ctx.fillRect(x + 3, y + 3, w - 6, 3);   // top sheen
+  // Pass-through slots (dark windows) down the panel.
+  ctx.fillStyle = "#141a20";
+  for (const f of [0.28, 0.5, 0.72]) { roundRect(ctx, x + 4, y + h * f, w - 8, h * 0.07, 2); ctx.fill(); }
+  // Teal service light near the bottom.
+  fillCircle(ctx, x + w / 2, y + h - 14, Math.min(7, w * 0.28), teal, 1.4);
+  // KITCHEN placard on a dark tab at the top, extending to the right of the panel.
+  ctx.fillStyle = "#20262f"; ctx.strokeStyle = MDARK; ctx.lineWidth = 1.4;
+  roundRect(ctx, x, y - 30, 150, 24, 6); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = teal; ctx.font = "bold 12px system-ui, sans-serif"; ctx.textAlign = "left"; ctx.textBaseline = "middle";
+  ctx.fillText("KITCHEN", x + 12, y - 17);
+  ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+}
+
+// A cash register / service counter on a wood base: tan body, two dial discs,
+// and a red key.
+function drawRegister(ctx, x, y, w, h, pal = {}) {
+  const wood = pal.wood || "#8a5a3a", tan = "#e3d5b0", red = pal.red || "#E8473F";
+  ctx.fillStyle = wood; ctx.strokeStyle = MDARK; ctx.lineWidth = 2;   // wood base
+  roundRect(ctx, x, y + h - 10, w, 10, 3); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = tan; ctx.strokeStyle = MDARK; ctx.lineWidth = 2;    // body
+  roundRect(ctx, x + 4, y, w - 8, h - 8, 6); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = "rgba(255,255,255,0.25)"; ctx.fillRect(x + 8, y + 4, w - 30, 2);   // sheen
+  const cy = y + (h - 8) / 2;
+  fillCircle(ctx, x + w * 0.28, cy, Math.min(7, h * 0.2), "#2a323d", 1.4);   // dial discs
+  fillCircle(ctx, x + w * 0.44, cy, Math.min(7, h * 0.2), "#2a323d", 1.4);
+  fillCircle(ctx, x + w * 0.28, cy, Math.min(2.4, h * 0.07), "#C6CCD5", 0.8);
+  fillCircle(ctx, x + w * 0.44, cy, Math.min(2.4, h * 0.07), "#C6CCD5", 0.8);
+  ctx.fillStyle = red; ctx.strokeStyle = MDARK; ctx.lineWidth = 1.4;   // red key
+  roundRect(ctx, x + w * 0.62, cy - 8, 16, 16, 3); ctx.fill(); ctx.stroke();
+}
+
+// The lunch counter: a silver bar on a wood base with red stools out front.
+function drawCounterStools(ctx, x, y, w, h, pal = {}) {
+  const silver = pal.silver || "#C6CCD5", wood = pal.wood || "#8a5a3a", red = pal.red || "#E8473F", teal = pal.teal || "#2FB4A6";
+  ctx.fillStyle = wood; ctx.strokeStyle = MDARK; ctx.lineWidth = 2;   // wood apron
+  roundRect(ctx, x, y + h * 0.5, w, h * 0.5, 3); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = teal; ctx.fillRect(x + 3, y + h * 0.5, w - 6, 3);   // teal trim line
+  ctx.fillStyle = silver; ctx.strokeStyle = MDARK; ctx.lineWidth = 2;   // steel counter top
+  roundRect(ctx, x, y, w, h * 0.42, 5); ctx.fill(); ctx.stroke();
+  ctx.strokeStyle = "rgba(255,255,255,0.4)"; ctx.lineWidth = 1.4;
+  ctx.beginPath(); ctx.moveTo(x + 6, y + 5); ctx.lineTo(x + w * 0.7, y + 5); ctx.stroke();   // sheen
+  // Four red stool tops peeking out below the counter.
+  const n = 4;
+  for (let i = 0; i < n; i++) {
+    const sx = x + w * ((i + 0.5) / n);
+    fillCircle(ctx, sx, y + h - 3, Math.min(6, w * 0.05), red, 1.4);
+    fillCircle(ctx, sx, y + h - 3, Math.min(2, w * 0.018), "#f7cabf", 0.6);
+  }
+}
+
+// A small prep appliance: a silver box with three colored buttons on a wood base.
+function drawPrep(ctx, x, y, w, h, pal = {}) {
+  const silver = pal.silver || "#C6CCD5", wood = pal.wood || "#8a5a3a";
+  const btns = [pal.red || "#E8473F", pal.teal || "#2FB4A6", pal.yellow || "#FFC64B"];
+  ctx.fillStyle = wood; ctx.strokeStyle = MDARK; ctx.lineWidth = 2;   // wood base
+  roundRect(ctx, x, y + h - 8, w, 8, 3); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = silver; ctx.strokeStyle = MDARK; ctx.lineWidth = 2;   // steel box
+  roundRect(ctx, x + 3, y, w - 6, h - 7, 6); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = "rgba(255,255,255,0.3)"; ctx.fillRect(x + 7, y + 4, w - 20, 2);   // sheen
+  const cy = y + (h - 7) / 2 + 1;
+  btns.forEach((c, i) => { const bx = x + w * (0.3 + i * 0.2); ctx.fillStyle = c; ctx.strokeStyle = MDARK; ctx.lineWidth = 1; roundRect(ctx, bx - 5, cy - 4, 10, 8, 2); ctx.fill(); ctx.stroke(); });
 }
 
 /* ---- Chrome icons (HUD / cards / panel) ---------------------------------
