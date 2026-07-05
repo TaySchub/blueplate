@@ -115,7 +115,9 @@ The backlog is GitHub Issues — the single roadmap. Don't create a parallel one
   (stat keys + signature flags: `pierce`, `crumbRadius`/`crumbDamage`,
   `knockbackBase`/`knockbackSizeRef`, `freezeTargets`/`drainTargets`,
   `maxTargetsAdd`). Sim mirror: `apply_upgrade`/`buy_upgrades` on a fixed
-  `SIM_PATHS` path. Rework tracked in pinned Issue #54.
+  `SIM_PATHS` path. Rework tracked in pinned Issue #54. `sellTower(t)` refunds
+  `floor(RULES.sellRefund × t.spent)` (spend tracked per tower: base + tiers)
+  and frees the floor; the scripted sims never sell.
 - **`src/art.js`:** `drawCustomer()` → `drawRegular`/`drawBigAppetite`/
   `drawPhotographer`/`drawMilkshakeSlurper`/`drawKidsTable` · `drawFood()` +
   `drawFoodBites`/`BITE_SPOTS` · shared helpers `drawFace`/`drawLimb`/

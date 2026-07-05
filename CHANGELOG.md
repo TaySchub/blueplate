@@ -5,6 +5,22 @@ Format is deliberately simple and plain-language.
 
 ## [Unreleased]
 
+### Added
+- **Sell towers for a partial refund** (Issue #66, Implementer hat). Every
+  placed customer tracks what you've sunk into them (`spent`: base cost +
+  purchased upgrade tiers); a new muted-red **Sell — refund ◆N** row at the
+  bottom of the selected-tower panel pays back
+  `floor(economy.sellRefund × spent)` — 70% to start, data-tunable in
+  `data/balance.json` — removes the tower, and frees the floor for immediate
+  rebuilding. Selling works whenever building does (prep AND mid-wave).
+  Nothing in the engine holds a back-reference to a tower (projectiles track
+  their target dish, enemy status effects are scalars, the Slurper's straws
+  live on the tower itself), so removal is clean. The scripted sims never
+  sell, and the `spent` field draws no RNG, so the real-engine gate is
+  unchanged: 58.0% / median 20 / w20:84 (200 sims, seed 1). Ships with
+  `tools/tests/sell.test.mjs` (config-derived, no tuned numbers). Sell sound
+  folds into Issue #64 (no `src/audio.js` changes).
+
 ### Changed
 - **Free tower placement + diner obstacles — the 10 fixed build slots are gone**
   (Issue #65, Implementer hat). Click anywhere valid on the diner floor to seat

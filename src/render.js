@@ -454,7 +454,7 @@ function drawStartButton(ctx) {
 // buttons). Shared by the click handler and the renderer so hit-testing matches
 // what's drawn.
 function towerPanel(t) {
-  const W = 190, H = 110;
+  const W = 190, H = 132;   // grew 22px for the Sell row (flip/clamp below keys off H)
   const x = Math.max(6, Math.min(VIEW.w - W - 6, t.x - W / 2));
   let y = t.y + 24;
   if (y + H > TOOLBAR.y - 4) y = t.y - 24 - H;      // flip above the tower if it'd cover the toolbar
@@ -468,7 +468,9 @@ function towerPanel(t) {
   const paths = towerPaths(t.typeId).map((pp, i) => ({
     id: pp.id, name: pp.name, rect: { x: x + 6, y: y + 52 + i * 26, w: W - 12, h: 22 },
   }));
-  return { rect, modes, paths };
+  // Full-width Sell row under the paths — same geometry-sharing pattern.
+  const sell = { rect: { x: x + 6, y: y + 104, w: W - 12, h: 22 } };
+  return { rect, modes, paths, sell };
 }
 
 function drawSelectedTowerPanel(ctx) {
@@ -524,6 +526,18 @@ function drawSelectedTowerPanel(ctx) {
     ctx.fillText(tag, r.x + r.w - 8, r.y + r.h / 2 + 0.5);
   }
   ctx.globalAlpha = 1;
+  // Sell row — destructive affordance in muted red, showing the live refund.
+  const sr = p.sell.rect;
+  const refund = Math.floor(RULES.sellRefund * t.spent);
+  const sellHover = inRect(game.pointer, sr);
+  ctx.fillStyle = sellHover ? "#33181b" : "#241418";
+  roundRect(ctx, sr.x, sr.y, sr.w, sr.h, 5); ctx.fill();
+  ctx.strokeStyle = sellHover ? COLOR.bad : "#7e3634"; ctx.lineWidth = 1;
+  roundRect(ctx, sr.x, sr.y, sr.w, sr.h, 5); ctx.stroke();
+  ctx.fillStyle = sellHover ? COLOR.bad : "#c98a8a"; ctx.textAlign = "left";
+  ctx.fillText("Sell — refund", sr.x + 8, sr.y + sr.h / 2 + 0.5);
+  ctx.textAlign = "right";
+  ctx.fillText("◆" + refund, sr.x + sr.w - 8, sr.y + sr.h / 2 + 0.5);
   ctx.textBaseline = "alphabetic"; ctx.textAlign = "left";
 }
 

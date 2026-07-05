@@ -214,6 +214,7 @@ function tryBuild(x, y) {
   game.currency -= def.cost;
   game.towers.push({
     x, y, typeId: def.id,
+    spent: def.cost,   // running total of Tips sunk into this tower (base + tiers) — sellTower refunds a fraction of it
     // Upgrade state: one of the two paths, committed on the first purchase, then
     // 0/1/2 tiers deep. upgradePath === null means "unupgraded, both paths open".
     upgradePath: null, upgradeTier: 0, pierce: false,
@@ -287,12 +288,31 @@ function tryUpgrade(t, pathId) {
   if (!tier) { FX.deny(); return; }
   if (game.currency < tier.cost) { FX.deny(); setMessage("Not enough Tips for " + upgrades[pathId].name + " (need " + tier.cost + ")"); return; }
   game.currency -= tier.cost;
+  t.spent += tier.cost;
   t.upgradePath = pathId;   // commit → the other path is now locked out
   t.upgradeTier++;
   applyUpgradeDeltas(t, tier);
   t.upgradeFlash = 0.6;
   spawnUpgradeSparkles(t);
   FX.upgrade();
+}
+
+// Sell a placed tower for a partial refund of everything spent on it (base
+// cost + purchased tiers), rate from balance.json (RULES.sellRefund). Allowed
+// whenever building is — prep AND mid-wave. The freed floor is immediately
+// buildable again (canPlace stops seeing the tower once it leaves the array).
+// No engine object holds a back-reference to a tower (projectiles track their
+// TARGET dish; enemy status effects are scalars; the Slurper's straws live ON
+// the tower), so removal is clean.
+function sellTower(t) {
+  if (!game.towers.includes(t)) return;   // belt-and-braces: never refund twice
+  const refund = Math.floor(RULES.sellRefund * t.spent);
+  game.currency += refund;
+  game.towers = game.towers.filter((x) => x !== t);
+  if (game.selectedTower === t) game.selectedTower = null;
+  spawnRing(t.x, t.y, COLOR.gold, 34, 0.4);
+  spawnFloatText(t.x, t.y - 14, "+$" + refund + " refund", COLOR.gold);
+  FX.build();
 }
 
 // The currency you'd earn right now for calling the wave early — full value the

@@ -70,6 +70,7 @@ function setupInput(canvas) {
       if (inRect(p, panel.rect)) {
         for (const b of panel.modes) if (inRect(p, b.rect)) { game.selectedTower.targeting = b.mode; audio.build(); return; }
         for (const pb of panel.paths) if (inRect(p, pb.rect)) { tryUpgrade(game.selectedTower, pb.id); return; }
+        if (inRect(p, panel.sell.rect)) { sellTower(game.selectedTower); return; }
         return; // clicked panel background — swallow the click
       }
     }

@@ -11,7 +11,8 @@ window.BALANCE = {
     "startLives": 20,
     "earnPerWave": 40,
     "earlyCallBonus": 18,
-    "earlyCallWindow": 8
+    "earlyCallWindow": 8,
+    "sellRefund": 0.7
   },
   "map": {
     "path": [

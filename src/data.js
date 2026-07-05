@@ -43,6 +43,9 @@ const RULES = {
   // prep begins, decaying linearly to 0 over earlyCallWindow seconds.
   earlyCallBonus: BAL.economy.earlyCallBonus || 0,
   earlyCallWindow: BAL.economy.earlyCallWindow || 1,
+  // Sell refund: fraction of everything spent on a tower (base + tiers) paid
+  // back on sell. 0 disables selling's payout but never blocks the action.
+  sellRefund: BAL.economy.sellRefund || 0,
 };
 
 // Per-tower ART only (customer glyph color + glow). Each tower is drawn as a
