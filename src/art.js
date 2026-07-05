@@ -806,33 +806,71 @@ function drawMopBucket(ctx, x, y, w, h) {
   ctx.beginPath(); ctx.ellipse(x + w * 0.42, y + h - 3, w * 0.32, 3.4, 0, 0, 7); ctx.fill();
 }
 
-// A star-rating glyph for the restaurant's Health Rating (was a shield/heart).
-function drawRatingIcon(ctx, x, y, color) {
+/* ---- Chrome icons (HUD / cards / panel) ---------------------------------
+   Vector-only, no glyphs or assets — reusable at HUD size and shrunk onto
+   chips. Colors come from the caller (COLOR palette) so the remaster re-points
+   them centrally. These compose the same fillCircle/roundRect helpers as the
+   mascots but draw NO mascot identity. */
+
+// The Health Rating mark — a rating star seated on a little placard (the diner's
+// hygiene grade). `color` drives the star (turns to the danger tint when lives
+// run low). r = star radius; the placard scales off it.
+function drawRatingIcon(ctx, x, y, color, r = 8) {
   ctx.save();
   ctx.translate(x, y);
+  // Placard backing — a faint framed plaque so the star reads as a rating card.
+  const pw = r * 2.3, ph = r * 2.2;
+  ctx.fillStyle = "rgba(255,255,255,0.05)"; ctx.strokeStyle = "rgba(255,255,255,0.16)"; ctx.lineWidth = 1;
+  roundRect(ctx, -pw / 2, -ph / 2, pw, ph, r * 0.42); ctx.fill(); ctx.stroke();
+  // Star.
   ctx.fillStyle = color;
   ctx.beginPath();
   for (let i = 0; i < 10; i++) {
-    const rad = i % 2 === 0 ? 8 : 3.4;
+    const rad = i % 2 === 0 ? r * 0.82 : r * 0.34;
     const a = -Math.PI / 2 + i * Math.PI / 5;
     const px = Math.cos(a) * rad, py = Math.sin(a) * rad;
     i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
   }
   ctx.closePath(); ctx.fill();
-  ctx.globalAlpha = 0.4; ctx.strokeStyle = "#0b0e14"; ctx.lineWidth = 0.8; ctx.stroke();
+  ctx.globalAlpha = 0.45; ctx.strokeStyle = MDARK; ctx.lineWidth = 0.8; ctx.stroke();
   ctx.restore();
 }
-// A tip coin for the in-run currency (Tips, $).
-function drawCurrencyIcon(ctx, x, y, color) {
+
+// The Tips currency mark — a gold coin with a rim, a top-left shine, and a $.
+// One consistent Tips icon at HUD size (r≈8) and shrunk onto cost chips (r≈5).
+function drawCurrencyIcon(ctx, x, y, color, r = 8) {
   ctx.save();
   ctx.translate(x, y);
-  ctx.fillStyle = color;
-  ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = "#8a6a12"; ctx.lineWidth = 1.2;
-  ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI * 2); ctx.stroke();
-  ctx.fillStyle = "#6f5410"; ctx.font = "bold 11px system-ui, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-  ctx.fillText("$", 0, 1);
+  ctx.fillStyle = color; ctx.strokeStyle = "#8a6a12"; ctx.lineWidth = Math.max(1, r * 0.16);
+  ctx.beginPath(); ctx.arc(0, 0, r, 0, 7); ctx.fill(); ctx.stroke();           // coin body
+  ctx.strokeStyle = "rgba(255,255,255,0.32)"; ctx.lineWidth = Math.max(0.8, r * 0.12);
+  ctx.beginPath(); ctx.arc(0, 0, r * 0.72, 0, 7); ctx.stroke();                // inner rim
+  ctx.fillStyle = "rgba(255,255,255,0.5)";
+  ctx.beginPath(); ctx.arc(-r * 0.34, -r * 0.34, r * 0.15, 0, 7); ctx.fill();  // shine
+  ctx.fillStyle = "#6f5410"; ctx.font = "bold " + Math.round(r * 1.4) + "px system-ui, sans-serif";
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillText("$", 0, r * 0.14);
   ctx.restore();
+}
+
+// A small vector padlock — the locked-deck slot + upgrade-path locked tag
+// (replaces the 🔒 glyph). s = half-size of the body.
+function drawLockIcon(ctx, x, y, s, color) {
+  ctx.save();
+  ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineCap = "round";
+  ctx.lineWidth = Math.max(1.2, s * 0.32);
+  ctx.beginPath(); ctx.arc(x, y - s * 0.32, s * 0.52, Math.PI * 1.05, Math.PI * -0.05); ctx.stroke();   // shackle
+  ctx.lineWidth = 1;
+  roundRect(ctx, x - s * 0.72, y - s * 0.05, s * 1.44, s * 1.05, s * 0.24); ctx.fill();                  // body
+  ctx.fillStyle = "rgba(0,0,0,0.4)";
+  ctx.beginPath(); ctx.arc(x, y + s * 0.42, s * 0.16, 0, 7); ctx.fill();                                 // keyhole
+  ctx.restore();
+}
+
+// A soft grounding shadow ellipse that lifts a seated customer off the floor.
+function drawSoftShadow(ctx, x, y, rx, ry, color) {
+  ctx.save(); ctx.fillStyle = color;
+  ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, 7); ctx.fill(); ctx.restore();
 }
 
 function roundRect(ctx, x, y, w, h, r) {
@@ -849,4 +887,23 @@ function fitText(ctx, text, maxWidth) {
   let s = text;
   while (s.length > 1 && ctx.measureText(s + "…").width > maxWidth) s = s.slice(0, -1);
   return s + "…";
+}
+
+// Word-wrap `text` into up to maxLines lines that each fit maxWidth (font
+// pre-set). A single over-long word (or an overflowing last line) is ellipsized
+// with fitText. Lets the taller hub cards show full multi-word names.
+function wrapLabel(ctx, text, maxWidth, maxLines) {
+  if (maxLines <= 1 || ctx.measureText(text).width <= maxWidth) return [fitText(ctx, text, maxWidth)];
+  const words = text.split(" ");
+  const lines = []; let cur = words[0] || "";
+  for (let i = 1; i < words.length; i++) {
+    const t = cur + " " + words[i];
+    if (ctx.measureText(t).width <= maxWidth) cur = t;
+    else { lines.push(cur); cur = words[i]; }
+  }
+  lines.push(cur);
+  if (lines.length <= maxLines) return lines.map((l) => fitText(ctx, l, maxWidth));
+  const kept = lines.slice(0, maxLines - 1);
+  kept.push(fitText(ctx, lines.slice(maxLines - 1).join(" "), maxWidth));
+  return kept;
 }

@@ -23,6 +23,18 @@ const COLOR = {
   essence: "#c9a6ff",
   slot: "#4a5670", projectile: "#dff5ff", frostAura: "#7fe0ff",
   upgradeSpark: "#ffe08a", panel: "#151a24",
+  // Chrome — the shared UI surface palette for cards, controls, chips, and the
+  // HUD (used by render.js's card/panel/HUD language). These are the ONE place
+  // the coming diner remaster re-points chrome color; keep new chrome values
+  // here as named entries, never scattered literals. NOT map surfaces (those
+  // live in maps[].theme).
+  ctrlBg: "#1b2230",        // card / control fill (idle)
+  ctrlSel: "#26324a",       // card / control fill (selected or active-hover)
+  ctrlLine: "#2a3242",      // card / control border (idle)
+  ctrlLineHi: "#4a5670",    // card / control border (hover / emphasis)
+  chip: "#0e1319",          // inset backing for cost chips
+  hudBg: "rgba(0,0,0,0.42)",// HUD readout backing
+  unitShadow: "rgba(0,0,0,0.33)",   // soft drop-shadow that lifts seated customers off the floor
 };
 
 /* Difficulty & economy numbers come from data/balance.json, loaded as
