@@ -103,9 +103,9 @@ The backlog is GitHub Issues — the single roadmap. Don't create a parallel one
   (`towerPaths`/`pathAvailable`/`nextTier`); `tryUpgrade(t, pathId)` commits a
   path (locks the other) and applies a tier's deltas via `applyUpgradeDeltas`
   (stat keys + signature flags: `pierce`, `crumbRadius`/`crumbDamage`,
-  `knockbackBase`/`knockbackSizeRef`, `freezeTargets`/`drainTargets`). Sim mirror:
-  `apply_upgrade`/`buy_upgrades` on a fixed `SIM_PATHS` path. Rework tracked in
-  pinned Issue #54.
+  `knockbackBase`/`knockbackSizeRef`, `freezeTargets`/`drainTargets`,
+  `maxTargetsAdd`). Sim mirror: `apply_upgrade`/`buy_upgrades` on a fixed
+  `SIM_PATHS` path. Rework tracked in pinned Issue #54.
 - **`src/art.js`:** `drawCustomer()` → `drawRegular`/`drawBigAppetite`/
   `drawPhotographer`/`drawMilkshakeSlurper`/`drawKidsTable` · `drawFood()` +
   `drawFoodBites`/`BITE_SPOTS` · shared helpers `drawFace`/`drawLimb`/

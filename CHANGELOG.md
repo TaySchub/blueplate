@@ -6,6 +6,29 @@ Format is deliberately simple and plain-language.
 ## [Unreleased]
 
 ### Added
+- **The Kids' Table's tier-2 signatures — the 4th kid + the teen glow-up (PR 4,
+  the last mechanic PR of the Issue #54 rework)** (Implementer hat).
+  - **Birthday Party t2 — the 4th kid:** `maxTargets` goes 3 → 4 (a `maxTargetsAdd`
+    delta). No new mechanic code — the existing multi branch already spreads the
+    hands across the frontmost dishes, or piles all four onto one dish when it's
+    alone. A fourth green-hatted kid joins the huddle in the art.
+  - **Teenage Table t2 — pure damage + the big transformation:** the whole huddle
+    grows into lanky teenagers — bigger kids, taller party hats, longer arms
+    (`drawKid` gained a `teen` stretch param; `drawKidsTable` scales the huddle).
+    Damage stays the tuned stat.
+  - **Test + contact sheet:** `fourthhand.test.mjs` (4 in-range dishes all grabbed
+    in one attack; a lone dish takes 4× the bite — relative to the tower's own
+    damage, not a balance number; a base 3-kid table piles on only 3×). Contact
+    sheet gains the Kids' Table path row.
+  - **Verified:** balance gate **56.0%** (unchanged — zap isn't in the reference
+    board and `teenageTable`'s deltas stay pure); all seven `tools/tests/*.test.mjs`
+    green; wave-parity OK; real-engine `sim.mjs` 43.0% (report-only); both smoke
+    JSONs (stat/signature) byte-identical to PR 3 (zap untouched in the reference
+    build), both PASS with zero violations. Files: `data/balance.json`,
+    `src/engine.js`, `src/art.js`, `tools/tests/fourthhand.test.mjs`,
+    `tools/dev/harness.html`, `CLAUDE.md` (+ generated `balance.data.js` &
+    `index.html` stamps). **PRs 1–4 complete — every tower has both signatures;
+    PR 5 is the balance pass + gauge switch.**
 - **The Photographer's and the Slurper's tier-2 signatures (PR 3 of the Issue #54
   rework)** (Implementer hat). Same path pattern as PRs 1–2.
   - **Long Exposure t2 — deepened after-slow:** the post-freeze slow becomes

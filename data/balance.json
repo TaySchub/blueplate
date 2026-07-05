@@ -68,7 +68,7 @@
       "name": "The Kids' Table", "blurb": "Three kids grab up to 3 dishes at once — small fast bites",
       "cost": 35, "range": 96, "damage": 9, "cooldown": 0.5, "behavior": "multi", "maxTargets": 3,
       "upgrades": {
-        "birthdayParty": { "name": "Birthday Party", "tiers": [ { "cost": 70, "cooldownMul": 0.78 }, { "cost": 100, "cooldownMul": 0.85, "damage": 6 } ] },
+        "birthdayParty": { "name": "Birthday Party", "tiers": [ { "cost": 70, "cooldownMul": 0.78 }, { "cost": 100, "cooldownMul": 0.85, "maxTargetsAdd": 1 } ] },
         "teenageTable":  { "name": "Teenage Table",  "tiers": [ { "cost": 70, "damage": 8, "range": 8 }, { "cost": 100, "damage": 8, "range": 8 } ] }
       }
     }

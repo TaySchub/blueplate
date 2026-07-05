@@ -569,26 +569,28 @@ function drawMilkshakeSlurper(ctx, cx, cy, r, color, opts) {
 // Dispatch to a per-character mascot; fall back to the legacy glyph for towers
 // not yet redesigned. `firing` triggers per-tower attack flourishes (later pass).
 // One little kid in the huddle: yellow shirt, party hat, excited grin, arms up.
-function drawKid(ctx, kx, ky, kr, shirt, hatColor, armsUp) {
+function drawKid(ctx, kx, ky, kr, shirt, hatColor, armsUp, teen = 0) {
+  // Teenage Table stretches each kid into a lanky teen: taller torso + hat, longer arms.
+  const bodyBot = ky + kr * (1.7 + teen * 0.5), armEnd = ky - kr * (0.28 + teen * 0.55), hatApex = ky - kr * (2.05 + teen * 0.6);
   ctx.fillStyle = shirt; ctx.strokeStyle = MDARK; ctx.lineWidth = 1.8; ctx.lineJoin = "round";
   ctx.beginPath();
-  ctx.moveTo(kx - kr * 0.92, ky + kr * 1.7);
+  ctx.moveTo(kx - kr * 0.92, bodyBot);
   ctx.quadraticCurveTo(kx - kr * 1.02, ky + kr * 0.45, kx, ky + kr * 0.55);
-  ctx.quadraticCurveTo(kx + kr * 1.02, ky + kr * 0.45, kx + kr * 0.92, ky + kr * 1.7);
+  ctx.quadraticCurveTo(kx + kr * 1.02, ky + kr * 0.45, kx + kr * 0.92, bodyBot);
   ctx.closePath(); ctx.fill(); ctx.stroke();
   if (armsUp) {
-    drawLimb(ctx, kx - kr * 0.66, ky + kr * 0.75, kx - kr * 1.16, ky - kr * 0.28, kr * 0.34, shirt);
-    drawLimb(ctx, kx + kr * 0.66, ky + kr * 0.75, kx + kr * 1.16, ky - kr * 0.28, kr * 0.34, shirt);
-    fillCircle(ctx, kx - kr * 1.16, ky - kr * 0.28, kr * 0.22, SKIN, 1.2);
-    fillCircle(ctx, kx + kr * 1.16, ky - kr * 0.28, kr * 0.22, SKIN, 1.2);
+    drawLimb(ctx, kx - kr * 0.66, ky + kr * 0.75, kx - kr * 1.16, armEnd, kr * 0.34, shirt);
+    drawLimb(ctx, kx + kr * 0.66, ky + kr * 0.75, kx + kr * 1.16, armEnd, kr * 0.34, shirt);
+    fillCircle(ctx, kx - kr * 1.16, armEnd, kr * 0.22, SKIN, 1.2);
+    fillCircle(ctx, kx + kr * 1.16, armEnd, kr * 0.22, SKIN, 1.2);
   }
   fillCircle(ctx, kx, ky, kr, SKIN, 1.8);   // head
-  // Party hat + pompom.
+  // Party hat + pompom (taller on teens).
   ctx.fillStyle = hatColor; ctx.strokeStyle = MDARK; ctx.lineWidth = 1.4;
-  ctx.beginPath(); ctx.moveTo(kx, ky - kr * 2.05); ctx.lineTo(kx - kr * 0.72, ky - kr * 0.72); ctx.lineTo(kx + kr * 0.72, ky - kr * 0.72); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(kx, hatApex); ctx.lineTo(kx - kr * 0.72, ky - kr * 0.72); ctx.lineTo(kx + kr * 0.72, ky - kr * 0.72); ctx.closePath(); ctx.fill(); ctx.stroke();
   ctx.strokeStyle = "rgba(255,255,255,0.5)"; ctx.lineWidth = Math.max(0.8, kr * 0.12);   // hat zigzag
   ctx.beginPath(); ctx.moveTo(kx - kr * 0.34, ky - kr * 1.1); ctx.lineTo(kx + kr * 0.06, ky - kr * 1.0); ctx.lineTo(kx - kr * 0.14, ky - kr * 0.86); ctx.stroke();
-  fillCircle(ctx, kx, ky - kr * 2.05, kr * 0.2, "#fbfcff", 1);   // pompom
+  fillCircle(ctx, kx, hatApex, kr * 0.2, "#fbfcff", 1);   // pompom
   // Face: eyes, rosy cheeks, open excited grin.
   const ex = kr * 0.36, eyy = ky - kr * 0.06, er = Math.max(1, kr * 0.17);
   ctx.fillStyle = "rgba(255,140,110,0.36)";
@@ -602,9 +604,14 @@ function drawKid(ctx, kx, ky, kr, shirt, hatColor, armsUp) {
 // hats, all grabbing fistfuls at once (fast, cheap, tiny bites).
 function drawKidsTable(ctx, cx, cy, r, color, opts) {
   const level = opts.level || 1, shirt = color;
-  drawKid(ctx, cx, cy - r * 0.16, r * 0.5, shirt, color, true);          // back-center kid
-  drawKid(ctx, cx - r * 0.64, cy + r * 0.34, r * 0.46, shirt, "#ff6bd0", false);  // front-left (pink hat)
-  drawKid(ctx, cx + r * 0.64, cy + r * 0.34, r * 0.46, shirt, "#7fe0ff", true);   // front-right (cyan hat)
+  // Teenage Table grows the whole huddle into teenagers; Birthday Party t2 seats a 4th kid.
+  const teenTier = opts.path === "teenageTable" ? (opts.tier || 0) : 0;
+  const partyTier = opts.path === "birthdayParty" ? (opts.tier || 0) : 0;
+  const s = 1 + teenTier * 0.2;   // the whole huddle scales up as they become teens
+  drawKid(ctx, cx, cy - r * 0.16, r * 0.5 * s, shirt, color, true, teenTier);              // back-center kid
+  drawKid(ctx, cx - r * 0.64, cy + r * 0.34, r * 0.46 * s, shirt, "#ff6bd0", false, teenTier);  // front-left (pink hat)
+  drawKid(ctx, cx + r * 0.64, cy + r * 0.34, r * 0.46 * s, shirt, "#7fe0ff", true, teenTier);   // front-right (cyan hat)
+  if (partyTier >= 2) drawKid(ctx, cx, cy + r * 0.52, r * 0.44, shirt, "#9be870", true);   // the 4th kid, up front (green hat)
   if (level >= 3) { ctx.fillStyle = "#fff2b0"; drawSpark4(ctx, cx + r * 1.05, cy - r * 0.85, r * 0.4); }
 }
 

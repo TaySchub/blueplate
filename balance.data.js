@@ -330,7 +330,7 @@ window.BALANCE = {
             {
               "cost": 100,
               "cooldownMul": 0.85,
-              "damage": 6
+              "maxTargetsAdd": 1
             }
           ]
         },

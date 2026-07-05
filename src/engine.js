@@ -244,6 +244,7 @@ function applyUpgradeDeltas(t, d) {
   // Photographer / Slurper tier-2 signatures (PR 3): dishes engaged per cooldown.
   if (d.freezeTargets) t.freezeTargets = d.freezeTargets;   // Paparazzi t2: flash freezes 2 at once
   if (d.drainTargets) t.drainTargets = d.drainTargets;      // Silly Straw t2: 2 straws drain at once
+  if (d.maxTargetsAdd) t.maxTargets += d.maxTargetsAdd;     // Birthday Party t2: a 4th kid (the multi branch spreads/piles across maxTargets)
 }
 
 // Buy the next tier of pathId for placed tower t. The first purchase commits the
