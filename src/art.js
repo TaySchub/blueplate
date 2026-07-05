@@ -658,6 +658,154 @@ function drawGrabHand(ctx, p) {
   ctx.globalAlpha = 1;
 }
 
+/* ---- Diner obstacles (Issue #65) ----------------------------------------
+   Set dressing that blocks tower PLACEMENT (engine canPlace) and nothing else
+   — no line-of-sight in this game. Drawn dimmer than units (furniture, not
+   actors): floor-adjacent bodies, muted accents, MDARK outlines. Each prop
+   scales off its balance.json rect (x/y/w/h) so layouts stay data-driven. */
+
+function drawObstacle(ctx, o) {
+  ctx.save();
+  ctx.lineJoin = "round"; ctx.lineCap = "round";
+  // Shared grounding shadow, like the foods' soft ellipse.
+  ctx.fillStyle = "rgba(0,0,0,0.28)";
+  ctx.beginPath(); ctx.ellipse(o.x + o.w / 2, o.y + o.h - 1, o.w * 0.5, Math.max(4, o.h * 0.07), 0, 0, 7); ctx.fill();
+  if (o.kind === "jukebox") drawJukebox(ctx, o.x, o.y, o.w, o.h);
+  else if (o.kind === "counter") drawCounterIsland(ctx, o.x, o.y, o.w, o.h);
+  else if (o.kind === "booths") drawBoothBank(ctx, o.x, o.y, o.w, o.h);
+  else if (o.kind === "dessert") drawDessertCase(ctx, o.x, o.y, o.w, o.h);
+  else if (o.kind === "mopbucket") drawMopBucket(ctx, o.x, o.y, o.w, o.h);
+  else {
+    // Unknown kind: a plain crate, so a data typo shows up instead of vanishing.
+    ctx.fillStyle = "#2c3543"; ctx.strokeStyle = MDARK; ctx.lineWidth = 2;
+    roundRect(ctx, o.x + 2, o.y + 2, o.w - 4, o.h - 4, 6); ctx.fill(); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+// Arch-top jukebox against the wall: dark record window with a warm glow arc,
+// bubble-tube shoulders, speaker grille below.
+function drawJukebox(ctx, x, y, w, h) {
+  const r = w * 0.42;
+  const body = () => {
+    ctx.beginPath();
+    ctx.moveTo(x + 2, y + h - 2);
+    ctx.lineTo(x + 2, y + r);
+    ctx.arcTo(x + 2, y + 2, x + w / 2, y + 2, r);
+    ctx.arcTo(x + w - 2, y + 2, x + w - 2, y + r, r);
+    ctx.lineTo(x + w - 2, y + h - 2);
+    ctx.closePath();
+  };
+  ctx.fillStyle = "#5c4030"; ctx.strokeStyle = MDARK; ctx.lineWidth = 2;
+  body(); ctx.fill(); ctx.stroke();
+  // Record window (inner arch) + spinning record + glow arc.
+  const wx = x + 10, ww = w - 20, wy = y + 9, wr = ww * 0.5, wb = y + h * 0.54;
+  ctx.beginPath();
+  ctx.moveTo(wx, wb); ctx.lineTo(wx, wy + wr);
+  ctx.arcTo(wx, wy, x + w / 2, wy, wr);
+  ctx.arcTo(wx + ww, wy, wx + ww, wy + wr, wr);
+  ctx.lineTo(wx + ww, wb); ctx.closePath();
+  ctx.fillStyle = "#1a1420"; ctx.fill();
+  ctx.strokeStyle = MDARK; ctx.lineWidth = 1.4; ctx.stroke();
+  fillCircle(ctx, x + w / 2, y + h * 0.35, w * 0.13, "#241c2e", 1.1);
+  fillCircle(ctx, x + w / 2, y + h * 0.35, w * 0.045, "#e8a04c", 1);
+  ctx.strokeStyle = "#e8a04c"; ctx.globalAlpha = 0.65; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(x + w / 2, y + h * 0.37, w * 0.23, Math.PI * 1.15, Math.PI * 1.85); ctx.stroke();
+  ctx.globalAlpha = 1;
+  // Bubble tubes along the shoulders.
+  ctx.strokeStyle = "#a6733f"; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(x + 5.5, y + h * 0.56); ctx.lineTo(x + 5.5, y + r * 0.95); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x + w - 5.5, y + h * 0.56); ctx.lineTo(x + w - 5.5, y + r * 0.95); ctx.stroke();
+  // Speaker grille with vertical slats.
+  ctx.fillStyle = "#3a2c20"; roundRect(ctx, x + 8, y + h * 0.62, w - 16, h * 0.28, 4); ctx.fill();
+  ctx.strokeStyle = MDARK; ctx.lineWidth = 1.4; roundRect(ctx, x + 8, y + h * 0.62, w - 16, h * 0.28, 4); ctx.stroke();
+  ctx.strokeStyle = "rgba(255,255,255,0.09)"; ctx.lineWidth = 2.4;
+  for (let i = 1; i <= 4; i++) {
+    const sx = x + 8 + (w - 16) * (i / 5);
+    ctx.beginPath(); ctx.moveTo(sx, y + h * 0.65); ctx.lineTo(sx, y + h * 0.87); ctx.stroke();
+  }
+}
+
+// Counter island: steel worktop over diner-red panels, condiments on top.
+function drawCounterIsland(ctx, x, y, w, h) {
+  ctx.fillStyle = "#6e3230"; ctx.strokeStyle = MDARK; ctx.lineWidth = 2;
+  roundRect(ctx, x + 2, y + h * 0.16, w - 4, h * 0.84 - 2, 5); ctx.fill(); ctx.stroke();
+  ctx.strokeStyle = "rgba(0,0,0,0.30)"; ctx.lineWidth = 1.6;   // panel grooves
+  for (const f of [1 / 3, 2 / 3]) { ctx.beginPath(); ctx.moveTo(x + w * f, y + h * 0.24); ctx.lineTo(x + w * f, y + h * 0.86); ctx.stroke(); }
+  ctx.fillStyle = "#242b37"; roundRect(ctx, x + 5, y + h - 12, w - 10, 8, 3); ctx.fill();   // kick plate
+  ctx.fillStyle = "#8f99ab"; ctx.strokeStyle = MDARK; ctx.lineWidth = 2;   // steel top, slightly proud
+  roundRect(ctx, x + 1, y + 2, w - 2, h * 0.18, 4); ctx.fill(); ctx.stroke();
+  ctx.strokeStyle = "rgba(255,255,255,0.28)"; ctx.lineWidth = 1.6;
+  ctx.beginPath(); ctx.moveTo(x + 7, y + 7); ctx.lineTo(x + w * 0.6, y + 7); ctx.stroke();   // sheen
+  // Condiments + napkin holder on the top.
+  fillCircle(ctx, x + w * 0.25, y + h * 0.11, 3.4, "#a03c36", 1.2);
+  fillCircle(ctx, x + w * 0.38, y + h * 0.11, 3.4, "#c9a337", 1.2);
+  ctx.fillStyle = "#aab4c5"; ctx.strokeStyle = MDARK; ctx.lineWidth = 1.2;
+  roundRect(ctx, x + w * 0.58, y + h * 0.055, w * 0.2, h * 0.1, 2); ctx.fill(); ctx.stroke();
+}
+
+// A bank of two booths: facing red vinyl benches with a wooden table between.
+function drawBoothBank(ctx, x, y, w, h) {
+  const unit = (uy, uh) => {
+    const benchH = uh * 0.30, tableH = uh * 0.26;
+    ctx.fillStyle = "#7e3634"; ctx.strokeStyle = MDARK; ctx.lineWidth = 1.8;
+    roundRect(ctx, x + 2, uy, w - 4, benchH, 4); ctx.fill(); ctx.stroke();
+    roundRect(ctx, x + 2, uy + uh - benchH, w - 4, benchH, 4); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "rgba(255,255,255,0.10)";   // vinyl seam highlight
+    ctx.fillRect(x + 6, uy + 3, w - 12, 2); ctx.fillRect(x + 6, uy + uh - benchH + 3, w - 12, 2);
+    ctx.fillStyle = "#8a6a45"; ctx.strokeStyle = MDARK; ctx.lineWidth = 1.8;   // table
+    roundRect(ctx, x + 6, uy + (uh - tableH) / 2, w - 12, tableH, 3); ctx.fill(); ctx.stroke();
+    fillCircle(ctx, x + w / 2, uy + uh / 2, Math.min(5, w * 0.09), "#dfe5ee", 1.1);   // waiting plate
+  };
+  const gap = 6, uh = (h - 4 - gap) / 2;
+  unit(y + 2, uh);
+  unit(y + 2 + uh + gap, uh);
+}
+
+// Glass dessert display case on a steel base — cake slice, pie, donuts inside.
+function drawDessertCase(ctx, x, y, w, h) {
+  const baseH = h * 0.30, glassH = h - baseH - 2;
+  ctx.fillStyle = "#3f4a5c"; ctx.strokeStyle = MDARK; ctx.lineWidth = 2;   // base cabinet
+  roundRect(ctx, x + 2, y + 2 + glassH, w - 4, baseH - 2, 3); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = "rgba(255,255,255,0.08)"; ctx.fillRect(x + 6, y + 4 + glassH, w - 12, 2);
+  ctx.fillStyle = "rgba(127,224,255,0.10)"; ctx.strokeStyle = MDARK; ctx.lineWidth = 1.8;   // glass
+  roundRect(ctx, x + 2, y + 2, w - 4, glassH, 4); ctx.fill(); ctx.stroke();
+  const shelfY = y + 2 + glassH * 0.52;
+  ctx.strokeStyle = "rgba(255,255,255,0.20)"; ctx.lineWidth = 1.4;
+  ctx.beginPath(); ctx.moveTo(x + 5, shelfY); ctx.lineTo(x + w - 5, shelfY); ctx.stroke();
+  const ty = shelfY - 3;   // top shelf: cake wedge + pie dome
+  ctx.fillStyle = "#d38fa4"; ctx.strokeStyle = MDARK; ctx.lineWidth = 1.2;
+  ctx.beginPath(); ctx.moveTo(x + w * 0.2, ty); ctx.lineTo(x + w * 0.32, ty - glassH * 0.34); ctx.lineTo(x + w * 0.42, ty); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = "#c99b4a";
+  ctx.beginPath(); ctx.arc(x + w * 0.66, ty, glassH * 0.2, Math.PI, 0); ctx.closePath(); ctx.fill(); ctx.stroke();
+  const dy = y + glassH - 4;   // lower shelf: three donuts
+  for (const f of [0.25, 0.5, 0.75]) fillCircle(ctx, x + w * f, dy, glassH * 0.11, "#b0794a", 1.1);
+  ctx.strokeStyle = "rgba(255,255,255,0.13)"; ctx.lineWidth = 3;   // glass sheen
+  ctx.beginPath(); ctx.moveTo(x + w * 0.16, y + 6); ctx.lineTo(x + w * 0.05, y + glassH * 0.5); ctx.stroke();
+}
+
+// Mop bucket + wet-floor sign — the humble hazard combo.
+function drawMopBucket(ctx, x, y, w, h) {
+  const sx = x + w * 0.08, sy = y + h - 6, sw = w * 0.4, sh = h * 0.52;   // A-frame sign
+  ctx.fillStyle = "#c9a337"; ctx.strokeStyle = MDARK; ctx.lineWidth = 1.8;
+  ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx + sw / 2, sy - sh); ctx.lineTo(sx + sw, sy); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.strokeStyle = MDARK; ctx.lineWidth = 2.2;   // "!" as shapes so it reads tiny
+  ctx.beginPath(); ctx.moveTo(sx + sw / 2, sy - sh * 0.62); ctx.lineTo(sx + sw / 2, sy - sh * 0.3); ctx.stroke();
+  fillCircle(ctx, sx + sw / 2, sy - sh * 0.14, 1.4, MDARK, 0.5);
+  const bx = x + w * 0.72, bw = w * 0.4, bh = h * 0.42, by = y + h - bh - 3;   // bucket
+  ctx.strokeStyle = MDARK; ctx.lineWidth = 4.4;   // mop handle (dark underlay, art-limb style)
+  ctx.beginPath(); ctx.moveTo(bx, by + 4); ctx.lineTo(x + w * 0.97, y + 4); ctx.stroke();
+  ctx.strokeStyle = "#8a6a45"; ctx.lineWidth = 2.6;
+  ctx.beginPath(); ctx.moveTo(bx, by + 4); ctx.lineTo(x + w * 0.97, y + 4); ctx.stroke();
+  ctx.strokeStyle = "#cfc8b4"; ctx.lineWidth = 2;   // mop strands over the rim
+  for (const dx of [-4, 0, 4]) { ctx.beginPath(); ctx.moveTo(bx, by + 5); ctx.quadraticCurveTo(bx + dx, by - 5, bx + dx * 1.8 - 2, by + 2); ctx.stroke(); }
+  ctx.fillStyle = "#b8952e"; ctx.strokeStyle = MDARK; ctx.lineWidth = 1.8;   // tapered body
+  ctx.beginPath(); ctx.moveTo(bx - bw / 2, by); ctx.lineTo(bx + bw / 2, by); ctx.lineTo(bx + bw * 0.4, by + bh); ctx.lineTo(bx - bw * 0.4, by + bh); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = "#8f7522"; ctx.fillRect(bx - bw / 2, by, bw, 3.4);   // wringer band
+  ctx.fillStyle = "rgba(127,224,255,0.12)";   // the wet floor itself
+  ctx.beginPath(); ctx.ellipse(x + w * 0.42, y + h - 3, w * 0.32, 3.4, 0, 0, 7); ctx.fill();
+}
+
 // A star-rating glyph for the restaurant's Health Rating (was a shield/heart).
 function drawRatingIcon(ctx, x, y, color) {
   ctx.save();

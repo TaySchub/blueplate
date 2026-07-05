@@ -1,7 +1,7 @@
 // AUTO-GENERATED from data/balance.json by tools/gen_balance.py.
 // Do NOT edit by hand — edit data/balance.json and re-run the generator.
 window.BALANCE = {
-  "_note": "Single source of truth for DIFFICULTY, ECONOMY, and MAP GEOMETRY. tools/balance_sim.py reads this file directly; the game reads it via the generated balance.data.js (run tools/gen_balance.py after editing). Only pure art (colors/shapes) stays in main.js; tower/enemy display names + blurbs live here too, so a theme reskin is JSON-only. Rule: if the balance sim needs a number to compute win-rate, it belongs in this file \u2014 including each tower's per-path upgrade deltas ('upgrades'), the map (path + slots), and the wave generator (waveGen). Upgrades: 2 named paths per tower, each with 2 tiers { cost, ...deltas }; buying a tier of one path locks the other for that placed tower. Difficulty is now tuned against the REAL-ENGINE sim (node tools/sim.mjs --check), the CI gate as of Issue #54 PR 5; tools/balance_sim.py is a report-only second opinion. Costs/deltas are per tower and per tier (signatures are tier 2).",
+  "_note": "Single source of truth for DIFFICULTY, ECONOMY, and MAP GEOMETRY. tools/balance_sim.py reads this file directly; the game reads it via the generated balance.data.js (run tools/gen_balance.py after editing). Only pure art (colors/shapes) stays in main.js; tower/enemy display names + blurbs live here too, so a theme reskin is JSON-only. Rule: if the balance sim needs a number to compute win-rate, it belongs in this file \u2014 including each tower's per-path upgrade deltas ('upgrades'), the map (path + free-placement rules + obstacles + simAnchors), and the wave generator (waveGen). Placement: towers go anywhere inside placement.bounds that is > pathBuffer off the belt centerline, >= towerSpacing from other towers, and outside every obstacle rect; simAnchors are the OLD slot coordinates the headless sims still build at, in build order, so the difficulty gauge stays layout-stable \u2014 never reorder them. Upgrades: 2 named paths per tower, each with 2 tiers { cost, ...deltas }; buying a tier of one path locks the other for that placed tower. Difficulty is now tuned against the REAL-ENGINE sim (node tools/sim.mjs --check), the CI gate as of Issue #54 PR 5; tools/balance_sim.py is a report-only second opinion. Costs/deltas are per tower and per tier (signatures are tier 2).",
   "target_win_rate": [
     0.5,
     0.6
@@ -68,7 +68,54 @@ window.BALANCE = {
         "y": 210
       }
     ],
-    "slots": [
+    "placement": {
+      "pathBuffer": 40,
+      "towerSpacing": 40,
+      "bounds": {
+        "x0": 16,
+        "y0": 16,
+        "x1": 784,
+        "y1": 382
+      }
+    },
+    "obstacles": [
+      {
+        "x": 100,
+        "y": 40,
+        "w": 52,
+        "h": 54,
+        "kind": "mopbucket"
+      },
+      {
+        "x": 240,
+        "y": 316,
+        "w": 60,
+        "h": 62,
+        "kind": "jukebox"
+      },
+      {
+        "x": 370,
+        "y": 176,
+        "w": 80,
+        "h": 88,
+        "kind": "counter"
+      },
+      {
+        "x": 650,
+        "y": 176,
+        "w": 60,
+        "h": 88,
+        "kind": "booths"
+      },
+      {
+        "x": 660,
+        "y": 44,
+        "w": 100,
+        "h": 70,
+        "kind": "dessert"
+      }
+    ],
+    "simAnchors": [
       {
         "x": 130,
         "y": 150

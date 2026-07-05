@@ -32,7 +32,7 @@ function render() {
   drawBackground(ctx);
   drawPath(ctx);
   drawKitchenDoor(ctx);
-  drawSlots(ctx);
+  drawObstacles(ctx);
   drawTowerRanges(ctx);
   drawCore(ctx);
   drawEnemies(ctx);
@@ -40,6 +40,7 @@ function render() {
   drawSlurpStraws(ctx);
   drawTowers(ctx);
   drawParticles(ctx);
+  drawPlacementGhost(ctx);
   if (shaking) ctx.restore();
   // Paused: dim the board (UI below stays bright — you can still seat/upgrade).
   if (typeof gamePaused !== "undefined" && gamePaused) drawPausedOverlay(ctx);
@@ -168,10 +169,11 @@ function drawBackground(ctx) {
   for (let gy = 0; gy < TOOLBAR.y; gy += tile)
     for (let gx = 0; gx < VIEW.w; gx += tile)
       if (((gx / tile) + (gy / tile)) & 1) ctx.fillRect(gx, gy, tile, tile);
-  // A booth/table pad under each seat — set dressing behind the seated customers.
-  for (const s of SLOTS) {
-    ctx.fillStyle = "#1b222d"; roundRect(ctx, s.x - 21, s.y - 15, 42, 30, 7); ctx.fill();
-    ctx.strokeStyle = "#262f3d"; ctx.lineWidth = 1.5; roundRect(ctx, s.x - 21, s.y - 15, 42, 30, 7); ctx.stroke();
+  // A booth/table pad under each PLACED tower — the table appears when the
+  // customer sits down (free placement has no fixed seats to pre-draw).
+  for (const t of game.towers) {
+    ctx.fillStyle = "#1b222d"; roundRect(ctx, t.x - 21, t.y - 15, 42, 30, 7); ctx.fill();
+    ctx.strokeStyle = "#262f3d"; ctx.lineWidth = 1.5; roundRect(ctx, t.x - 21, t.y - 15, 42, 30, 7); ctx.stroke();
   }
 }
 
@@ -219,19 +221,41 @@ function drawKitchenDoor(ctx) {
   ctx.textBaseline = "alphabetic";
 }
 
-function drawSlots(ctx) {
+// Diner set dressing from BAL.map.obstacles, drawn between the belt and the
+// units. Placement blockers ONLY — there is no line-of-sight in this game, so
+// props never affect shots or enemies. Per-kind vector art lives in art.js.
+function drawObstacles(ctx) {
+  for (const o of BAL.map.obstacles) drawObstacle(ctx, o);
+}
+
+// The free-placement ghost (replaced the fixed-slot markers): follows the
+// pointer whenever a run is live and shows the selected customer's RANGE ring
+// before you buy — green = canPlace + affordable, red = blocked or too
+// expensive. Hidden over the toolbar (bounds end above it), the selected-tower
+// panel, and existing towers (hovering those means select, not build).
+function drawPlacementGhost(ctx) {
+  if (game.phase !== "prep" && game.phase !== "wave") return;
+  const p = game.pointer, b = BAL.map.placement.bounds;
+  if (p.x < b.x0 || p.x > b.x1 || p.y < b.y0 || p.y > b.y1) return;
+  if (game.selectedTower && inRect(p, towerPanel(game.selectedTower).rect)) return;
+  for (const t of game.towers) if (distance(p, t) <= 18) return;
   const def = TOWER_BY_ID[game.selectedType];
-  for (let i = 0; i < SLOTS.length; i++) {
-    if (game.towers.some((t) => t.slotIndex === i)) continue;
-    const s = SLOTS[i];
-    const hover = distance(game.pointer, s) <= 20;
-    const affordable = game.currency >= def.cost;
-    ctx.save(); ctx.setLineDash([4, 4]);
-    ctx.strokeStyle = hover ? (affordable ? COLOR.good : COLOR.bad) : COLOR.slot;
-    ctx.globalAlpha = hover ? 0.9 : 0.5; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.arc(s.x, s.y, 15, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
-    if (hover) { ctx.fillStyle = affordable ? COLOR.good : COLOR.bad; ctx.font = "11px system-ui, sans-serif"; ctx.textAlign = "center"; ctx.fillText(def.name + " " + def.cost, s.x, s.y - 22); }
-  }
+  const buildable = canPlace(p.x, p.y) && game.currency >= def.cost;
+  const col = buildable ? COLOR.good : COLOR.bad;
+  ctx.save();
+  // Range preview — the point of the ghost: see reach before spending.
+  ctx.globalAlpha = 0.07; ctx.fillStyle = col;
+  ctx.beginPath(); ctx.arc(p.x, p.y, def.range, 0, Math.PI * 2); ctx.fill();
+  ctx.globalAlpha = 0.45; ctx.strokeStyle = col; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.arc(p.x, p.y, def.range, 0, Math.PI * 2); ctx.stroke();
+  // Body ghost at the seat itself.
+  ctx.globalAlpha = 0.9; ctx.setLineDash([4, 4]); ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(p.x, p.y, 15, 0, Math.PI * 2); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.globalAlpha = 1; ctx.fillStyle = col;
+  ctx.font = "11px system-ui, sans-serif"; ctx.textAlign = "center";
+  ctx.fillText(def.name + " " + def.cost, p.x, p.y - 22);
+  ctx.restore();
 }
 
 function drawTowerRanges(ctx) {
