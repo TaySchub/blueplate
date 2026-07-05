@@ -39,7 +39,9 @@ assert(E.pointAtDistance(0).y !== 100, "the fixture's geometry no longer answers
 assert(E.canPlace(P_ANCHOR.x, P_ANCHOR.y) === true, "the diner sim anchor is placeable again");
 assert(E.canPlace(P_JUKE.x, P_JUKE.y) === false, "the diner's jukebox blocks placement again");
 
-// The default map's own anchors are all placeable in build order (spot-check the first).
+// The default map's own anchors are all placeable in build order on ITS OWN
+// empty board — load maps[0] first (it is no longer necessarily the diner).
+E.loadMap(E.MAPS[0]); E.game.towers = [];
 const a0 = E.MAPS[0].simAnchors[0];
 assert(E.canPlace(a0.x, a0.y) === true, "the default map's first sim anchor is placeable on an empty board");
 

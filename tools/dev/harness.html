@@ -86,13 +86,17 @@
   window.__realRAF = window.requestAnimationFrame.bind(window);
   window.requestAnimationFrame = function () { return 0; };
 </script>
-<script src="../../balance.data.js"></script>
-<script src="../../src/data.js"></script>
-<script src="../../src/engine.js"></script>
-<script src="../../src/audio.js"></script>
-<script src="../../src/art.js"></script>
-<script src="../../src/render.js"></script>
-<script src="../../src/main.js"></script>
+<script>
+  // Cache-bust the game scripts so a warm browser can't serve STALE src during
+  // verification (this bit two prior sessions — the harness has no gen_balance
+  // ?v= stamps like index.html does). Date.now() forces a fresh fetch each load;
+  // document.write keeps the strict load order (data → engine → audio → art →
+  // render → main) that plain-globals boot depends on.
+  var __cb = "?cb=" + Date.now();
+  ["../../balance.data.js", "../../src/data.js", "../../src/engine.js", "../../src/audio.js",
+   "../../src/art.js", "../../src/render.js", "../../src/main.js"]
+    .forEach(function (s) { document.write('<script src="' + s + __cb + '"><\/script>'); });
+</script>
 
 <script>
 (function () {

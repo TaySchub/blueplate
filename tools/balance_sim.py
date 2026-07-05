@@ -352,11 +352,11 @@ def play_game(build: list[str], cfg: dict, seed: int, early_bonus: float = 0.0,
     return True, total_waves
 
 
-def evaluate(build: list[str], cfg: dict, sims: int, base_seed: int, early_bonus: float = 0.0) -> dict:
+def evaluate(build: list[str], cfg: dict, sims: int, base_seed: int, early_bonus: float = 0.0, map_id=None) -> dict:
     wins = 0
     survived = []
     for i in range(sims):
-        won, w = play_game(build, cfg, seed=base_seed + i, early_bonus=early_bonus)
+        won, w = play_game(build, cfg, seed=base_seed + i, early_bonus=early_bonus, map_id=map_id)
         wins += 1 if won else 0
         survived.append(w)
     return {"win_rate": wins / sims, "median_waves": median(survived), "sims": sims}
@@ -376,6 +376,9 @@ def main():
     ap.add_argument("--sims", type=int, default=400)
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--config", default="data/balance.json")
+    ap.add_argument("--map", default=None,
+                    help="map id to gauge (default: maps[0]); the report-only "
+                         "second opinion usually targets the tuned gate map")
     ap.add_argument("--check", action="store_true",
                     help="CI gate: evaluate ONLY the reference board and exit "
                          "non-zero if its win-rate is outside the target band")
@@ -383,7 +386,7 @@ def main():
     cfg = load_config(args.config)
     band = tuple(cfg.get("target_win_rate", TARGET_WIN_RATE))
 
-    print(f"Config: {args.config}")
+    print(f"Config: {args.config}   Map: {args.map or cfg['maps'][0]['id']}")
     print(f"Target win-rate band: {band[0]:.0%}-{band[1]:.0%}")
     print(f"Sims per strategy: {args.sims}\n")
 
@@ -391,7 +394,7 @@ def main():
     # the other strategies are informational), fixed seed, exit code = verdict.
     if args.check:
         build = STRATEGIES["reference board"]
-        r = evaluate(build, cfg, args.sims, args.seed)
+        r = evaluate(build, cfg, args.sims, args.seed, map_id=args.map)
         ok = band[0] <= r["win_rate"] <= band[1]
         print(f"reference board  [{', '.join(build)}]")
         print(f"  win rate     : {r['win_rate']:.1%}")
@@ -404,7 +407,7 @@ def main():
         raise SystemExit(0 if ok else 1)
 
     for name, build in STRATEGIES.items():
-        r = evaluate(build, cfg, args.sims, args.seed)
+        r = evaluate(build, cfg, args.sims, args.seed, map_id=args.map)
         print(f"{name}  [{', '.join(build)}]")
         print(f"  win rate     : {r['win_rate']:.1%}")
         print(f"  median waves : {r['median_waves']}")
@@ -415,7 +418,7 @@ def main():
     early = cfg["economy"].get("earlyCallBonus", 0)
     if early:
         ref = STRATEGIES["reference board"]
-        r = evaluate(ref, cfg, args.sims, args.seed, early_bonus=early)
+        r = evaluate(ref, cfg, args.sims, args.seed, early_bonus=early, map_id=args.map)
         print(f"reference + call early (+{early}/wave)  [{', '.join(ref)}]")
         print(f"  win rate     : {r['win_rate']:.1%}")
         print(f"  median waves : {r['median_waves']}")
@@ -426,7 +429,7 @@ def main():
     # win-rate) — it should be neither trivial (never dies) nor brutal.
     ref = STRATEGIES["reference board"]
     cap = 40
-    survived = sorted(play_game(ref, cfg, seed=args.seed + i, max_waves=cap)[1]
+    survived = sorted(play_game(ref, cfg, seed=args.seed + i, max_waves=cap, map_id=args.map)[1]
                       for i in range(min(args.sims, 200)))
     print(f"endless survival (reference, cap {cap})")
     print(f"  median waves : {median(survived)}")
