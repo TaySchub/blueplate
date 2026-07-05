@@ -7,17 +7,18 @@
   startNextWave/update. One source of truth: a mechanic lands in engine.js and
   this sim exercises it automatically — no Python mirror to keep honest.
 
-  The scripted player mirrors tools/balance_sim.py's steady reference: fill
-  slots in build order as affordable, spend spare Tips on the cheapest upgrade
-  each prep, never call the wave early (the early-call bonus is zeroed so this
-  stays the steady gauge, like the Python sim's reference_bonus=0 line).
-  Seeded RNG (mulberry32 over Math.random) → same seed, same run.
+  The scripted player mirrors tools/balance_sim.py's steady reference: build
+  at the map's simAnchors (the former slot coordinates, kept in build order so
+  the gauge stays comparable across map layouts) as affordable, spend spare
+  Tips on the cheapest upgrade each prep, never call the wave early (the
+  early-call bonus is zeroed so this stays the steady gauge, like the Python
+  sim's reference_bonus=0 line). Seeded RNG (mulberry32 over Math.random) →
+  same seed, same run.
 
-  Status: REPORTING gauge alongside the Python sim (which remains the CI
-  gate). The two will not read identical win-rates — this one has real
-  projectile travel/overkill, the sniper's straw-lock, and no per-enemy HP
-  jitter. Switching the CI gate to this sim is the developer's call once both
-  numbers have been seen side by side.
+  Status: THE CI difficulty gate (`--check`), since Issue #54 PR 5.
+  tools/balance_sim.py is the report-only second opinion — the two will not
+  read identical win-rates: this one has real projectile travel/overkill, the
+  sniper's straw-lock, and no per-enemy HP jitter.
 
   Usage (from the repo root):
     node tools/sim.mjs                       # 200 seeded games, report
@@ -71,7 +72,7 @@ const bundle =
   `
 ;globalThis.ENGINE = {
   game, startRun, startNextWave, tryBuild, tryUpgrade, update, makeWave,
-  SLOTS, TOWER_BY_ID, RULES, WAVES, towerPaths, nextTier,
+  TOWER_BY_ID, RULES, WAVES, towerPaths, nextTier,
   reset() { META = freshMeta(); chosenEndless = false; },
 };`;
 vm.runInThisContext(bundle, { filename: "deckbound-engine-bundle.js" });
@@ -105,15 +106,19 @@ function playGame(seed, build) {
   try {
     E.reset();
     E.startRun();
+    // Free placement: the scripted player still builds at the map's simAnchors
+    // (the former slot coordinates, in order) so the gauge is layout-stable.
+    const ANCHORS = window.BALANCE.map.simAnchors;
     let nextSlot = 0, steps = 0;
     const CAP = 60 * 60 * 30; // 30 sim-minutes
     while (steps < CAP && E.game.phase !== "won" && E.game.phase !== "lost") {
       if (E.game.phase === "prep") {
-        while (nextSlot < E.SLOTS.length && nextSlot < build.length) {
+        while (nextSlot < ANCHORS.length && nextSlot < build.length) {
           const id = build[nextSlot];
           if (E.game.currency < E.TOWER_BY_ID[id].cost) break;
           E.game.selectedType = id;
-          E.tryBuild(nextSlot);
+          const a = ANCHORS[nextSlot];
+          E.tryBuild(a.x, a.y);
           nextSlot++;
         }
         // Each tower commits to its fixed SIM_PATHS path and buys both tiers,

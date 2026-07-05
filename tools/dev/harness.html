@@ -292,14 +292,16 @@
           }
         }
       };
-      // Prep policy ≈ the sim's reference strategy: fill slots in build order as
+      // Prep policy ≈ the sim's reference strategy: build at the map's simAnchors
+      // (the former slot coordinates, in order — free placement has no slots) as
       // affordable, then spend spare Tips on the cheapest upgrade, then call the wave.
+      const anchors = BAL.map.simAnchors;
       const prep = () => {
-        while (nextSlot < SLOTS.length && nextSlot < build.length) {
+        while (nextSlot < anchors.length && nextSlot < build.length) {
           const id = build[nextSlot];
           if (game.currency < TOWER_BY_ID[id].cost) break;
           game.selectedType = id;
-          tryBuild(nextSlot);
+          tryBuild(anchors[nextSlot].x, anchors[nextSlot].y);
           nextSlot++;
         }
         for (;;) {
@@ -366,11 +368,14 @@
     META = freshMeta();
     startRun();
     // Auto-seat the build so a feel-check starts instantly; play on from there.
+    // Seats go at the simAnchors (free placement — no fixed slots anymore).
+    const anchors = BAL.map.simAnchors;
     let slot = 0;
     for (const id of build) {
-      if (slot >= SLOTS.length || game.currency < TOWER_BY_ID[id].cost) break;
+      if (slot >= anchors.length || game.currency < TOWER_BY_ID[id].cost) break;
       game.selectedType = id;
-      tryBuild(slot++);
+      tryBuild(anchors[slot].x, anchors[slot].y);
+      slot++;
     }
     play.on = true;
     render();
