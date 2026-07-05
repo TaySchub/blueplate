@@ -59,9 +59,11 @@ no bundler — `file://` double-click still works):**
 
 **Data & pipeline:**
 - `data/balance.json` — single source of truth for difficulty, economy, waves
-  (`waveGen`), the map (`path` / `placement` rules / `obstacles` /
-  `simAnchors` — the sims build at the old slot coordinates so the difficulty
-  gauge is layout-stable), display names/blurbs, and
+  (`waveGen`), the maps (`maps[]` — each with `theme` + `path` / `placement`
+  rules / `obstacles` / `simAnchors`; `maps[0]` is the default, `tuned:true`
+  marks a calibrated map; the sims build at each map's `simAnchors`, the old
+  slot coordinates, so the difficulty gauge is layout-stable), display
+  names/blurbs, and
   `target_win_rate` (currently 50–60%). **After editing it — or any
   `src/*.js` file — run `python3 tools/gen_balance.py`** (regenerates
   `balance.data.js`, re-stamps `index.html`; CI fails if you forget). Changing
@@ -75,7 +77,10 @@ no bundler — `file://` double-click still works):**
   (`--check` is the CI gate as of Issue #54 PR 5). `tools/balance_sim.py` is a
   report-only second opinion (a 1-D model that reads higher — HP jitter, no
   real mechanics); the wave-parity gate keeps it honest while it exists.
-- `tools/dev/harness.html` — contact sheet, seeded smoke run, play driver.
+- `tools/dev/harness.html` — contact sheet, seeded smoke run, play driver
+  (`?map=<id>` selects a map).
+- `tools/maplint.mjs` — validates every `maps[]` entry against the placement
+  rules via the real `canPlace` (CI-gated); what makes adding a map cheap.
 
 **Docs:**
 - Law (edit only with the developer's say-so): `GAME_BRIEF.md` (frozen spec) ·
@@ -107,8 +112,16 @@ The backlog is GitHub Issues — the single roadmap. Don't create a parallel one
   `loadMeta`; particles as pure data via `spawn*`/`updateParticles`.
 - **`src/engine.js` — free placement (no fixed slots, no tower cap):**
   `canPlace(x, y)` (bounds / `pathBuffer` off the belt / `towerSpacing` /
-  obstacle rects, all from `BAL.map`) · `tryBuild(x, y)` seats the selected
-  type at that point. Obstacles block placement ONLY — no line-of-sight.
+  obstacle rects, all from the ACTIVE map's bound state) · `tryBuild(x, y)`
+  seats the selected type at that point. Obstacles block placement ONLY — no
+  line-of-sight.
+- **`src/engine.js` — maps as content:** `MAPS` (balance.json `maps[]`) +
+  `loadMap(id|obj)` rebinds the per-map bindings (`MAP`/`PATH`/`CORE`/
+  `SEGMENT_LENGTHS`/`PATH_LENGTH`/`PLACEMENT`/`OBSTACLES`/`SIM_ANCHORS`/`THEME`);
+  boot loads `maps[0]`, the hub `MAP_BTN` picker + `game.mapId` choose it
+  (remembered in `META.mapId`). `loadMap` consumes no RNG. Adding a map = a JSON
+  block + prop drawers; `tools/maplint.mjs` validates every map via real
+  `canPlace`.
 - **`src/engine.js` — upgrades (paths):** two exclusive paths per tower
   (`towerPaths`/`pathAvailable`/`nextTier`); `tryUpgrade(t, pathId)` commits a
   path (locks the other) and applies a tier's deltas via `applyUpgradeDeltas`
@@ -127,7 +140,9 @@ The backlog is GitHub Issues — the single roadmap. Don't create a parallel one
   hit-testing) · scene draws (`drawPath`/`drawCore`/`drawEnemies`/
   `drawTowers`/`drawSlurpStraws`/`drawObstacles`) · `drawPlacementGhost`
   (replaced `drawSlots`: pointer-follow build ghost + range preview,
-  green/red by `canPlace` + affordability).
+  green/red by `canPlace` + affordability). Scene surfaces (floor/belt/kitchen/
+  chute) read the active map's `THEME`, so a reskin is JSON-only; the hub
+  `MAP_BTN` map picker (drawMenu) cycles `MAPS`.
 - **`src/main.js`:** boot · `setupInput` · `startGameLoop` (fixed timestep) ·
   the FX wiring.
 - **`src/audio.js`:** the `audio` object (`voice`/`noiseBurst`/`env` +

@@ -6,6 +6,25 @@ Format is deliberately simple and plain-language.
 ## [Unreleased]
 
 ### Added
+- **Map platform — maps are now content** (Issue #69, Implementer hat). Turns
+  "the map" into a `maps[]` list in `data/balance.json`: adding a map is one JSON
+  block (path, placement rules, obstacles, sim anchors, and a `theme` block of
+  surface colors/labels) plus a few prop drawers — no engine surgery. This PR
+  ships the **platform with the existing diner as its only map, provably
+  unchanged** (no second map, no visual redesign, no tuning — those are later
+  PRs on top of this). New pieces: `engine.loadMap(id|object)` rebinds all
+  per-map state (path/core/placement/obstacles/anchors/theme) and consumes no
+  RNG; the renderer's floor/belt/kitchen/chute now read the active map's
+  `theme`, so a reskin is literally JSON-only; a **hub map picker** (one entry
+  today, remembered in `META`); `tools/sim.mjs --map <id>` with `--check` gating
+  every `tuned:true` map; and **`tools/maplint.mjs`** (new CI step) which
+  validates every map against the placement rules through the real `canPlace` —
+  an unbuildable board or a prop overlapping a booth pad goes red instead of
+  shipping. Pure plumbing: the real-engine gate is unchanged at 58.0% / median
+  20 / w20:84 (200 sims, seed 1), and the smoke JSONs are byte-identical to
+  before. Ships with `tools/tests/maps.test.mjs` (injects a fixture map, proves
+  geometry rebinds both ways). No `src/audio.js`, no new `src/` files, no
+  gameplay-number changes.
 - **Sell towers for a partial refund** (Issue #66, Implementer hat). Every
   placed customer tracks what you've sunk into them (`spent`: base cost +
   purchased upgrade tiers); a new muted-red **Sell — refund ◆N** row at the
