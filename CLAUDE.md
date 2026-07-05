@@ -107,8 +107,10 @@ The backlog is GitHub Issues — the single roadmap. Don't create a parallel one
   instantly; only arrow + frost shots travel) · `resolveHit()` ·
   `applyDamage()` · `pickTarget()` (First/Last/Strong/Close) · `moveEnemies()`
   (freeze → slow) · side effects via the `FX` hooks (wired in `src/main.js`).
-- **`src/engine.js` — run loop & economy:** `startRun` · `startNextWave` +
-  `earlyCallBonusNow` · `checkWaveEnd` · `endRun`; meta in `META`/`SHOP`/
+- **`src/engine.js` — run loop & economy (ENDLESS — no "won" phase, Issue #75):**
+  `startRun` · `startNextWave` + `earlyCallBonusNow` · `checkWaveEnd` (always
+  advances — clearing a wave never wins) · `endRun` (defeat only; records
+  `META.bestWave`, the persisted best-wave record); meta in `META`/`SHOP`/
   `loadMeta`; particles as pure data via `spawn*`/`updateParticles`.
 - **`src/engine.js` — free placement (no fixed slots, no tower cap):**
   `canPlace(x, y)` (bounds / `pathBuffer` off the belt / `towerSpacing` /
@@ -125,7 +127,8 @@ The backlog is GitHub Issues — the single roadmap. Don't create a parallel one
   new maps don't disturb existing ones: `wallFrame` (margin trim), belt
   `chevrons`, `coreStyle` ("chute" | "dishReturn"), and `theme.props` (recolors
   shared obstacle drawers; absent → the drawers' hardcoded defaults). Two maps
-  ship: `blueplate` (default, tuned:false) + `diner` (tuned:true, the gate).
+  ship: `blueplate` (default + `tuned:true`, the gate — calibrated to the endless
+  survival gauge in Issue #75) + `diner` (`tuned:false`, report-only).
 - **`src/engine.js` — upgrades (paths):** two exclusive paths per tower
   (`towerPaths`/`pathAvailable`/`nextTier`); `tryUpgrade(t, pathId)` commits a
   path (locks the other) and applies a tier's deltas via `applyUpgradeDeltas`

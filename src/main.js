@@ -61,13 +61,12 @@ function setupInput(canvas) {
         loadMap(next.id); META.mapId = next.id; saveMeta();
         audio.build(); return;
       }
-      if (inRect(p, MODE_BTN)) { chosenEndless = !chosenEndless; audio.build(); return; }
       if (inRect(p, PLAY_BTN)) { startRun(); return; }
       return;
     }
 
     // Run summary → back to hub.
-    if (game.phase === "won" || game.phase === "lost") {
+    if (game.phase === "lost") {
       if (inRect(p, CONTINUE_BTN)) { game.phase = "menu"; }
       return;
     }

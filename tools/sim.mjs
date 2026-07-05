@@ -15,18 +15,26 @@
   sim's reference_bonus=0 line). Seeded RNG (mulberry32 over Math.random) →
   same seed, same run.
 
+  ENDLESS SURVIVAL GAUGE (Issue #75): runs are endless — they end only in
+  defeat. The gauge's "win" := a seeded run REACHES WAVE 30 (`WIN_WAVE`); each
+  run is driven to `PROBE_TO` (wave 40) so P(reach 40) falls out of the same
+  run. `--check` passes when survival@30 is inside target_win_rate on every
+  tuned map. It also reports P(reach 20/40), median waves survived, the
+  died-at-wave spread, and wave-pacing stats (seconds/wave, run-to-30 time).
+
   Status: THE CI difficulty gate (`--check`), since Issue #54 PR 5.
   tools/balance_sim.py is the report-only second opinion — the two will not
-  read identical win-rates: this one has real projectile travel/overkill, the
+  read identical numbers: this one has real projectile travel/overkill, the
   sniper's straw-lock, and no per-enemy HP jitter.
 
   Usage (from the repo root):
-    node tools/sim.mjs                       # 200 seeded games, report
-    node tools/sim.mjs --sims 500 --seed 1
-    node tools/sim.mjs --build arrow,cannon,frost,arrow
-    node tools/sim.mjs --check               # gate every tuned map; exit non-zero if any is off-band
+    node tools/sim.mjs                       # 200 seeded games, endless-survival report
+    node tools/sim.mjs --sims 1000 --seed 1
+    node tools/sim.mjs --build zap,zap,zap   # e.g. a spam probe
+    node tools/sim.mjs --check               # gate survival@30 on every tuned map; non-zero if off-band
     node tools/sim.mjs --map diner           # play a specific map (default: first)
-    node tools/sim.mjs --dump-waves out.json # waves 0..24 for the parity check
+    node tools/sim.mjs --paths frost=paparazzi  # path-value matrix override
+    node tools/sim.mjs --dump-waves out.json # waves 0..34 for the parity check
 */
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -45,7 +53,12 @@ const has = (name) => args.includes("--" + name);
 const SIMS = parseInt(opt("sims", "200"), 10);
 const SEED = parseInt(opt("seed", "1"), 10);
 const MAP_ARG = opt("map", null);   // which map to play (default: first); --check gates every tuned map
-const BUILD = opt("build", "arrow,cannon,frost,arrow").split(",").map((s) => s.trim());
+// The endless reference board EXTENDS the old finite reference (arrow,cannon,
+// frost,arrow) to fill all ten simAnchors with a balanced spread — no tower more
+// than three, sniper excluded (it's Essence-unlock-gated). A fuller board is what
+// makes economy + tier costs real levers on how far the run gets, and lets the
+// survive-to-30 gate be reachable (four maxed towers hit a hard dps ceiling by ~w10).
+const BUILD = opt("build", "arrow,cannon,frost,arrow,zap,cannon,frost,arrow,zap,cannon").split(",").map((s) => s.trim());
 // The reference player commits each tower to one fixed upgrade path and buys its
 // two tiers in order — mirrors tools/balance_sim.py SIM_PATHS (the pure-stat paths;
 // the signature paths carry mechanics this gauge doesn't need to pick).
@@ -75,7 +88,7 @@ const bundle =
 ;globalThis.ENGINE = {
   game, startRun, startNextWave, tryBuild, tryUpgrade, update, makeWave,
   TOWER_BY_ID, RULES, WAVES, towerPaths, nextTier, loadMap, MAPS,
-  reset() { META = freshMeta(); chosenEndless = false; },
+  reset() { META = freshMeta(); },
 };`;
 vm.runInThisContext(bundle, { filename: "deckbound-engine-bundle.js" });
 const E = globalThis.ENGINE;
@@ -95,9 +108,9 @@ function mulberry32(a) {
 // --- waves fixture for the Python parity check -------------------------------
 if (has("dump-waves")) {
   const file = opt("dump-waves", "waves.json");
-  const waves = Array.from({ length: 25 }, (_, n) => E.makeWave(n));
+  const waves = Array.from({ length: 35 }, (_, n) => E.makeWave(n));
   writeFileSync(file, JSON.stringify(waves, null, 1));
-  console.log(`wrote ${file} — makeWave(0..24) from the real engine`);
+  console.log(`wrote ${file} — makeWave(0..34) from the real engine`);
   process.exit(0);
 }
 
@@ -110,7 +123,19 @@ function resolveMap(id) {
   return m;
 }
 
+// --- the endless survival gauge ---------------------------------------------
+const WIN_WAVE = 30;   // the gate: a run "wins" the gauge by REACHING wave 30.
+const PROBE_TO = 40;   // stop each seeded run once it reaches wave 40 — far enough
+                       // for P(reach 40); survival@30 falls out of the same run.
+const median = (a) => {
+  if (!a.length) return 0;
+  const s = [...a].sort((x, y) => x - y), m = s.length >> 1;
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+};
+
 // --- one full seeded game through the real engine ----------------------------
+// Runs are endless (they end only in defeat), so the gauge stops a run when it
+// is lost OR reaches PROBE_TO. Returns how far it got + per-wave step counts.
 function playGame(seed, build, map) {
   const realRandom = Math.random;
   Math.random = mulberry32(seed);
@@ -120,8 +145,9 @@ function playGame(seed, build, map) {
     E.startRun();     // builds at THIS map's simAnchors (layout-stable gauge)
     const ANCHORS = map.simAnchors;
     let nextSlot = 0, steps = 0;
-    const CAP = 60 * 60 * 30; // 30 sim-minutes
-    while (steps < CAP && E.game.phase !== "won" && E.game.phase !== "lost") {
+    const waveSteps = {};             // waveIndex -> sim steps spent in that wave's "wave" phase (prep excluded)
+    const CAP = 60 * 60 * 60;         // 60 sim-minutes safety bound — headroom for the 40-wave probe
+    while (steps < CAP && E.game.phase !== "lost" && (E.game.waveIndex + 1) < PROBE_TO) {
       if (E.game.phase === "prep") {
         while (nextSlot < ANCHORS.length && nextSlot < build.length) {
           const id = build[nextSlot];
@@ -147,10 +173,17 @@ function playGame(seed, build, map) {
         E.game.prepElapsed = E.RULES.earlyCallWindow + 1;
         E.startNextWave();
       }
+      const wi = E.game.waveIndex;            // wave being played this tick (constant during a wave)
+      const inWave = E.game.phase === "wave"; // count only wave-phase steps → prep excluded from pacing
       E.update(STEP);
       steps++;
+      if (inWave) waveSteps[wi] = (waveSteps[wi] || 0) + 1;
     }
-    return { won: E.game.phase === "won", wave: E.game.lastRun ? E.game.lastRun.wave : E.game.waveIndex + 1 };
+    const died = E.game.phase === "lost";
+    // "reached" = the furthest UI wave the run got to. Dying on wave W → reached W;
+    // a probe-capped run → PROBE_TO. survival@N := reached >= N.
+    const reached = died ? E.game.waveIndex + 1 : Math.min(PROBE_TO, E.game.waveIndex + 1);
+    return { died, reached, waveSteps };
   } finally {
     Math.random = realRandom;
   }
@@ -161,27 +194,50 @@ function runOnMap(map) {
   const t0 = Date.now();
   const results = [];
   for (let i = 0; i < SIMS; i++) results.push(playGame(SEED + i, BUILD, map));
-  const wins = results.filter((r) => r.won).length;
-  const waves = results.map((r) => r.wave).sort((a, b) => a - b);
-  const winRate = wins / SIMS;
-  const medianWave = waves[Math.floor(waves.length / 2)];
-  const inBand = winRate >= BAND[0] && winRate <= BAND[1];
-  // Died-at-wave distribution (lost runs only): the SHAPE check — are losses spread
-  // across the mid-to-late waves, or piled on a single endgame cliff?
+  const N = results.length;
+  const frac = (pred) => results.filter(pred).length / N;
+  const surv30 = frac((r) => r.reached >= WIN_WAVE);   // THE gate number
+  const reach20 = frac((r) => r.reached >= 20);
+  const reach40 = frac((r) => r.reached >= 40);
+  const medianWaves = median(results.map((r) => r.reached));
+  const inBand = surv30 >= BAND[0] && surv30 <= BAND[1];
+
+  // Died-at-wave distribution (actual defeats only; probe-capped runs excluded):
+  // the SHAPE check — losses spread across the mid-to-late waves, or piled on one
+  // cliff? (One-wave clustering is a known artifact of the deterministic gauge.)
   const hist = {};
-  for (const r of results) if (!r.won) hist[r.wave] = (hist[r.wave] || 0) + 1;
-  const deathDist = Object.keys(hist).sort((a, b) => a - b).map((w) => `w${w}:${hist[w]}`).join(" ") || "(none — all won)";
+  for (const r of results) if (r.died) hist[r.reached] = (hist[r.reached] || 0) + 1;
+  const deaths = results.filter((r) => r.died).length;
+  const deathDist = Object.keys(hist).sort((a, b) => a - b).map((w) => `w${w}:${hist[w]}`).join(" ") || "(none — all reached the probe cap)";
+
+  // Wave pacing: each wave's "wave"-phase length in seconds (steps/60, prep
+  // excluded), aggregated across runs. Early waves should breathe; none should drag.
+  const allDur = [];
+  const byWave = {};   // wave number (1-indexed) -> [seconds, ...]
+  for (const r of results) for (const [wi, st] of Object.entries(r.waveSteps)) {
+    const sec = st / 60;
+    allDur.push(sec);
+    (byWave[Number(wi) + 1] ||= []).push(sec);
+  }
+  const earlySec = [1, 2, 3].map((n) => `w${n}:${median(byWave[n] || []).toFixed(0)}s`).join(" ");
+  // Mean total time to REACH wave 30 (sum of wave durations for waves 1..29),
+  // over the runs that got there — the "run doesn't drag" number.
+  const to30 = results.filter((r) => r.reached >= WIN_WAVE).map((r) =>
+    Object.entries(r.waveSteps).reduce((s, [wi, st]) => s + (Number(wi) < WIN_WAVE - 1 ? st : 0), 0) / 60);
+  const meanTo30Min = to30.length ? (to30.reduce((a, b) => a + b, 0) / to30.length) / 60 : 0;
 
   const overridden = Object.keys(PATH_OVERRIDE).length ? `  (paths: ${Object.entries(PATH_OVERRIDE).map(([k, v]) => k + "=" + v).join(", ")})` : "";
-  console.log(`REAL-ENGINE sim (src/engine.js, no mirror)`);
-  console.log(`  build        : ${BUILD.join(", ")}${overridden}`);
-  console.log(`  sims / seed  : ${SIMS} / ${SEED}`);
-  console.log(`  win rate     : ${(winRate * 100).toFixed(1)}%`);
-  console.log(`  median waves : ${medianWave}`);
-  console.log(`  died-at-wave : ${deathDist}  [lost ${SIMS - wins}/${SIMS}]`);
-  console.log(`  target band  : ${(BAND[0] * 100).toFixed(0)}%-${(BAND[1] * 100).toFixed(0)}% -> ${inBand ? "inside" : "OUTSIDE"}${map.tuned ? "" : "  (untuned — report only)"}`);
-  console.log(`  runtime      : ${((Date.now() - t0) / 1000).toFixed(1)}s`);
-  console.log(`  note         : real mechanics (projectile travel, straw-lock, no HP jitter) — expect a different reading than balance_sim.py's gauge`);
+  console.log(`REAL-ENGINE sim (src/engine.js, no mirror) — endless survival gauge`);
+  console.log(`  build          : ${BUILD.join(", ")}${overridden}`);
+  console.log(`  sims / seed    : ${SIMS} / ${SEED}`);
+  console.log(`  survival@30    : ${(surv30 * 100).toFixed(1)}%   <- the gate`);
+  console.log(`  P(reach 20/40) : ${(reach20 * 100).toFixed(1)}%  /  ${(reach40 * 100).toFixed(1)}%`);
+  console.log(`  median waves   : ${medianWaves}`);
+  console.log(`  died-at-wave   : ${deathDist}  [lost ${deaths}/${N}]`);
+  console.log(`  pacing         : median ${median(allDur).toFixed(1)}s/wave (prep excl); early ${earlySec}; mean run-to-30 ${meanTo30Min.toFixed(1)} sim-min`);
+  console.log(`  target band    : survival@30 ${(BAND[0] * 100).toFixed(0)}%-${(BAND[1] * 100).toFixed(0)}% -> ${inBand ? "inside" : "OUTSIDE"}${map.tuned ? "" : "  (untuned — report only)"}`);
+  console.log(`  runtime        : ${((Date.now() - t0) / 1000).toFixed(1)}s`);
+  console.log(`  note           : real mechanics (projectile travel, straw-lock, no HP jitter) — expect a different reading than balance_sim.py's gauge`);
   return inBand;
 }
 

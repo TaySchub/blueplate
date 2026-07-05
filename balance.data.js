@@ -1,7 +1,7 @@
 // AUTO-GENERATED from data/balance.json by tools/gen_balance.py.
 // Do NOT edit by hand — edit data/balance.json and re-run the generator.
 window.BALANCE = {
-  "_note": "Single source of truth for DIFFICULTY, ECONOMY, and MAP GEOMETRY. tools/balance_sim.py reads this file directly; the game reads it via the generated balance.data.js (run tools/gen_balance.py after editing). Only pure art (colors/shapes) stays in main.js; tower/enemy display names + blurbs live here too, so a theme reskin is JSON-only. Rule: if the balance sim needs a number to compute win-rate, it belongs in this file \u2014 including each tower's per-path upgrade deltas ('upgrades'), the maps (maps[] \u2014 each with theme + path + free-placement rules + obstacles + simAnchors), and the wave generator (waveGen). Maps are content: maps[0] is the default; each map's 'theme' block holds every surface color/label the renderer draws (floor, belt, booth pads, kitchen, trash chute), so a diner reskin is literally JSON-only and per-kind prop art stays in src/art.js. 'tuned:true' marks a map whose difficulty is calibrated (node tools/sim.mjs --check enforces the band on it); future maps ship tuned:false until tuned. Placement: towers go anywhere inside placement.bounds that is > pathBuffer off the belt centerline, >= towerSpacing from other towers, and outside every obstacle rect; simAnchors are the OLD slot coordinates the headless sims still build at, in build order, so the difficulty gauge stays layout-stable \u2014 never reorder them. Upgrades: 2 named paths per tower, each with 2 tiers { cost, ...deltas }; buying a tier of one path locks the other for that placed tower. Difficulty is now tuned against the REAL-ENGINE sim (node tools/sim.mjs --check), the CI gate as of Issue #54 PR 5; tools/balance_sim.py is a report-only second opinion. Costs/deltas are per tower and per tier (signatures are tier 2).",
+  "_note": "Single source of truth for DIFFICULTY, ECONOMY, and MAP GEOMETRY. tools/balance_sim.py reads this file directly; the game reads it via the generated balance.data.js (run tools/gen_balance.py after editing). Only pure art (colors/shapes) stays in main.js; tower/enemy display names + blurbs live here too, so a theme reskin is JSON-only. Rule: if the balance sim needs a number to compute win-rate, it belongs in this file \u2014 including each tower's per-path upgrade deltas ('upgrades'), the maps (maps[] \u2014 each with theme + path + free-placement rules + obstacles + simAnchors), and the wave generator (waveGen). Maps are content: maps[0] is the default; each map's 'theme' block holds every surface color/label the renderer draws (floor, belt, booth pads, kitchen, trash chute), so a diner reskin is literally JSON-only and per-kind prop art stays in src/art.js. 'tuned:true' marks a map whose difficulty is calibrated (node tools/sim.mjs --check enforces the band on it); future maps ship tuned:false until tuned. Placement: towers go anywhere inside placement.bounds that is > pathBuffer off the belt centerline, >= towerSpacing from other towers, and outside every obstacle rect; simAnchors are the OLD slot coordinates the headless sims still build at, in build order, so the difficulty gauge stays layout-stable \u2014 never reorder them. Upgrades: 2 named paths per tower, each with 2 tiers { cost, ...deltas }; buying a tier of one path locks the other for that placed tower. Difficulty is now tuned against the REAL-ENGINE sim (node tools/sim.mjs --check), the CI gate as of Issue #54 PR 5; tools/balance_sim.py is a report-only second opinion. Runs are ENDLESS (Issue #75): there is no win wave \u2014 the sim gauge's 'win' is reaching WAVE 30, and --check enforces target_win_rate on survival@30 for every tuned map. Costs/deltas are per tower and per tier (signatures are tier 2).",
   "target_win_rate": [
     0.5,
     0.6
@@ -18,7 +18,7 @@ window.BALANCE = {
     {
       "id": "blueplate",
       "name": "Blue-Plate Special",
-      "tuned": false,
+      "tuned": true,
       "theme": {
         "floor": {
           "bg": "#F2E6C6",
@@ -240,7 +240,7 @@ window.BALANCE = {
     {
       "id": "diner",
       "name": "The American Diner",
-      "tuned": true,
+      "tuned": false,
       "theme": {
         "floor": {
           "bg": "#10131a",
@@ -465,11 +465,11 @@ window.BALANCE = {
           "name": "Fork Frenzy",
           "tiers": [
             {
-              "cost": 55,
+              "cost": 70,
               "cooldownMul": 0.6
             },
             {
-              "cost": 95,
+              "cost": 120,
               "pierce": true,
               "damage": 18,
               "range": 14
@@ -571,11 +571,11 @@ window.BALANCE = {
           "name": "Paparazzi",
           "tiers": [
             {
-              "cost": 60,
+              "cost": 70,
               "range": 20
             },
             {
-              "cost": 105,
+              "cost": 120,
               "range": 12,
               "freezeTargets": 2
             }
@@ -670,7 +670,7 @@ window.BALANCE = {
   "waveGen": {
     "waveCount": 20,
     "hpBase": 70,
-    "hpGrowth": 1.134,
+    "hpGrowth": 1.105,
     "speedBase": 50,
     "speedStep": 1.4,
     "speedMax": 82,

@@ -6,6 +6,24 @@ Format is deliberately simple and plain-language.
 ## [Unreleased]
 
 ### Added
+- **Endless-only survival + Blue-Plate calibration** (Issue #75, Implementer hat).
+  The finite 20-wave win is **gone**: every run is now endless and ends only in
+  defeat, and your score is the wave you reach. The hub loses its finite/endless
+  mode toggle (every run is endless); the in-run HUD wave counter drops the "/20"
+  ceiling and reads "Wave N"; the run summary and hub surface **waves survived**
+  and a new persisted **best-wave record** (`META.bestWave` — a record stat, the
+  one sanctioned meta addition; older saves default it to 0 and stale toggle
+  fields drop harmlessly). The difficulty gauge (`tools/sim.mjs`) is redefined for
+  survival — "win" := reaching **wave 30** — and now reports survival@30 (the
+  gate), P(reach 20/40), median waves survived, the died-at-wave spread, and
+  wave-pacing stats (seconds/wave, run-to-30 time); its reference board fills all
+  ten anchors so the survive-to-30 gate is reachable and economy/tier costs are
+  real levers. Wave parity now covers waves 0..34, which surfaced and fixed a
+  JS-vs-Python half-`.5` rounding divergence at wave 31 in the report-only Python
+  model. Then a numbers-only balance pass calibrates **Blue-Plate** to the new
+  survival gauge and makes it the gated map (`tuned:true`); the classic diner
+  flips to `tuned:false` (report-only). See the tuning table in the PR for every
+  changed number. No engine *mechanics* changed.
 - **Blue-Plate Special — the new default map** (Issue #73, Implementer hat).
   The first content map on the maps[] platform (#70), built from the developer's
   ratified mockup (`docs/art-refs/blue-plate-special-1a.png`): a 50s-retro,

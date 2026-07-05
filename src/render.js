@@ -8,8 +8,7 @@
 
 const START_BTN = { x: 470, y: 402, w: 210, h: 38 };
 const CONTINUE_BTN = { x: VIEW.w / 2 - 85, y: VIEW.h / 2 + 44, w: 170, h: 38 };
-const PLAY_BTN = { x: VIEW.w / 2 - 90, y: 372, w: 180, h: 44 };
-const MODE_BTN = { x: VIEW.w / 2 - 90, y: 328, w: 180, h: 30 };
+const PLAY_BTN = { x: VIEW.w / 2 - 90, y: 340, w: 180, h: 44 };
 const MAP_BTN = { x: VIEW.w / 2 - 90, y: 298, w: 180, h: 26 };   // hub map picker (shares geometry w/ hit-testing)
 const TOOLBAR = { y: 398, cardW: 66, cardH: 44, gap: 6, startX: 8 };
 
@@ -75,7 +74,7 @@ function render() {
   drawMessage(ctx);
   drawMuteButton(ctx);
   drawPauseButton(ctx);
-  if (game.phase === "won" || game.phase === "lost") drawSummary(ctx);
+  if (game.phase === "lost") drawSummary(ctx);
 }
 
 /* ---- Hub / menu screen ---- */
@@ -107,10 +106,14 @@ function drawMenu(ctx) {
   ctx.font = "14px system-ui, sans-serif";
   ctx.fillText("Seat the customers. Eat the food. Don't let dinner get away.", 42, 86);
 
-  // Golden Forks (meta currency).
+  // Golden Forks (meta currency) + best-wave record (survival is the score now).
   ctx.fillStyle = COLOR.essence;
   ctx.font = "bold 18px system-ui, sans-serif";
   ctx.fillText("✦ Golden Forks: " + META.essence, 42, 122);
+  if (META.bestWave > 0) {
+    ctx.fillStyle = COLOR.muted; ctx.font = "13px system-ui, sans-serif";
+    ctx.fillText("Best run:  Wave " + META.bestWave, 250, 121);
+  }
 
   // Your regulars (collection).
   ctx.fillStyle = COLOR.ink;
@@ -165,16 +168,6 @@ function drawMenu(ctx) {
   roundRect(ctx, MAP_BTN.x, MAP_BTN.y, MAP_BTN.w, MAP_BTN.h, 8); ctx.stroke();
   ctx.fillStyle = COLOR.muted; ctx.font = "12px system-ui, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
   ctx.fillText("Map:  " + MAP.name, VIEW.w / 2, MAP_BTN.y + MAP_BTN.h / 2);
-  ctx.textBaseline = "alphabetic"; ctx.textAlign = "left";
-
-  // Mode toggle (Finite vs Endless).
-  const modeHover = inRect(game.pointer, MODE_BTN);
-  ctx.fillStyle = modeHover ? "#26324a" : "#1b2230";
-  roundRect(ctx, MODE_BTN.x, MODE_BTN.y, MODE_BTN.w, MODE_BTN.h, 8); ctx.fill();
-  ctx.strokeStyle = chosenEndless ? COLOR.essence : "#4a5670"; ctx.lineWidth = 1;
-  roundRect(ctx, MODE_BTN.x, MODE_BTN.y, MODE_BTN.w, MODE_BTN.h, 8); ctx.stroke();
-  ctx.fillStyle = COLOR.muted; ctx.font = "12px system-ui, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-  ctx.fillText("Mode:  " + (chosenEndless ? "All-you-can-eat ∞" : "Full menu (20)"), VIEW.w / 2, MODE_BTN.y + MODE_BTN.h / 2);
   ctx.textBaseline = "alphabetic"; ctx.textAlign = "left";
 
   // Play button.
@@ -710,7 +703,7 @@ function drawHUD(ctx) {
   const pulse = lowLives ? 0.5 + 0.5 * Math.sin(game.elapsed * 9) : 0;
   // Backing (rounded readout bar; flushes red when the Health Rating is low).
   ctx.fillStyle = lowLives ? `rgba(255,${60 - Math.round(30 * pulse)},${60 - Math.round(30 * pulse)},0.42)` : COLOR.hudBg;
-  roundRect(ctx, 6, 6, game.endless ? 408 : 320, 28, 8); ctx.fill();
+  roundRect(ctx, 6, 6, 408, 28, 8); ctx.fill();
   ctx.font = "bold 14px system-ui, sans-serif";
   // Health Rating (lives) — star placard + count; whitens on the low-lives pulse.
   const rc = lowLives && pulse > 0.5 ? "#ffffff" : COLOR.bad;
@@ -719,17 +712,16 @@ function drawHUD(ctx) {
   // Tips (currency) — coin + count.
   drawCurrencyIcon(ctx, 82, 20, COLOR.gold, 8);
   ctx.fillStyle = COLOR.gold; ctx.fillText("" + game.currency, 94, 13);
-  // Wave + phase — same typographic weight, phase muted.
+  // Wave + score + phase — endless: the wave counter has no "/20" ceiling.
   ctx.fillStyle = COLOR.ink;
-  const waveLabel = game.endless ? "Wave " + (game.waveIndex + 1) : "Wave " + Math.min(game.waveIndex + 1, WAVES.length) + "/" + WAVES.length;
-  ctx.fillText(waveLabel, 166, 13);
-  if (game.endless) { ctx.fillStyle = COLOR.essence; ctx.fillText("★ " + game.score, 256, 13); }
-  ctx.fillStyle = COLOR.muted; ctx.font = "12px system-ui, sans-serif"; ctx.fillText(game.phase === "wave" ? "serving…" : "prep", game.endless ? 352 : 262, 14);
+  ctx.fillText("Wave " + (game.waveIndex + 1), 166, 13);
+  ctx.fillStyle = COLOR.essence; ctx.fillText("★ " + game.score, 256, 13);
+  ctx.fillStyle = COLOR.muted; ctx.font = "12px system-ui, sans-serif"; ctx.fillText(game.phase === "wave" ? "serving…" : "prep", 352, 14);
   ctx.textBaseline = "alphabetic";
 }
 
 function drawMessage(ctx) {
-  if (game.messageTimer <= 0 || game.phase === "won" || game.phase === "lost") return;
+  if (game.messageTimer <= 0 || game.phase === "lost") return;
   ctx.globalAlpha = Math.min(1, game.messageTimer); ctx.fillStyle = COLOR.ink; ctx.font = "13px system-ui, sans-serif"; ctx.textAlign = "center";
   ctx.fillText(game.message, VIEW.w / 2, 52); ctx.globalAlpha = 1;
 }
@@ -737,19 +729,19 @@ function drawMessage(ctx) {
 function drawSummary(ctx) {
   ctx.fillStyle = "rgba(8,10,15,0.82)"; ctx.fillRect(0, 0, VIEW.w, VIEW.h);
   ctx.textAlign = "center";
-  const r = game.lastRun || { won: false, wave: 1, killed: 0, essence: 0, endless: false, score: 0 };
-  const endless = !!r.endless;
-  ctx.fillStyle = r.won ? COLOR.good : COLOR.bad; ctx.font = "bold 40px system-ui, sans-serif";
-  ctx.fillText(r.won ? "SERVICE COMPLETE" : (endless ? "CLOSING TIME" : "SHUT DOWN"), VIEW.w / 2, VIEW.h / 2 - 58);
-  ctx.fillStyle = COLOR.ink; ctx.font = "15px system-ui, sans-serif";
-  const sub = r.won ? "You served all " + WAVES.length + " waves without a shutdown."
-    : endless ? "All-you-can-eat — you served " + r.wave + " waves."
-    : "The health inspector shut you down at wave " + r.wave + " of " + WAVES.length + ".";
-  ctx.fillText(sub, VIEW.w / 2, VIEW.h / 2 - 30);
-  ctx.fillText("Dishes eaten: " + r.killed, VIEW.w / 2, VIEW.h / 2 - 8);
-  if (endless) { ctx.fillStyle = COLOR.essence; ctx.font = "bold 17px system-ui, sans-serif"; ctx.fillText("★ Score: " + (r.score || 0), VIEW.w / 2, VIEW.h / 2 + 15); }
+  const r = game.lastRun || { wave: 1, best: 1, newBest: false, killed: 0, essence: 0, score: 0 };
+  // Endless: a run ends only in defeat. Headline the waves survived; a new
+  // personal best gets its own callout, otherwise show the record to beat.
+  ctx.fillStyle = COLOR.bad; ctx.font = "bold 40px system-ui, sans-serif";
+  ctx.fillText("CLOSING TIME", VIEW.w / 2, VIEW.h / 2 - 58);
+  ctx.fillStyle = COLOR.ink; ctx.font = "bold 20px system-ui, sans-serif";
+  ctx.fillText("You survived to Wave " + r.wave, VIEW.w / 2, VIEW.h / 2 - 28);
+  if (r.newBest) { ctx.fillStyle = COLOR.essence; ctx.font = "bold 15px system-ui, sans-serif"; ctx.fillText("★ New best run!", VIEW.w / 2, VIEW.h / 2 - 6); }
+  else { ctx.fillStyle = COLOR.muted; ctx.font = "14px system-ui, sans-serif"; ctx.fillText("Best run:  Wave " + (r.best || r.wave), VIEW.w / 2, VIEW.h / 2 - 6); }
+  ctx.fillStyle = COLOR.ink; ctx.font = "14px system-ui, sans-serif";
+  ctx.fillText("Dishes eaten: " + r.killed, VIEW.w / 2, VIEW.h / 2 + 15);
   ctx.fillStyle = COLOR.essence; ctx.font = "bold 16px system-ui, sans-serif";
-  ctx.fillText("✦ +" + r.essence + " Golden Forks earned", VIEW.w / 2, VIEW.h / 2 + (endless ? 36 : 30));
+  ctx.fillText("✦ +" + r.essence + " Golden Forks earned", VIEW.w / 2, VIEW.h / 2 + 36);
   const hover = inRect(game.pointer, CONTINUE_BTN);
   ctx.fillStyle = hover ? COLOR.core : "#2b3f66"; roundRect(ctx, CONTINUE_BTN.x, CONTINUE_BTN.y, CONTINUE_BTN.w, CONTINUE_BTN.h, 8); ctx.fill();
   ctx.fillStyle = COLOR.ink; ctx.font = "bold 15px system-ui, sans-serif"; ctx.textBaseline = "middle";

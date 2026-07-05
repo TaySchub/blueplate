@@ -22,7 +22,11 @@ const FX = {
 
 const META_KEY = "deckbound.meta.v1";
 function freshMeta() {
-  return { essence: 0, unlocked: ["arrow", "cannon", "frost", "zap"], boughtCurrency: false, boughtLives: false, mapId: null };
+  // bestWave: the furthest wave ever reached — a persisted RECORD stat (not a
+  // gameplay mechanic), shown on the run summary + hub. loadMeta's assign-onto-
+  // fresh merge defaults it to 0 for older saves and drops any stale fields
+  // (e.g. a mode flag from the retired finite/endless toggle) harmlessly.
+  return { essence: 0, unlocked: ["arrow", "cannon", "frost", "zap"], boughtCurrency: false, boughtLives: false, mapId: null, bestWave: 0 };
 }
 function loadMeta() {
   try {
@@ -172,7 +176,9 @@ function buildSpawnQueue(wave) {
    5) GAME STATE
    ========================================================================= */
 
-// phase: "menu" (hub/shop) | "prep" | "wave" | "won" | "lost"
+// phase: "menu" (hub/shop) | "prep" | "wave" | "lost"
+// Runs are ENDLESS: there is no "won" phase — a run ends only in defeat and the
+// score is waves survived (Issue #75).
 const game = {
   canvas: null, ctx: null,
   phase: "menu", mapId: null,   // the active map's id, recorded at startRun (menu picker loads it)
@@ -182,15 +188,11 @@ const game = {
   towers: [], enemies: [], projectiles: [], particles: [],
   spawnQueue: [], spawnTimer: 0, waveHp: 0, waveSpeed: 0, waveInterval: 1,
   killed: 0, coreHurtFlash: 0, shake: 0, elapsed: 0, fps: 0, prepElapsed: 0,
-  score: 0, endless: false,
+  score: 0,
   pointer: { x: -1, y: -1 },
   message: "", messageTimer: 0,
-  lastRun: null, // { won, wave, killed, essence } — shown on the summary
+  lastRun: null, // { wave, best, newBest, killed, essence, score } — shown on the summary
 };
-
-// Hub toggle: finite (default, has a win) vs endless (survival + score). Endless
-// removes the win condition, so it stays off until the player chooses it.
-let chosenEndless = false;
 
 // Begin a fresh run from the hub, applying permanent perks + your unlocked deck.
 function startRun() {
@@ -205,7 +207,6 @@ function startRun() {
   game.prepElapsed = 0;
   game.selectedTower = null;
   game.score = 0;
-  game.endless = chosenEndless;
   game.lastRun = null;
   const deck = deckTypes();
   game.selectedType = deck.length ? deck[0].id : "arrow";
@@ -625,30 +626,34 @@ function checkWaveEnd() {
   if (game.phase !== "wave") return;
   if (game.spawnQueue.length === 0 && game.enemies.length === 0) {
     game.currency += RULES.earnPerWave;
-    // Finite mode wins after the last authored wave; endless never wins — it
-    // keeps generating waves (getWave past WAVES.length) until you lose.
-    if (!game.endless && game.waveIndex + 1 >= WAVES.length) { endRun(true); }
-    else { game.waveIndex++; game.phase = "prep"; game.prepElapsed = 0; setMessage("Wave cleared!  +" + RULES.earnPerWave + " Tips — seat more customers, then Send Out the food", 4); }
+    // Endless survival: clearing a wave ALWAYS advances to the next (getWave
+    // generates waves past the authored table). A run never "wins" — it ends
+    // only in defeat, and the score is waves survived (Issue #75).
+    game.waveIndex++; game.phase = "prep"; game.prepElapsed = 0;
+    setMessage("Wave cleared!  +" + RULES.earnPerWave + " Tips — seat more customers, then Send Out the food", 4);
   }
 }
 
 function checkLoss() {
-  if (game.lives <= 0 && game.phase === "wave") endRun(false);
+  if (game.lives <= 0 && game.phase === "wave") endRun();
 }
 
-// Finish a run: award Essence (persisted) and show the summary.
-function endRun(won) {
-  // Endless runs end only by losing; wavesCleared is however many you finished.
-  const wavesCleared = won ? WAVES.length : game.waveIndex;
-  const essence = Math.max(1, Math.floor(wavesCleared / 2) + (won ? 3 : 0));
+// Finish a run. Runs are ENDLESS, so this fires only on DEFEAT: award Essence
+// (Golden Forks, persisted), update the best-wave record, and show the summary.
+// `wave` is the wave you fell on (what the HUD read) = the score to beat.
+function endRun() {
+  const wavesCleared = game.waveIndex;        // waves fully survived before falling
+  const wave = game.waveIndex + 1;            // the wave you were on when shut down
+  const essence = Math.max(1, Math.floor(wavesCleared / 2));
   META.essence += essence;
+  const prevBest = META.bestWave || 0;
+  const newBest = wave > prevBest;
+  const best = newBest ? wave : prevBest;
+  META.bestWave = best;
   saveMeta();
-  game.lastRun = {
-    won, endless: game.endless, killed: game.killed, essence, score: game.score,
-    wave: won ? WAVES.length : game.waveIndex + 1,
-  };
-  game.phase = won ? "won" : "lost";
-  won ? FX.win() : FX.lose();
+  game.lastRun = { wave, best, newBest, killed: game.killed, essence, score: game.score };
+  game.phase = "lost";
+  FX.lose();
 }
 
 /* -------------------------------------------------------------------------
