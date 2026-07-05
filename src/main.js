@@ -85,13 +85,12 @@ function setupInput(canvas) {
     // Click a placed tower → select it (opens the targeting/upgrade panel).
     for (const t of game.towers) if (distance(p, t) <= 18) { game.selectedTower = t; return; }
 
-    // Click an empty slot → build there.
-    for (let i = 0; i < SLOTS.length; i++) {
-      const s = SLOTS[i];
-      if (distance(p, s) <= 20 && !game.towers.some((t) => t.slotIndex === i)) { tryBuild(i); game.selectedTower = null; return; }
-    }
+    // Click valid open floor → seat the selected customer right there (free
+    // placement — canPlace covers bounds/belt/spacing/obstacles).
+    if (canPlace(p.x, p.y)) { tryBuild(p.x, p.y); game.selectedTower = null; return; }
 
-    // Clicked empty space → close any open panel.
+    // Clicked empty-but-unbuildable space → just close any open panel (no deny
+    // spam on stray clicks; the ghost already shows red there).
     game.selectedTower = null;
   };
 

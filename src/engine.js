@@ -52,12 +52,11 @@ function deckTypes() {
    2) LEVEL
    ========================================================================= */
 
-// Map geometry (path + tower slots) comes from data/balance.json via BAL.map,
-// so a map can be redesigned by editing data — no code change. The core sits at
-// the end of the path.
+// Map geometry (path + free-placement rules + obstacles) comes from
+// data/balance.json via BAL.map, so a map can be redesigned by editing data —
+// no code change. The core sits at the end of the path.
 const PATH = BAL.map.path;
 const CORE = { x: PATH[PATH.length - 1].x, y: PATH[PATH.length - 1].y, radius: BAL.map.coreRadius };
-const SLOTS = BAL.map.slots;
 
 function distance(a, b) { return Math.hypot(b.x - a.x, b.y - a.y); }
 const SEGMENT_LENGTHS = PATH.slice(1).map((p, i) => distance(PATH[i], p));
@@ -74,6 +73,34 @@ function pointAtDistance(dist) {
     remaining -= segLen;
   }
   return { x: PATH[PATH.length - 1].x, y: PATH[PATH.length - 1].y };
+}
+
+// Shortest distance from point (px,py) to the segment a→b — belt clearance in
+// canPlace measures against every PATH segment with this.
+function distToSegment(px, py, a, b) {
+  const dx = b.x - a.x, dy = b.y - a.y, len2 = dx * dx + dy * dy;
+  const t = len2 === 0 ? 0 : Math.max(0, Math.min(1, ((px - a.x) * dx + (py - a.y) * dy) / len2));
+  return Math.hypot(px - (a.x + dx * t), py - (a.y + dy * t));
+}
+
+// Free placement (replaced the 10 fixed slots): a tower can sit anywhere on the
+// diner floor that is inside placement.bounds, more than pathBuffer off the
+// belt centerline, at least towerSpacing from every seated customer, and not
+// inside an obstacle rect. All four rules read from BAL.map — obstacles are
+// placement blockers ONLY (no line-of-sight in this game; they never affect
+// shots or enemies). There is deliberately NO tower cap: the economy limits
+// how many customers you can seat.
+function canPlace(x, y) {
+  const P = BAL.map.placement, b = P.bounds;
+  if (x < b.x0 || x > b.x1 || y < b.y0 || y > b.y1) return false;
+  for (let i = 0; i < PATH.length - 1; i++) {
+    if (distToSegment(x, y, PATH[i], PATH[i + 1]) <= P.pathBuffer) return false;
+  }
+  for (const t of game.towers) if (distance({ x, y }, t) < P.towerSpacing) return false;
+  for (const o of BAL.map.obstacles) {
+    if (x >= o.x && x <= o.x + o.w && y >= o.y && y <= o.y + o.h) return false;
+  }
+  return true;
 }
 
 /* =========================================================================
@@ -177,13 +204,16 @@ function tryBuyShop(item) {
    7) PLAYER ACTIONS (build / upgrade / start wave)
    ========================================================================= */
 
-function tryBuild(slotIndex) {
+// Seat the selected customer at (x,y). Callers gate on canPlace first (the
+// click handler and the sims both do), so the in-here check is belt-and-braces
+// against a stray direct call — deny FX, no message, no state change.
+function tryBuild(x, y) {
   const def = TOWER_BY_ID[game.selectedType];
+  if (!canPlace(x, y)) { FX.deny(); return; }
   if (game.currency < def.cost) { FX.deny(); setMessage("Not enough Tips for " + def.name + " (need " + def.cost + ")"); return; }
   game.currency -= def.cost;
-  const s = SLOTS[slotIndex];
   game.towers.push({
-    slotIndex, x: s.x, y: s.y, typeId: def.id,
+    x, y, typeId: def.id,
     // Upgrade state: one of the two paths, committed on the first purchase, then
     // 0/1/2 tiers deep. upgradePath === null means "unupgraded, both paths open".
     upgradePath: null, upgradeTier: 0, pierce: false,
@@ -196,7 +226,7 @@ function tryBuild(slotIndex) {
     lungeTimer: 0, lungeAngle: 0,   // brief lunge-toward-target on attack (drawTowers)
     slurpTargets: [], slurpShow: 0, slurpSoundTimer: 0,   // Milkshake Slurper's attached straw(s)
   });
-  spawnRing(s.x, s.y, def.color, 34, 0.4);
+  spawnRing(x, y, def.color, 34, 0.4);
   FX.build();
 }
 

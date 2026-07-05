@@ -306,7 +306,10 @@ def play_game(build: list[str], cfg: dict, seed: int, early_bonus: float = 0.0,
     max_waves overrides waveGen.waveCount (used for endless survival testing)."""
     rng = random.Random(seed)
     econ = cfg["economy"]
-    slots = cfg["map"]["slots"]
+    # Free placement: the game has no fixed slots anymore; the sims keep
+    # building at map.simAnchors (the former slot coordinates, in order) so the
+    # gauge stays layout-stable.
+    anchors = cfg["map"]["simAnchors"]
     path = build_path(cfg)
     currency = econ["startCurrency"]
     lives = econ["startLives"]
@@ -316,14 +319,14 @@ def play_game(build: list[str], cfg: dict, seed: int, early_bonus: float = 0.0,
     total_waves = max_waves if max_waves is not None else cfg["waveGen"]["waveCount"]
     for wi in range(total_waves):
         wave = make_wave(wi, cfg)
-        # prep: fill the next slots we can afford, in build order
-        while next_slot < len(slots) and next_slot < len(build):
+        # prep: build at the next sim anchors we can afford, in build order
+        while next_slot < len(anchors) and next_slot < len(build):
             kind = build[next_slot]
             cost = cfg["towers"][kind]["cost"]
             if currency < cost:
                 break
             currency -= cost
-            towers.append(make_tower(kind, slots[next_slot]["x"], slots[next_slot]["y"], cfg))
+            towers.append(make_tower(kind, anchors[next_slot]["x"], anchors[next_slot]["y"], cfg))
             next_slot += 1
         # spend spare currency upgrading existing towers
         currency = buy_upgrades(towers, currency)

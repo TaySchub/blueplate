@@ -27,12 +27,12 @@ You **lose** when too many enemies reach your core; you **win** by surviving all
 
 ## Key design decisions (locked for v1)
 - **Pacing (interactive):** a calm **prep phase** to set up, then you stay **hands-on during the wave** — placing and upgrading towers live as enemies attack. This is the fun, interactive version and it's the locked decision.
-- **Map:** a single fixed path with tower slots for the first version. Maze-building and multi-path maps come later.
+- **Map:** a single fixed path with free tower placement (obstacle-constrained) for the first version. Maze-building and multi-path maps come later.
 - **Where the deckbuilding lives:** mostly *between* runs (which cards are in your deck), plus a hand drawn each prep phase. Complex in-run card management is intentionally kept light for v1.
 - **Players:** single-player for v1. (Local co-op is a possible later addition; real-time online multiplayer is out of scope.)
 
 ## Theme (open — swap anytime, doesn't affect the build)
-**Hungry customers vs. runaway food:** the towers are seated diner customers and the enemies are dishes trying to escape down a conveyor belt before they're eaten. Map 1 is an American diner — food leaves the kitchen (spawn), rides the belt past the tables (tower slots), and any dish that reaches the trash chute (the core) is wasted, dropping the restaurant's Health Rating (lives). General-audience, Saturday-morning-cartoon tone; original content only. This replaces the earlier arcane-wardens / Wellspring / Blight placeholder under this section's own "swap anytime" clause — genre, pillars, core loop, and milestone scope are unchanged. Full theme detail: `docs/FRANCHISE_BACKBONE.md`.
+**Hungry customers vs. runaway food:** the towers are seated diner customers and the enemies are dishes trying to escape down a conveyor belt before they're eaten. Map 1 is an American diner — food leaves the kitchen (spawn), rides the belt past the tables (towers, placed freely on the diner floor), and any dish that reaches the trash chute (the core) is wasted, dropping the restaurant's Health Rating (lives). General-audience, Saturday-morning-cartoon tone; original content only. This replaces the earlier arcane-wardens / Wellspring / Blight placeholder under this section's own "swap anytime" clause — genre, pillars, core loop, and milestone scope are unchanged. Full theme detail: `docs/FRANCHISE_BACKBONE.md`.
 
 ## First version ("done") — the milestone
 A deployable build, openable on a Mac or iPhone via the GitHub Pages link, playable end to end:

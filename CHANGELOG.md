@@ -6,6 +6,26 @@ Format is deliberately simple and plain-language.
 ## [Unreleased]
 
 ### Changed
+- **Free tower placement + diner obstacles — the 10 fixed build slots are gone**
+  (Issue #65, Implementer hat). Click anywhere valid on the diner floor to seat
+  a customer: inside the playfield, off the conveyor belt (`pathBuffer`), not
+  overlapping another tower (`towerSpacing`), and not inside a themed obstacle.
+  All rules are data in `data/balance.json`'s new map schema (`placement` /
+  `obstacles` / `simAnchors` replace `slots`). **No tower cap** — the economy is
+  the limiter (developer decision; the sim spam-probe number in the PR measures
+  it). Five diner props (mop bucket, jukebox, counter island, booth bank,
+  dessert case) deny some of the strongest belt-hugging pockets; they block
+  placement ONLY — no line-of-sight mechanic. The slot markers became a
+  pointer-follow **placement ghost with a range preview ring** (green = legal +
+  affordable, red = not), so you finally see range before buying; booth pads now
+  appear under seated customers. The headless sims and harness build at
+  `simAnchors` (the exact former slot coordinates), so the real-engine gate is
+  UNCHANGED: 58.0% / median 20 / w20:84 at 200 sims, seed 1 — bit-identical to
+  main. Ships with `tools/tests/placement.test.mjs` (config-derived probes, no
+  tuned numbers). Docs-align: `GAME_BRIEF.md` map bullet + theme line (the two
+  developer-authorized law edits), CLAUDE.md landmarks, balance `_note`,
+  ART_STYLE decision log. Place/deny sounds fold into Issue #64 (no
+  `src/audio.js` changes here).
 - **The balance pass + the CI gauge switch (PR 5 — the final phase of the Issue
   #54 upgrade rework)** (Implementer hat). Numbers, costs, and CI policy only —
   no mechanic or test changes (the seven `tools/tests/*.test.mjs` pass UNEDITED;

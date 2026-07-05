@@ -152,3 +152,11 @@ Render `tools/dev/harness.html?mode=sheet` and check:
   gameplay read, not a style choice.
 - **2026-07-04** (PR #47) — Canvas scales **smoothly**; the art is vector, not
   pixel art. Never reintroduce `image-rendering: pixelated`.
+- **2026-07-04** (free placement, Issue #65) — **Obstacles are furniture, not
+  actors.** The diner props (jukebox, counter island, dessert case, booth
+  bank, mop bucket) draw dimmer than units — muted accents (diner red
+  `#7e3634`, steel `#8f99ab`, wood `#5c4030`, hazard yellow `#c9a337`), MDARK
+  outlines, a shared grounding shadow — and scale off their balance.json rect.
+  They block tower **placement only**; this game has no line-of-sight, so
+  props never affect shots or enemies. Booth pads now draw under **placed**
+  towers (the table appears when the customer sits down), not at fixed seats.
