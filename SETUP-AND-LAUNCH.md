@@ -127,7 +127,7 @@ That's Task 2. We'll pause here for your OK before touching any of it.
 All the game's numbers **and** the map live in one file: `data/balance.json` —
 tower stats, enemy types, the wave generator (`waveGen`, 20 waves by default),
 the economy (starting money/lives), and
-the map (`path` + tower `slots`). To change the game:
+the map (`path` + free-placement rules + `obstacles` + the sims' `simAnchors`). To change the game:
 
 1. Edit a value in `data/balance.json` — e.g. an enemy's `hpMul`, a tower's
    `damage`, or a point in `map.path` to reshape the track.

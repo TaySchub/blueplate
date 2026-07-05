@@ -59,7 +59,9 @@ no bundler — `file://` double-click still works):**
 
 **Data & pipeline:**
 - `data/balance.json` — single source of truth for difficulty, economy, waves
-  (`waveGen`), the map (`path`/`slots`), display names/blurbs, and
+  (`waveGen`), the map (`path` / `placement` rules / `obstacles` /
+  `simAnchors` — the sims build at the old slot coordinates so the difficulty
+  gauge is layout-stable), display names/blurbs, and
   `target_win_rate` (currently 50–60%). **After editing it — or any
   `src/*.js` file — run `python3 tools/gen_balance.py`** (regenerates
   `balance.data.js`, re-stamps `index.html`; CI fails if you forget). Changing
@@ -103,6 +105,10 @@ The backlog is GitHub Issues — the single roadmap. Don't create a parallel one
 - **`src/engine.js` — run loop & economy:** `startRun` · `startNextWave` +
   `earlyCallBonusNow` · `checkWaveEnd` · `endRun`; meta in `META`/`SHOP`/
   `loadMeta`; particles as pure data via `spawn*`/`updateParticles`.
+- **`src/engine.js` — free placement (no fixed slots, no tower cap):**
+  `canPlace(x, y)` (bounds / `pathBuffer` off the belt / `towerSpacing` /
+  obstacle rects, all from `BAL.map`) · `tryBuild(x, y)` seats the selected
+  type at that point. Obstacles block placement ONLY — no line-of-sight.
 - **`src/engine.js` — upgrades (paths):** two exclusive paths per tower
   (`towerPaths`/`pathAvailable`/`nextTier`); `tryUpgrade(t, pathId)` commits a
   path (locks the other) and applies a tier's deltas via `applyUpgradeDeltas`
@@ -117,7 +123,9 @@ The backlog is GitHub Issues — the single roadmap. Don't create a parallel one
 - **`src/render.js`:** `render()` · `drawToolbar`/`drawHUD`/
   `drawSelectedTowerPanel` + `towerPanel()` (geometry shared with input
   hit-testing) · scene draws (`drawPath`/`drawCore`/`drawEnemies`/
-  `drawTowers`/`drawSlurpStraws`).
+  `drawTowers`/`drawSlurpStraws`/`drawObstacles`) · `drawPlacementGhost`
+  (replaced `drawSlots`: pointer-follow build ghost + range preview,
+  green/red by `canPlace` + affordability).
 - **`src/main.js`:** boot · `setupInput` · `startGameLoop` (fixed timestep) ·
   the FX wiring.
 - **`src/audio.js`:** the `audio` object (`voice`/`noiseBurst`/`env` +
