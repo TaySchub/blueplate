@@ -3,11 +3,13 @@
 Deckbound balance simulator — deterministic difficulty gauge.
 
 Purpose in the agent system:
-  The Designer edits difficulty/economy numbers in data/balance.json. Before a
-  change is accepted, THIS script runs headless, plays N games with a scripted
-  reference strategy, and reports win-rate + waves survived. That win-rate is
-  ground-truth signal about difficulty — better than asking a model "is this
-  balanced?".
+  A REPORT-ONLY second opinion on difficulty (the real gate is tools/sim.mjs,
+  the engine run headless). The Designer edits difficulty/economy numbers in
+  data/balance.json; this script plays N games with a scripted reference and
+  reports a survival number. Since Issue #75 the game is ENDLESS (no win at a
+  fixed wave), so the gauge here mirrors sim.mjs: "win" := survive to wave 30
+  (SURVIVE_TO). This 1-D model reads high (HP jitter, no real mechanics), so
+  it's a cross-check, not the verdict — the wave-parity gate keeps it honest.
 
 What it models (and what it doesn't):
   - It reads the SAME data/balance.json the game reads (via balance.data.js), so
@@ -45,15 +47,22 @@ from statistics import median
 
 TARGET_WIN_RATE = (0.50, 0.60)   # fallback only; data/balance.json's target_win_rate wins
 DT = 1.0 / 30.0             # simulation timestep in seconds
+SURVIVE_TO = 30            # endless gauge (Issue #75): "win" := survive to wave 30. This is a
+                          # REPORT-ONLY mirror of tools/sim.mjs (the real gate); the 1-D Python
+                          # model reads high (HP jitter + no real mechanics), so its number is a
+                          # second opinion, not the verdict.
 
 # Reference build strategies (which tower goes in each slot, in build order).
 # Only the base-unlocked towers (no sniper, which needs an Essence unlock).
 # "reference board" is calibrated so the shipped, balanced config reads ~mid-band
 # — it's the gauge the Designer watches. "over-built" shows an over-invested full
 # board trivializing the run (TOO EASY), demonstrating the verdict.
+# The endless reference board fills all ten simAnchors (extends the old finite
+# reference arrow,cannon,frost,arrow) — a fuller board so the survive-to-30 gauge
+# is reachable and economy/tier costs are real levers. Mirrors tools/sim.mjs BUILD.
 STRATEGIES = {
-    "reference board":  ["arrow", "cannon", "frost", "arrow"],
-    "over-built board": ["arrow", "cannon", "arrow", "frost", "zap", "arrow"],
+    "reference board":  ["arrow", "cannon", "frost", "arrow", "zap", "cannon", "frost", "arrow", "zap", "cannon"],
+    "over-built board": ["cannon", "cannon", "cannon", "frost", "arrow", "zap", "cannon", "arrow", "frost", "cannon"],
 }
 
 
@@ -76,17 +85,26 @@ def wave_type_weights(n: int, unlock: dict) -> dict:
     }
 
 
+def _jsround(x: float) -> int:
+    """Match JS Math.round (round half UP). Python's built-in round() is banker's
+    rounding (round(2.5) == 2), which diverges from the engine whenever a value
+    lands on exactly .5 — the wave-parity gate surfaced this at wave 31 once the
+    fixture range grew to 0..34 (swarm count 8 vs the engine's 9). Positive inputs
+    only here, so floor(x + 0.5) reproduces Math.round exactly."""
+    return math.floor(x + 0.5)
+
+
 def make_wave(n: int, cfg: dict) -> dict:
     """Generate wave n from waveGen — mirrors src/engine.js makeWave() (parity-checked in CI via tools/check_parity.py). Deterministic."""
     wg = cfg["waveGen"]
-    hp = round(wg["hpBase"] * wg["hpGrowth"] ** n)
+    hp = _jsround(wg["hpBase"] * wg["hpGrowth"] ** n)
     speed = min(wg["speedMax"], wg["speedBase"] + wg["speedStep"] * n)
     interval = max(wg["intervalMin"], wg["intervalBase"] - wg["intervalStep"] * n)
-    count = wg["baseCount"] + round(wg["countStep"] * n)
+    count = wg["baseCount"] + _jsround(wg["countStep"] * n)
     w = wave_type_weights(n, wg["typeUnlock"])
     active = [k for k in w if w[k] > 0]
     total_w = sum(w[k] for k in active)
-    comp = [[k, max(1, round((w[k] / total_w) * count))] for k in active]
+    comp = [[k, max(1, _jsround((w[k] / total_w) * count))] for k in active]
     return {"hp": hp, "speed": speed, "interval": interval, "comp": comp}
 
 
@@ -352,11 +370,11 @@ def play_game(build: list[str], cfg: dict, seed: int, early_bonus: float = 0.0,
     return True, total_waves
 
 
-def evaluate(build: list[str], cfg: dict, sims: int, base_seed: int, early_bonus: float = 0.0, map_id=None) -> dict:
+def evaluate(build: list[str], cfg: dict, sims: int, base_seed: int, early_bonus: float = 0.0, map_id=None, max_waves: int | None = None) -> dict:
     wins = 0
     survived = []
     for i in range(sims):
-        won, w = play_game(build, cfg, seed=base_seed + i, early_bonus=early_bonus, map_id=map_id)
+        won, w = play_game(build, cfg, seed=base_seed + i, early_bonus=early_bonus, map_id=map_id, max_waves=max_waves)
         wins += 1 if won else 0
         survived.append(w)
     return {"win_rate": wins / sims, "median_waves": median(survived), "sims": sims}
@@ -394,16 +412,16 @@ def main():
     # the other strategies are informational), fixed seed, exit code = verdict.
     if args.check:
         build = STRATEGIES["reference board"]
-        r = evaluate(build, cfg, args.sims, args.seed, map_id=args.map)
+        r = evaluate(build, cfg, args.sims, args.seed, map_id=args.map, max_waves=SURVIVE_TO)
         ok = band[0] <= r["win_rate"] <= band[1]
-        print(f"reference board  [{', '.join(build)}]")
-        print(f"  win rate     : {r['win_rate']:.1%}")
+        print(f"reference board  [{', '.join(build)}]   (report-only mirror; 'win' := survive to wave {SURVIVE_TO})")
+        print(f"  survival@{SURVIVE_TO}  : {r['win_rate']:.1%}")
         print(f"  median waves : {r['median_waves']}")
         print(f"  verdict      : {verdict(r['win_rate'], band)}")
-        print(f"\nCHECK {'PASSED' if ok else 'FAILED'}: reference win-rate "
+        print(f"\nCHECK {'PASSED' if ok else 'FAILED'}: survival@{SURVIVE_TO} "
               f"{r['win_rate']:.1%} {'inside' if ok else 'OUTSIDE'} "
               f"{band[0]:.0%}-{band[1]:.0%}"
-              + ("" if ok else " — retune data/balance.json before merging"))
+              + "  (REPORT ONLY — tools/sim.mjs is the real gate; this 1-D model reads high)")
         raise SystemExit(0 if ok else 1)
 
     for name, build in STRATEGIES.items():

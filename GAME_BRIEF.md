@@ -21,7 +21,7 @@ Tower defense + roguelite deckbuilder. Single-player, 2D, web.
 2. **Wave phase:** enemies march the path toward your core; towers auto-fire. **You stay hands-on** — placing and upgrading towers live while the wave runs.
 3. **Resolve:** earn currency from the wave; the next wave is bigger and tougher. Repeat.
 
-You **lose** when too many enemies reach your core; you **win** by surviving all waves on the map.
+You **lose** when too many enemies reach your core. There is no win screen — every run is **endless**: you survive as many waves as you can, and your score is the wave you reach (Issue #75).
 
 **After a run:** unlock or earn new cards, growing your collection for future decks.
 
@@ -56,12 +56,13 @@ here so the brief stays honest:
   Strong / Close, changed live by selecting the tower.
 - **Larger map + generated waves** — a longer, more-winding single map (still one
   16:9 map, so multi-map stays parked) and a wave *generator* (`waveGen`) that
-  replaces the fixed 10-wave table, producing wave N from a formula. Finite play
-  now runs ~20 formula-scaled rounds and still ends in a win.
-- **Endless groundwork (off by default)** — a finite/endless hub toggle, wave
-  counter, and score. Endless keeps generating waves until you lose (survival +
-  score). **Default stays finite with the win condition; whether to offer/keep
-  endless — which removes the win condition — is an open developer decision.**
+  replaces the fixed 10-wave table, producing wave N from a formula with no final
+  wave, so a run ends only when the diner is shut down (Issue #75).
+- **Endless-only (Issue #75)** — the finite 20-wave win was removed: every run is
+  endless and ends only in defeat. There is no hub mode toggle; the HUD wave
+  counter has no "/20" ceiling; the run summary and hub surface waves survived and
+  a persisted best-wave record. (This resolves the open "keep endless?" decision
+  above — in favor of endless-only.)
 
 ## Constraints (from the developer profile)
 Beginner developer; agents do the building. Web game in HTML5 + JavaScript on GitHub Pages, tested on Mac + iPhone. Phaser 3 if the real-time action warrants it; plain HTML/CSS/JavaScript is fine if simpler. ~12–15 hrs/week. General-audience content. No monetization now (keep it addable later). **Original theme and assets only — no branded or trademarked content.**

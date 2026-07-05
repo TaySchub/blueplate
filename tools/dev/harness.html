@@ -280,17 +280,17 @@
     const realRandom = Math.random;
     Math.random = mulberry32(seed);
     let steps = 0;
-    const STEP_CAP = 60 * 60 * 30;   // 30 sim-minutes — a run should end long before
+    const STEP_CAP = 60 * 60 * 60;   // 60 sim-minutes — endless runs always end in
+                                     // defeat eventually; this is a generous safety bound
     try {
       META = freshMeta();            // deterministic meta: base 4 towers, no perks
-      chosenEndless = false;
-      loadMap(mapId);                // map platform: null -> default maps[0] (diner)
+      loadMap(mapId);                // map platform: null -> default maps[0] (blueplate)
       startRun();
       let nextSlot = 0;
       const check = () => {
         if (game.currency < 0) violations.push("currency " + game.currency + " < 0 @step " + steps);
         if (game.lives < 0 || game.lives > game.maxLives) violations.push("lives " + game.lives + " out of [0," + game.maxLives + "] @step " + steps);
-        if (!["prep", "wave", "won", "lost"].includes(game.phase)) violations.push("illegal phase '" + game.phase + "' @step " + steps);
+        if (!["prep", "wave", "lost"].includes(game.phase)) violations.push("illegal phase '" + game.phase + "' @step " + steps);
         for (const e of game.enemies) {
           if (!Number.isFinite(e.x) || !Number.isFinite(e.y) || !Number.isFinite(e.hp)) {
             violations.push("non-finite enemy state @step " + steps); break;
@@ -320,14 +320,14 @@
           tryUpgrade(t, pathMap[t.typeId]);
         }
       };
-      while (steps < STEP_CAP && game.phase !== "won" && game.phase !== "lost") {
+      while (steps < STEP_CAP && game.phase !== "lost") {
         if (game.phase === "prep") { prep(); startNextWave(); }
         update(STEP);
         steps++;
         if (steps % 6 === 0) check();
       }
       check();
-      if (game.phase !== "won" && game.phase !== "lost") violations.push("run did not terminate within " + STEP_CAP + " steps");
+      if (game.phase !== "lost") violations.push("run did not terminate within " + STEP_CAP + " steps");
     } catch (err) {
       errors.push(String(err && err.stack || err));
     } finally {

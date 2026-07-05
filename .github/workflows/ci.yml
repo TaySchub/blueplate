@@ -69,7 +69,9 @@ jobs:
 
       # Report-only second opinion (demoted from the gate in PR 5): the Python
       # model reads higher than the real engine (it has HP jitter + no real
-      # mechanics). Kept during the transition; the developer may retire it.
+      # mechanics). Since Issue #75 it mirrors the endless gauge — survival to
+      # wave 30 on the tuned gate map (blueplate). Kept during the transition;
+      # the developer may retire it.
       - name: Python difficulty model (report only)
         continue-on-error: true
-        run: python3 tools/balance_sim.py --check --sims 200 --map diner
+        run: python3 tools/balance_sim.py --check --sims 200 --map blueplate
