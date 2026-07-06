@@ -5,6 +5,19 @@ Format is deliberately simple and plain-language.
 
 ## [Unreleased]
 
+### Fixed
+- **Teenage Table tier-2 art no longer dwarfs the board** (Issue #82, Implementer
+  hat). The Kids' Table's "Teenage Table" upgrade stacked a 40% whole-huddle
+  scale on top of a big per-kid stretch, so a tier-2 tower drew nearly **twice**
+  the height of every other tower and overhung the belt. Reined both in: the
+  huddle scale drops from +20%/tier to +3%/tier and the per-kid teen stretch
+  (torso / arms / hat) is roughly a fifth of its old strength. A tier-2 Teenage
+  Table now reads ~12% taller than the plain Kids' Table and stays inside the
+  42px booth pad — the "the kids grew up" identity (same trio, party hats, longer
+  limbs, taller hats) is preserved, just proportionate. Art-only: `src/art.js`
+  (+ regenerated `index.html` stamps); no engine, render, or data change, so the
+  difficulty gate is byte-identical (blueplate survival@30 50.5%, seed 1/200).
+
 ### Added
 - **Audio pass — bespoke sounds for every tower, upgrade signature, and economy
   action** (Issue #64, Implementer hat). 100% procedural Web Audio, no files, no
