@@ -74,10 +74,6 @@ const RULES = {
   startCurrency: BAL.economy.startCurrency,
   startLives: BAL.economy.startLives,
   earnPerWave: BAL.economy.earnPerWave,
-  // "Call the wave early" bonus: full value if you start the wave the instant
-  // prep begins, decaying linearly to 0 over earlyCallWindow seconds.
-  earlyCallBonus: BAL.economy.earlyCallBonus || 0,
-  earlyCallWindow: BAL.economy.earlyCallWindow || 1,
   // Sell refund: fraction of everything spent on a tower (base + tiers) paid
   // back on sell. 0 disables selling's payout but never blocks the action.
   sellRefund: BAL.economy.sellRefund || 0,
@@ -98,7 +94,7 @@ const TOWER_ORDER = ["arrow", "cannon", "frost", "sniper", "zap"];
 const TOWER_TYPES = TOWER_ORDER.map((id) => ({ id, ...BAL.towers[id], ...TOWER_ART[id] }));
 const TOWER_BY_ID = Object.fromEntries(TOWER_TYPES.map((t) => [t.id, t]));
 
-// Per-enemy ART (food colors/radius). hpMul/speedMul/reward AND the display name
+// Per-enemy ART (food colors/radius). hpMul/speedMul/bounty AND the display name
 // come from BAL.enemyTypes (data/balance.json). Radii are kept as-is because they
 // already echo real HP (brute > mote > runner > swarm); each enemy is drawn as
 // its dish in drawFood(), and color keeps them distinct at a glance.

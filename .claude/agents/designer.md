@@ -21,8 +21,8 @@ How you work:
    the mechanic, the numbers, and a checkable acceptance criterion.
 2. When tuning difficulty, change `data/balance.json`, run
    `python3 tools/gen_balance.py` (so the game picks up the change), then have QA
-   run `node tools/sim.mjs --check` (the real-engine gate; `balance_sim.py` is a
-   report-only second opinion) and iterate until the reference strategy's win-rate
+   run `node tools/sim.mjs --check` (the real-engine gate — the only difficulty
+   gauge) and iterate until the reference strategy's win-rate
    lands in the target band. Let the simulation decide — don't eyeball "feels
    balanced." The sim runs the real `src/engine.js` on the same `balance.json`, so
    its verdict reflects the real game.

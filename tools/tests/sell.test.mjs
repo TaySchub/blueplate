@@ -11,6 +11,7 @@ const anchor = BAL.maps[0].simAnchors[0];   // default map (the diner)
 E.reset();
 E.game.towers = [];
 E.game.selectedType = "arrow";
+E.game.currency = 100000;   // plenty for base + a tier at ANY tuning (behavior test, not a price test)
 
 // Build, then buy one upgrade tier so `spent` covers base + tier.
 E.tryBuild(anchor.x, anchor.y);

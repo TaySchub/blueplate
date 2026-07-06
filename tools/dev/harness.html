@@ -65,7 +65,7 @@
 
 <!-- ============ 2) SMOKE RUN ============ -->
 <h2 id="smoke-title">2 · Smoke run — paste the JSON in gameplay PRs</h2>
-<p class="hint">Scripted full run through the real update() loop, seeded RNG (same seed → identical run), invariants checked as it goes. Builds in slot order, upgrades cheapest-first each prep (≈ the balance sim's reference strategy), calls every wave immediately. PASS = run ends in a clean win or loss with zero violations — it is a regression check, not the balance gauge (that's <code>tools/balance_sim.py</code>). Blocks the page for a few seconds while it runs.</p>
+<p class="hint">Scripted full run through the real update() loop, seeded RNG (same seed → identical run), invariants checked as it goes. Builds in slot order, upgrades cheapest-first each prep (≈ the balance sim's reference strategy), calls every wave immediately. PASS = run ends in a clean win or loss with zero violations — it is a regression check, not the balance gauge (that's <code>node tools/sim.mjs --check</code>). Blocks the page for a few seconds while it runs.</p>
 <button id="run-smoke">Run smoke</button>
 <label style="font-size:13px;color:var(--muted)">seed <input id="smoke-seed" type="number" value="1" style="width:70px"></label>
 <pre id="smoke-out">not run yet</pre>
@@ -104,8 +104,8 @@
 
   const params = new URLSearchParams(location.search);
   const DEFAULT_BUILD = ["arrow", "cannon", "frost", "arrow"];   // = the sim's reference board
-  // Reference upgrade strategy (mirrors tools/balance_sim.py + tools/sim.mjs): each
-  // tower commits to one fixed path and buys its two tiers cheapest-next-first.
+  // Reference upgrade strategy (mirrors tools/sim.mjs): each tower commits to
+  // one fixed path and buys its two tiers cheapest-next-first.
   const SIM_PATHS = { arrow: "carvingStation", cannon: "oneBigBite", frost: "longExposure", sniper: "extraSlurp", zap: "teenageTable" };
   // The signature path per tower — ?paths=signature drives the smoke down these so
   // it exercises the tier-2 mechanics (pierce, crumb, knockback, …), not just stats.

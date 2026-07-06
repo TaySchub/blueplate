@@ -5,6 +5,76 @@ Format is deliberately simple and plain-language.
 
 ## [Unreleased]
 
+### Changed
+- **The economy is rebuilt so the game is fun from wave 1** (economy overhaul,
+  stage 3; developer-ratified design, numbers only — no mechanic or upgrade
+  delta moved). Everything repriced ~4-5x with real cheap/mid/premium spread:
+  start **800** Tips (was 150), flat **170**/wave (was 40), towers **150-450**
+  (Kids' Table 150 · Regular 250 · Photographer 300 · Big Appetite 400 ·
+  Slurper 450), tiers **150-700** (full table + per-value rationale in the PR).
+  Bounties are size-scaled: Fry 5 · Slider 10 · Hot Dog 15 · Steak 35 — income
+  now ramps with threat automatically, and the mix lands **39/61**
+  flat-to-kills with the flat floor (170 ≥ a whole Kids' Table) keeping a
+  leaking board repairable every wave. Wave generation untouched (the existing
+  typeUnlock schedule already ramps small→heavy). The reference now fields
+  **4 towers by wave 3** (was 2 by wave 3 and broke until wave 15), makes a
+  purchase **every wave 1-21** plus a save-up beat at 22 and buys through 24
+  (was: done at 21 with an 8-wave dead bank), and hits its first tier-2 at
+  wave 5 (cheap tower) / wave 10 (first premium tier-2). Verified: blueplate
+  survival@30 **57.0%** (seed 1/200, the CI config — 5pts above the band
+  floor, ending the 50.5%-on-the-floor fragility), **52.0/54.0%** at seeds
+  1000/5000, **56.7%** at 1000 sims; spam probe 28.5% (width still loses);
+  path-value matrix within ±4.5pts; all-signature premium re-measured +20pts
+  (the known structural synergy, damped from +25.5 via the two hottest
+  signature tier-2 costs); pacing median 29.5s/wave, run-to-30 14.4 sim-min;
+  all tests + maplint green (sell.test.mjs now funds itself explicitly —
+  behavior tests must not depend on tuned prices).
+- **Economy mechanics land, provably inert** (economy overhaul, stage 2;
+  developer-approved — the numbers move in stage 3):
+  - **Per-kill bounties are now explicit data.** Each dish's on-kill Tips payout
+    is a `bounty` field in `balance.json` `enemyTypes` (renamed from `reward`,
+    values unchanged), awarded at the kill site with the existing "+$N tip"
+    float; a **zero** bounty now pays nothing and floats nothing, and a leaked
+    dish still pays nothing. New behavior test: `tools/tests/bounty.test.mjs`.
+  - **The early-call bonus is removed end to end** — engine (`earlyCallBonusNow`
+    + the `startNextWave` grant + the `FX.calledEarly` hook), `balance.json`
+    economy keys, the "+N" chip on the Call Wave button (now always "Send Wave
+    N"), the sim's window-lapse reference line, and the save system's
+    anti-double-bonus `prepElapsed` parking (moot). One GAME_BRIEF post-v1
+    bullet (the bonus's own entry) is deleted — that removal was pre-authorized.
+  - **Auto-start rounds.** A pause-menu segmented row (Off / Instant / 1s / 2s /
+    3s, ≥48 design px, persisted as `META.autoStart`): when set, the next wave
+    calls itself that many seconds after the previous wave RESOLVES. The run's
+    first prep is always manual, pausing suspends the countdown (update() halts
+    at the shell), and the first prep after a save-restore skips it once — a
+    breather to re-read the board. The Send Wave button shows an "auto-start in
+    Ns" hint while counting. New behavior test: `tools/tests/autostart.test.mjs`.
+  - **Wave-type weights moved to data.** `waveTypeWeights`' hardcoded
+    coefficients now live in `balance.json` `waveGen.typeWeights`
+    (base/perWave/min per type, identical values) so stage 3 can tune the wave
+    ramp like every other number.
+  - **Verified inert where it must be:** `node tools/sim.mjs --check`
+    byte-identical to stage 1 / main (blueplate survival@30 **50.5%**, seed
+    1/200); all behavior tests green (incl. the updated `save.test.mjs`);
+    maplint green. The harness smoke JSONs shift slightly BY DESIGN: the smoke
+    player calls every wave instantly, so it had been collecting the early-call
+    bonus the reference sim never took — removing the mechanic changes its
+    tips (quoted in the PR), while the difficulty gate itself is untouched.
+
+### Removed
+- **The Python second-opinion sim is retired** (economy overhaul, stage 1;
+  developer-approved). `tools/balance_sim.py` (the 1-D difficulty model) and
+  `tools/check_parity.py` (the wave-parity check that kept its mirrored wave
+  formula honest) are deleted, along with their CI steps and `tools/sim.mjs`'s
+  `--dump-waves` fixture flag (nothing else consumed it). The real-engine sim
+  (`node tools/sim.mjs --check`) has been THE gate since Issue #54 PR 5; with
+  the economy about to be rebuilt around real engine mechanics (per-kill
+  bounties), maintaining a diverging mirror is pure drag. Docs aligned:
+  `CLAUDE.md` (verification + landmarks), `SETUP-AND-LAUNCH.md`,
+  `data/balance.json` `_note`, the harness hints, and the designer/qa role
+  briefs now name one gauge. Verified: `--check` byte-identical to `main`
+  (blueplate survival@30 **50.5%**, diner 33.0% report-only, seed 1/200).
+
 ### Fixed
 - **Teenage Table tier-2 art no longer dwarfs the board** (Issue #82, Implementer
   hat). The Kids' Table's "Teenage Table" upgrade stacked a 40% whole-huddle

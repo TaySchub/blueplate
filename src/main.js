@@ -44,6 +44,7 @@ window.__uiRects = function () {
   const pm = pauseMenuRects();             // board-space → shift by BOARD.x for the CSS audit
   add("pause: resume", { x: pm.resume.x + BOARD.x, y: pm.resume.y, w: pm.resume.w, h: pm.resume.h });
   add("pause: save & quit", { x: pm.saveQuit.x + BOARD.x, y: pm.saveQuit.y, w: pm.saveQuit.w, h: pm.saveQuit.h });
+  pm.autoStart.forEach((o) => add("pause: auto-start " + o.label, { x: o.rect.x + BOARD.x, y: o.rect.y, w: o.rect.w, h: o.rect.h }));
   shopButtonRects().forEach((b, i) => add("hub: shop " + (i + 1), b.rect));
   for (let i = 0; i < 5; i++) add("hub card " + (i + 1), hubCardRect(i));
   if (console.table) console.table(rows);
@@ -91,6 +92,12 @@ function setupInput(canvas) {
     // on the panel so they don't fall through to the board behind it (Issue #83).
     if (gamePaused && (game.phase === "prep" || game.phase === "wave")) {
       const pm = pauseMenuRects();
+      // Auto-start segmented row: pick a delay ("off" | 0 | 1 | 2 | 3 seconds),
+      // persisted in META like the map choice. The countdown itself lives in the
+      // engine's prep update; pausing halts update(), so it suspends here too.
+      for (const o of pm.autoStart) {
+        if (inRect(b, o.rect)) { META.autoStart = o.value; saveMeta(); audio.build(); return; }
+      }
       if (inRect(b, pm.resume)) { gamePaused = false; audio.build(); return; }
       if (inRect(b, pm.saveQuit)) { gamePaused = false; game.phase = "menu"; audio.build(); return; }
       if (inRect(b, pm.panel)) return;
@@ -217,6 +224,3 @@ for (const k of ["shoot", "hit", "kill", "leak", "upgrade", "build", "deny", "wa
 for (const k of ["crumb", "knockback", "doubleFreeze", "fourthHand", "place", "sell"]) {
   FX[k] = (...args) => audio[k](...args);
 }
-// The call-early reward popup is anchored to the Start button (UI geometry the
-// engine deliberately doesn't know about).
-FX.calledEarly = (bonus) => spawnFloatText(START_BTN.x + START_BTN.w / 2, START_BTN.y - 4, "+" + bonus, COLOR.gold);

@@ -55,8 +55,8 @@ assert(JSON.stringify(E.serializeRun()) === preSave,
   "the full save format roundtrips (wave, currency, lives, and every tower's pos/path/tier/targeting)");
 assert(game.waveIndex === 3 && game.currency === 137 && game.lives === 7,
   "wave/currency/lives reproduce exactly");
-assert(game.prepElapsed > E.RULES.earlyCallWindow,
-  "restore parks prep past the early-call window (no double bonus for the same wave)");
+assert(game.autoStartArmed === false,
+  "restore disarms auto-start — the first prep after a resume never auto-calls");
 
 // Signature flags + spend are NOT in the minimal format — they must be REBUILT
 // through the real tryBuild/upgrade paths.

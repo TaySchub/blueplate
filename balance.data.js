@@ -1,17 +1,15 @@
 // AUTO-GENERATED from data/balance.json by tools/gen_balance.py.
 // Do NOT edit by hand — edit data/balance.json and re-run the generator.
 window.BALANCE = {
-  "_note": "Single source of truth for DIFFICULTY, ECONOMY, and MAP GEOMETRY. tools/balance_sim.py reads this file directly; the game reads it via the generated balance.data.js (run tools/gen_balance.py after editing). Only pure art (colors/shapes) stays in main.js; tower/enemy display names + blurbs live here too, so a theme reskin is JSON-only. Rule: if the balance sim needs a number to compute win-rate, it belongs in this file \u2014 including each tower's per-path upgrade deltas ('upgrades'), the maps (maps[] \u2014 each with theme + path + free-placement rules + obstacles + simAnchors), and the wave generator (waveGen). Maps are content: maps[0] is the default; each map's 'theme' block holds every surface color/label the renderer draws (floor, belt, booth pads, kitchen, trash chute), so a diner reskin is literally JSON-only and per-kind prop art stays in src/art.js. 'tuned:true' marks a map whose difficulty is calibrated (node tools/sim.mjs --check enforces the band on it); future maps ship tuned:false until tuned. Placement: towers go anywhere inside placement.bounds that is > pathBuffer off the belt centerline, >= towerSpacing from other towers, and outside every obstacle rect; simAnchors are the OLD slot coordinates the headless sims still build at, in build order, so the difficulty gauge stays layout-stable \u2014 never reorder them. Upgrades: 2 named paths per tower, each with 2 tiers { cost, ...deltas }; buying a tier of one path locks the other for that placed tower. Difficulty is now tuned against the REAL-ENGINE sim (node tools/sim.mjs --check), the CI gate as of Issue #54 PR 5; tools/balance_sim.py is a report-only second opinion. Runs are ENDLESS (Issue #75): there is no win wave \u2014 the sim gauge's 'win' is reaching WAVE 30, and --check enforces target_win_rate on survival@30 for every tuned map. Costs/deltas are per tower and per tier (signatures are tier 2).",
+  "_note": "Single source of truth for DIFFICULTY, ECONOMY, and MAP GEOMETRY. The game reads it via the generated balance.data.js (run tools/gen_balance.py after editing); the difficulty gauge (node tools/sim.mjs) reads this file directly. Only pure art (colors/shapes) stays in main.js; tower/enemy display names + blurbs live here too, so a theme reskin is JSON-only. Rule: if the difficulty gauge needs a number to compute win-rate, it belongs in this file \u2014 including each tower's per-path upgrade deltas ('upgrades'), the maps (maps[] \u2014 each with theme + path + free-placement rules + obstacles + simAnchors), and the wave generator (waveGen). Maps are content: maps[0] is the default; each map's 'theme' block holds every surface color/label the renderer draws (floor, belt, booth pads, kitchen, trash chute), so a diner reskin is literally JSON-only and per-kind prop art stays in src/art.js. 'tuned:true' marks a map whose difficulty is calibrated (node tools/sim.mjs --check enforces the band on it); future maps ship tuned:false until tuned. Placement: towers go anywhere inside placement.bounds that is > pathBuffer off the belt centerline, >= towerSpacing from other towers, and outside every obstacle rect; simAnchors are the OLD slot coordinates the headless sims still build at, in build order, so the difficulty gauge stays layout-stable \u2014 never reorder them. Upgrades: 2 named paths per tower, each with 2 tiers { cost, ...deltas }; buying a tier of one path locks the other for that placed tower. Difficulty is tuned against the REAL-ENGINE sim (node tools/sim.mjs --check), the CI gate as of Issue #54 PR 5 and the ONLY gauge since the economy overhaul retired the Python second-opinion model. Runs are ENDLESS (Issue #75): there is no win wave \u2014 the sim gauge's 'win' is reaching WAVE 30, and --check enforces target_win_rate on survival@30 for every tuned map. Costs/deltas are per tower and per tier (signatures are tier 2).",
   "target_win_rate": [
     0.5,
     0.6
   ],
   "economy": {
-    "startCurrency": 150,
+    "startCurrency": 800,
     "startLives": 20,
-    "earnPerWave": 40,
-    "earlyCallBonus": 18,
-    "earlyCallWindow": 8,
+    "earnPerWave": 170,
     "sellRefund": 0.7
   },
   "maps": [
@@ -431,32 +429,32 @@ window.BALANCE = {
       "name": "Hot Dog",
       "hpMul": 1.0,
       "speedMul": 1.0,
-      "reward": 5
+      "bounty": 15
     },
     "runner": {
       "name": "The Slider",
       "hpMul": 0.6,
       "speedMul": 1.7,
-      "reward": 5
+      "bounty": 10
     },
     "brute": {
       "name": "Tough Steak",
       "hpMul": 2.6,
       "speedMul": 0.7,
-      "reward": 9
+      "bounty": 35
     },
     "swarm": {
       "name": "Fry Swarm",
       "hpMul": 0.28,
       "speedMul": 1.2,
-      "reward": 2
+      "bounty": 5
     }
   },
   "towers": {
     "arrow": {
       "name": "The Regular",
       "blurb": "Steady single-target fork-stabs",
-      "cost": 50,
+      "cost": 250,
       "range": 130,
       "damage": 30,
       "cooldown": 0.75,
@@ -466,11 +464,11 @@ window.BALANCE = {
           "name": "Fork Frenzy",
           "tiers": [
             {
-              "cost": 70,
+              "cost": 300,
               "cooldownMul": 0.83
             },
             {
-              "cost": 120,
+              "cost": 500,
               "pierce": true,
               "damage": 18,
               "range": 14
@@ -481,12 +479,12 @@ window.BALANCE = {
           "name": "Carving Station",
           "tiers": [
             {
-              "cost": 55,
+              "cost": 250,
               "damage": 28,
               "range": 14
             },
             {
-              "cost": 95,
+              "cost": 450,
               "damage": 28,
               "range": 14
             }
@@ -497,7 +495,7 @@ window.BALANCE = {
     "cannon": {
       "name": "Big Appetite",
       "blurb": "Grabs one dish and takes a huge, slow bite (single-target)",
-      "cost": 85,
+      "cost": 400,
       "range": 104,
       "damage": 90,
       "cooldown": 2.8,
@@ -507,11 +505,11 @@ window.BALANCE = {
           "name": "Speed Eater",
           "tiers": [
             {
-              "cost": 70,
+              "cost": 300,
               "cooldownMul": 0.72
             },
             {
-              "cost": 120,
+              "cost": 700,
               "cooldownMul": 0.7,
               "crumbRadius": 50,
               "crumbDamage": 58
@@ -522,12 +520,12 @@ window.BALANCE = {
           "name": "One Big Bite",
           "tiers": [
             {
-              "cost": 70,
+              "cost": 300,
               "damage": 62,
               "range": 8
             },
             {
-              "cost": 120,
+              "cost": 600,
               "damage": 62,
               "range": 8,
               "knockbackBase": 100,
@@ -540,7 +538,7 @@ window.BALANCE = {
     "frost": {
       "name": "The Photographer",
       "blurb": "Flash makes a dish pose (1s freeze), then it's slowed ~3s (very low dmg)",
-      "cost": 70,
+      "cost": 300,
       "range": 120,
       "damage": 6,
       "cooldown": 1.1,
@@ -553,13 +551,13 @@ window.BALANCE = {
           "name": "Long Exposure",
           "tiers": [
             {
-              "cost": 60,
+              "cost": 250,
               "freezeDurAdd": 0.29,
               "damage": 3,
               "range": 12
             },
             {
-              "cost": 105,
+              "cost": 500,
               "freezeDurAdd": 0.2,
               "damage": 3,
               "range": 12,
@@ -572,11 +570,11 @@ window.BALANCE = {
           "name": "Paparazzi",
           "tiers": [
             {
-              "cost": 70,
+              "cost": 300,
               "range": 20
             },
             {
-              "cost": 120,
+              "cost": 550,
               "range": 12,
               "freezeTargets": 2
             }
@@ -587,7 +585,7 @@ window.BALANCE = {
     "sniper": {
       "name": "The Milkshake Slurper",
       "blurb": "Slurps a dish super-fast for tiny bites \u2014 watch its HP drain (small-med range)",
-      "cost": 95,
+      "cost": 450,
       "range": 150,
       "damage": 7,
       "cooldown": 0.14,
@@ -597,12 +595,12 @@ window.BALANCE = {
           "name": "Extra Slurp",
           "tiers": [
             {
-              "cost": 70,
+              "cost": 300,
               "damage": 5,
               "range": 15
             },
             {
-              "cost": 115,
+              "cost": 550,
               "damage": 4,
               "range": 15
             }
@@ -612,11 +610,11 @@ window.BALANCE = {
           "name": "Silly Straw",
           "tiers": [
             {
-              "cost": 70,
+              "cost": 300,
               "range": 20
             },
             {
-              "cost": 115,
+              "cost": 550,
               "range": 10,
               "drainTargets": 2,
               "damage": 2
@@ -628,7 +626,7 @@ window.BALANCE = {
     "zap": {
       "name": "The Kids' Table",
       "blurb": "Three kids grab up to 3 dishes at once \u2014 small fast bites",
-      "cost": 35,
+      "cost": 150,
       "range": 96,
       "damage": 9,
       "cooldown": 0.5,
@@ -639,11 +637,11 @@ window.BALANCE = {
           "name": "Birthday Party",
           "tiers": [
             {
-              "cost": 45,
+              "cost": 150,
               "cooldownMul": 0.78
             },
             {
-              "cost": 85,
+              "cost": 250,
               "cooldownMul": 0.85,
               "maxTargetsAdd": 1,
               "damage": 5
@@ -654,12 +652,12 @@ window.BALANCE = {
           "name": "Teenage Table",
           "tiers": [
             {
-              "cost": 45,
+              "cost": 150,
               "damage": 8,
               "range": 8
             },
             {
-              "cost": 85,
+              "cost": 200,
               "damage": 8,
               "range": 8
             }
@@ -685,6 +683,25 @@ window.BALANCE = {
       "runner": 1,
       "swarm": 2,
       "brute": 4
+    },
+    "typeWeights": {
+      "mote": {
+        "base": 1.0,
+        "perWave": -0.05,
+        "min": 0.15
+      },
+      "runner": {
+        "base": 0.7,
+        "perWave": 0
+      },
+      "swarm": {
+        "base": 0.4,
+        "perWave": 0.02
+      },
+      "brute": {
+        "base": 0.2,
+        "perWave": 0.03
+      }
     },
     "endless": false
   }

@@ -7,12 +7,10 @@
   startNextWave/update. One source of truth: a mechanic lands in engine.js and
   this sim exercises it automatically — no Python mirror to keep honest.
 
-  The scripted player mirrors tools/balance_sim.py's steady reference: build
-  at the map's simAnchors (the former slot coordinates, kept in build order so
-  the gauge stays comparable across map layouts) as affordable, spend spare
-  Tips on the cheapest upgrade each prep, never call the wave early (the
-  early-call bonus is zeroed so this stays the steady gauge, like the Python
-  sim's reference_bonus=0 line). Seeded RNG (mulberry32 over Math.random) →
+  The scripted player is the steady reference: build at the map's simAnchors
+  (the former slot coordinates, kept in build order so the gauge stays
+  comparable across map layouts) as affordable, then spend spare Tips on the
+  cheapest upgrade each prep. Seeded RNG (mulberry32 over Math.random) →
   same seed, same run.
 
   ENDLESS SURVIVAL GAUGE (Issue #75): runs are endless — they end only in
@@ -22,10 +20,9 @@
   tuned map. It also reports P(reach 20/40), median waves survived, the
   died-at-wave spread, and wave-pacing stats (seconds/wave, run-to-30 time).
 
-  Status: THE CI difficulty gate (`--check`), since Issue #54 PR 5.
-  tools/balance_sim.py is the report-only second opinion — the two will not
-  read identical numbers: this one has real projectile travel/overkill, the
-  sniper's straw-lock, and no per-enemy HP jitter.
+  Status: THE CI difficulty gate (`--check`) since Issue #54 PR 5, and the ONLY
+  difficulty gauge since the economy overhaul retired the Python second-opinion
+  model (tools/balance_sim.py) and its wave-parity companion.
 
   Usage (from the repo root):
     node tools/sim.mjs                       # 200 seeded games, endless-survival report
@@ -34,9 +31,8 @@
     node tools/sim.mjs --check               # gate survival@30 on every tuned map; non-zero if off-band
     node tools/sim.mjs --map diner           # play a specific map (default: first)
     node tools/sim.mjs --paths frost=paparazzi  # path-value matrix override
-    node tools/sim.mjs --dump-waves out.json # waves 0..34 for the parity check
 */
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import vm from "node:vm";
@@ -60,8 +56,8 @@ const MAP_ARG = opt("map", null);   // which map to play (default: first); --che
 // survive-to-30 gate be reachable (four maxed towers hit a hard dps ceiling by ~w10).
 const BUILD = opt("build", "arrow,cannon,frost,arrow,zap,cannon,frost,arrow,zap,cannon").split(",").map((s) => s.trim());
 // The reference player commits each tower to one fixed upgrade path and buys its
-// two tiers in order — mirrors tools/balance_sim.py SIM_PATHS (the pure-stat paths;
-// the signature paths carry mechanics this gauge doesn't need to pick).
+// two tiers in order (the pure-stat paths; the signature paths carry mechanics
+// this gauge doesn't need to pick).
 const SIM_PATHS = { arrow: "carvingStation", cannon: "oneBigBite", frost: "longExposure", sniper: "extraSlurp", zap: "teenageTable" };
 // --paths tower=pathId,... overrides which path a tower commits to (for the PR-5
 // path-value matrix). Unlisted towers fall back to SIM_PATHS.
@@ -103,15 +99,6 @@ function mulberry32(a) {
     t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
-}
-
-// --- waves fixture for the Python parity check -------------------------------
-if (has("dump-waves")) {
-  const file = opt("dump-waves", "waves.json");
-  const waves = Array.from({ length: 35 }, (_, n) => E.makeWave(n));
-  writeFileSync(file, JSON.stringify(waves, null, 1));
-  console.log(`wrote ${file} — makeWave(0..34) from the real engine`);
-  process.exit(0);
 }
 
 // --- map selection -----------------------------------------------------------
@@ -158,7 +145,7 @@ function playGame(seed, build, map) {
           nextSlot++;
         }
         // Each tower commits to its fixed SIM_PATHS path and buys both tiers,
-        // cheapest next tier first (mirrors balance_sim.py buy_upgrades).
+        // cheapest next tier first.
         for (;;) {
           // Only towers whose chosen path still has a next tier — guards a missing id
           // or a maxed/locked path so a future tower without a mapping won't crash.
@@ -169,8 +156,6 @@ function playGame(seed, build, map) {
           if (E.game.currency < cost(t)) break;
           E.tryUpgrade(t, pathFor(t.typeId));
         }
-        // Steady reference: let the early-call window lapse so the bonus is 0.
-        E.game.prepElapsed = E.RULES.earlyCallWindow + 1;
         E.startNextWave();
       }
       const wi = E.game.waveIndex;            // wave being played this tick (constant during a wave)
@@ -237,7 +222,7 @@ function runOnMap(map) {
   console.log(`  pacing         : median ${median(allDur).toFixed(1)}s/wave (prep excl); early ${earlySec}; mean run-to-30 ${meanTo30Min.toFixed(1)} sim-min`);
   console.log(`  target band    : survival@30 ${(BAND[0] * 100).toFixed(0)}%-${(BAND[1] * 100).toFixed(0)}% -> ${inBand ? "inside" : "OUTSIDE"}${map.tuned ? "" : "  (untuned — report only)"}`);
   console.log(`  runtime        : ${((Date.now() - t0) / 1000).toFixed(1)}s`);
-  console.log(`  note           : real mechanics (projectile travel, straw-lock, no HP jitter) — expect a different reading than balance_sim.py's gauge`);
+  console.log(`  note           : real mechanics (projectile travel, straw-lock, no HP jitter) — THE difficulty gauge, no second opinion`);
   return inBand;
 }
 

@@ -72,11 +72,11 @@ no bundler — `file://` double-click still works):**
 
 **Verification:**
 - `.github/workflows/ci.yml` — JS syntax, mechanic tests, generated-file sync,
-  the real-engine band gate, wave parity.
-- `tools/sim.mjs` — the difficulty gauge: the REAL engine run headless
-  (`--check` is the CI gate as of Issue #54 PR 5). `tools/balance_sim.py` is a
-  report-only second opinion (a 1-D model that reads higher — HP jitter, no
-  real mechanics); the wave-parity gate keeps it honest while it exists.
+  map lint, the real-engine band gate.
+- `tools/sim.mjs` — THE difficulty gauge, and the only one: the REAL engine run
+  headless (`--check` is the CI gate as of Issue #54 PR 5; the Python
+  second-opinion model and its wave-parity companion were retired in the
+  economy overhaul).
 - `tools/dev/harness.html` — contact sheet, seeded smoke run, play driver
   (`?map=<id>` selects a map).
 - `tools/maplint.mjs` — validates every `maps[]` entry against the placement
@@ -99,19 +99,24 @@ The backlog is GitHub Issues — the single roadmap. Don't create a parallel one
 
 - **`src/data.js` — data merge:** `TOWER_ART`/`ENEMY_ART` (art-only) + `BAL`
   (balance.json) → `TOWER_TYPES`/`ENEMY_TYPES`; economy in `RULES`; `COLOR`.
-- **`src/engine.js` — waves:** `makeWave(n)`/`waveTypeWeights` (mirrored in
-  `balance_sim.py`; parity-checked in CI) · `getWave` (endless past
-  `waveCount`) · `buildSpawnQueue`.
+- **`src/engine.js` — waves:** `makeWave(n)`/`waveTypeWeights` (data-driven from
+  `waveGen.typeWeights` + `typeUnlock`) · `getWave` (endless past `waveCount`) ·
+  `buildSpawnQueue`.
 - **`src/engine.js` — combat:** `updateTowers()` (per-type firing incl. sniper
   straw-lock + zap multi pile-on) · `fireProjectile()` (cannon/zap/sniper act
   instantly; only arrow + frost shots travel) · `resolveHit()` ·
   `applyDamage()` · `pickTarget()` (First/Last/Strong/Close) · `moveEnemies()`
   (freeze → slow) · side effects via the `FX` hooks (wired in `src/main.js`).
 - **`src/engine.js` — run loop & economy (ENDLESS — no "won" phase, Issue #75):**
-  `startRun` · `startNextWave` + `earlyCallBonusNow` · `checkWaveEnd` (always
-  advances — clearing a wave never wins) · `endRun` (defeat only; records
-  `META.bestWave`, the persisted best-wave record); meta in `META`/`SHOP`/
-  `loadMeta`; particles as pure data via `spawn*`/`updateParticles`.
+  `startRun` · `startNextWave` · `checkWaveEnd` (always advances — clearing a
+  wave never wins; arms auto-start) · `endRun` (defeat only; records
+  `META.bestWave`, the persisted best-wave record); income = per-kill BOUNTIES
+  (`enemy.bounty` from balance.json `enemyTypes`, paid in `applyDamage`; leaks
+  pay nothing) + flat `earnPerWave`; auto-start rounds (`AUTOSTART_OPTIONS`,
+  `META.autoStart`, countdown in `update`'s prep branch — armed only by a wave
+  resolving, never on run start or restore); meta in `META`/`SHOP`/`loadMeta`;
+  particles as pure data via `spawn*`/`updateParticles`. (The early-call bonus
+  was removed in the economy overhaul.)
 - **`src/engine.js` — save & continue (checkpoint = wave start, Issue #83):**
   `serializeRun` builds the minimal snapshot (`SAVE_KEY`/`SAVE_VERSION`: mapId,
   waveIndex, currency, lives, towers as `{typeId,x,y,upgradePath,upgradeTier,
@@ -122,8 +127,8 @@ The backlog is GitHub Issues — the single roadmap. Don't create a parallel one
   call (`startNextWave`) — so a tab closed mid-wave already has its wave-start
   save. `restoreRun` → `loadMap` + reset + `rebuildTowerFromSave` (real
   `tryBuild`/upgrade paths, cost bypassed, no RNG — the `restoring` flag suppresses
-  mid-rebuild writes), parks `prepElapsed` past `earlyCallWindow` (no double early
-  bonus). `endRun` calls `clearSave`; `readSave`/`hasSave` validate + discard a
+  mid-rebuild writes), and disarms auto-start for its first prep (the breather).
+  `endRun` calls `clearSave`; `readSave`/`hasSave` validate + discard a
   version-mismatch/unparseable/unknown-map blob. Behavior test:
   `tools/tests/save.test.mjs`.
 - **`src/engine.js` — free placement (no fixed slots, no tower cap):**
@@ -148,7 +153,7 @@ The backlog is GitHub Issues — the single roadmap. Don't create a parallel one
   path (locks the other) and applies a tier's deltas via `applyUpgradeDeltas`
   (stat keys + signature flags: `pierce`, `crumbRadius`/`crumbDamage`,
   `knockbackBase`/`knockbackSizeRef`, `freezeTargets`/`drainTargets`,
-  `maxTargetsAdd`). Sim mirror: `apply_upgrade`/`buy_upgrades` on a fixed
+  `maxTargetsAdd`). The headless sim's reference player buys along a fixed
   `SIM_PATHS` path. Rework tracked in pinned Issue #54. `sellTower(t)` refunds
   `floor(RULES.sellRefund × t.spent)` (spend tracked per tower: base + tiers)
   and frees the floor; the scripted sims never sell.
@@ -164,9 +169,9 @@ The backlog is GitHub Issues — the single roadmap. Don't create a parallel one
   green/red by `canPlace` + affordability). Scene surfaces (floor/belt/kitchen/
   chute) read the active map's `THEME`, so a reskin is JSON-only; the hub
   `MAP_BTN` map picker (drawMenu) cycles `MAPS`. Pause menu `drawPausedOverlay` +
-  `pauseMenuRects` (Resume / Save & Quit, board-space, shared draw+hit geometry);
-  hub `RESUME_RUN_BTN` "Continue — Wave N" (drawMenu, shown when `hasSave()`,
-  Issue #83).
+  `pauseMenuRects` (auto-start segmented row / Resume / Save & Quit, board-space,
+  shared draw+hit geometry); hub `RESUME_RUN_BTN` "Continue — Wave N" (drawMenu,
+  shown when `hasSave()`, Issue #83).
 - **`src/main.js`:** boot · `setupInput` · `startGameLoop` (fixed timestep) ·
   the FX wiring. Pause-menu + hub-Continue hit-testing route to `restoreRun`; the
   `pagehide`/`visibilitychange→hidden` listeners auto-pause on mobile (Issue #83 —
@@ -185,10 +190,9 @@ worker's branch.
 ## Verification (prefer deterministic checks over opinions)
 
 CI (`.github/workflows/ci.yml`) runs on every PR: JS syntax, the mechanic
-behavior tests (`tools/tests/*.test.mjs`), generated-file sync, the balance band
-(`node tools/sim.mjs --check` — the real engine; `balance_sim.py` is a
-report-only second opinion), and wave parity. Never open a PR you expect to
-fail it.
+behavior tests (`tools/tests/*.test.mjs`), generated-file sync, map lint, and
+the balance band (`node tools/sim.mjs --check` — the real engine, the only
+gauge). Never open a PR you expect to fail it.
 
 **Definition of verified — do ALL of this yourself before requesting review.
 Never hand the developer an unverified change to preview:**
@@ -196,14 +200,12 @@ Never hand the developer an unverified change to preview:**
 1. **Everything:** serve the repo root (`python3 -m http.server`), load the
    game, zero console errors.
 2. **Difficulty/economy:** run `node tools/sim.mjs --check` (the real-engine
-   gate) and quote the win-rate in the PR. The number — not a model's "looks
-   balanced" — is the signal that tells the designer to tune `data/balance.json`.
-   (`python3 tools/balance_sim.py --check` is a report-only second opinion.)
+   gate, the ONLY gauge) and quote the win-rate in the PR. The number — not a
+   model's "looks balanced" — is the signal that tells the designer to tune
+   `data/balance.json`.
 3. **Any gameplay change:** run the smoke run in `tools/dev/harness.html`
    (`?mode=smoke&seed=1`) and paste its JSON verdict in the PR. Same seed →
-   same run, so a failing seed is a repro URL. For engine changes also run
-   `node tools/sim.mjs` — the real-engine win-rate (no mirror; reported in CI
-   too) — and quote it alongside the Python number.
+   same run, so a failing seed is a repro URL.
 4. **Art:** render the contact sheet (`tools/dev/harness.html?mode=sheet`),
    screenshot it, attach it to the PR, and self-check it against
    `docs/ART_STYLE.md` first. Batch a whole art pass into ONE sheet and one
