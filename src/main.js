@@ -153,6 +153,10 @@ function startGameLoop() {
 for (const k of ["shoot", "hit", "kill", "leak", "upgrade", "build", "deny", "waveStart", "buy", "win", "lose"]) {
   FX[k] = (...args) => audio[k](...args);
 }
+// Signature + economy hooks (audio pass, Issue #64) — same wiring pattern.
+for (const k of ["crumb", "knockback", "doubleFreeze", "fourthHand", "place", "sell"]) {
+  FX[k] = (...args) => audio[k](...args);
+}
 // The call-early reward popup is anchored to the Start button (UI geometry the
 // engine deliberately doesn't know about).
 FX.calledEarly = (bonus) => spawnFloatText(START_BTN.x + START_BTN.w / 2, START_BTN.y - 4, "+" + bonus, COLOR.gold);

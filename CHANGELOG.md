@@ -5,6 +5,25 @@ Format is deliberately simple and plain-language.
 
 ## [Unreleased]
 
+### Added
+- **Audio pass — bespoke sounds for every tower, upgrade signature, and economy
+  action** (Issue #64, Implementer hat). 100% procedural Web Audio, no files, no
+  deps. Each tower now sounds like what it *does*: The Regular's light fork tink
+  (Fork Frenzy = rapid flurry, Carving Station = heavier shink); Big Appetite's
+  one big **wet chomp** (retired the old inhale-gulp); The Photographer's camera
+  **shutter + flash whine** (Long Exposure slow, Paparazzi a double-shutter
+  burst); The Milkshake Slurper's actual **straw slurp** (Extra Slurp deeper,
+  Silly Straw two gurgles); The Kids' Table's grabby-hand pats (Teenage Table
+  lower/bored, Birthday Party a party-horn accent). New signature events: Speed
+  Eater's crumb-scatter crunch and One Big Bite's comedic, distance-scaled
+  **ptooey** spit. Economy feedback: place = a chair-scoot, sell = a cash-register
+  cha-ching (was the build blip). Everything routes through a shared limiter and
+  repeat-heavy events are throttled, so a full board can't clip or machine-gun.
+  Audio uses a LOCAL rng (never the global) so the seeded smoke runs stay
+  byte-identical. Audition the whole pass in the new
+  `tools/dev/harness.html?mode=sounds` sound board. No engine mechanics changed;
+  the difficulty gate is untouched (audio isn't loaded in the headless sim).
+
 ### Changed
 - **Tower evenness pass — path parity via delta magnitudes** (Issue #77, Stage 2).
   Two upgrade paths dominated their siblings on the survival gauge — **Fork Frenzy

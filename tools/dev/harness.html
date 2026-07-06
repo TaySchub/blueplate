@@ -20,7 +20,7 @@
        drives update()/render() itself, so fast-forward and stepping stay exact.
 
   URL params (all optional):
-    ?mode=sheet | smoke | play      auto-run that section on load
+    ?mode=sheet | smoke | play | sounds   auto-run that section on load
     &seed=1                         RNG seed (smoke always seeds; play seeds if given)
     &build=arrow,cannon,frost,arrow tower ids placed in slot order (default = the
                                     balance sim's reference board)
@@ -387,6 +387,72 @@
     render();
   }
 
+  /* ---------------- 4) Sound board (audio pass, Issue #64) ---------------- */
+  // The audio "contact sheet": every audio event with a play button. Buttons
+  // satisfy the AudioContext user-gesture rule; each click unlocks audio, clears
+  // the throttle so repeats always sound, then fires the event. 100% procedural
+  // Web Audio — no files. Audition the whole pass here in one review round.
+  function buildSoundBoard() {
+    const A = audio, ring = (fn) => { A.unlock(); A._last = {}; fn(); };
+    const rows = [
+      ["TOWER ATTACKS  (base + upgrade paths)", null],
+      ["The Regular — light fork tink", () => A.shoot("arrow", null)],
+      ["  Fork Frenzy — rapid fork flurry", () => A.shoot("arrow", "forkFrenzy")],
+      ["  Carving Station — heavier shink", () => A.shoot("arrow", "carvingStation")],
+      ["Big Appetite — ONE big wet CHOMP", () => A.shoot("cannon", null)],
+      ["The Photographer — shutter + flash", () => A.shoot("frost", null)],
+      ["  Long Exposure — slow, drawn-out shutter", () => A.shoot("frost", "longExposure")],
+      ["The Milkshake Slurper — straw slurp", () => A.shoot("sniper", null)],
+      ["  Extra Slurp — deeper gulp", () => A.shoot("sniper", "extraSlurp")],
+      ["  Silly Straw — two gurgling straws", () => A.shoot("sniper", "sillyStraw")],
+      ["The Kids' Table — grabby-hand pats", () => A.shoot("zap", null)],
+      ["  Teenage Table — lower, bored grabs", () => A.shoot("zap", "teenageTable")],
+      ["SIGNATURE EVENTS", null],
+      ["Speed Eater — crumb-scatter crunch", () => A.crumb()],
+      ["One Big Bite — ptooey (heavy dish, near)", () => A.knockback(0.6)],
+      ["One Big Bite — ptooey (light dish, far)", () => A.knockback(2)],
+      ["Paparazzi — double-shutter burst", () => { A.shoot("frost", "paparazzi"); A.doubleFreeze(); }],
+      ["Birthday Party — party-horn accent", () => A.fourthHand()],
+      ["ECONOMY", null],
+      ["Place — chair-scoot seating", () => A.place()],
+      ["Sell — cash-register cha-ching", () => A.sell()],
+      ["Build — confirm blip", () => A.build()],
+      ["Buy in shop — two-note", () => A.buy()],
+      ["Upgrade — order-up service bell", () => A.upgrade()],
+      ["Deny — nope", () => A.deny()],
+      ["Call wave", () => A.waveStart()],
+      ["COMBAT / RUN", null],
+      ["Bite hit (non-lethal)", () => A.hit()],
+      ["Kill — crunch + gulp", () => A.kill()],
+      ["Leak — wasted-meal trombone", () => A.leak()],
+      ["Shut down (lose)", () => A.lose()],
+    ];
+    const sec = document.createElement("section");
+    sec.id = "sounds-section";
+    sec.innerHTML = '<h2>4 · Sound board — audition the audio pass (#64)</h2>'
+      + '<p class="hint">Click any button to hear it. 100% procedural Web Audio, no files. '
+      + 'Everything routes through a shared limiter and repeat-heavy events are throttled.</p>';
+    const grid = document.createElement("div");
+    grid.style.cssText = "display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:6px;max-width:940px";
+    for (const [label, fn] of rows) {
+      if (!fn) {
+        const h = document.createElement("div");
+        h.textContent = label;
+        h.style.cssText = "grid-column:1/-1;margin-top:14px;font-weight:700;color:#8fd0ff;border-bottom:1px solid #2a3040;padding-bottom:3px";
+        grid.appendChild(h); continue;
+      }
+      const b = document.createElement("button");
+      b.textContent = "▶  " + label.trim();
+      b.style.cssText = "text-align:left;padding:8px 11px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis";
+      b.addEventListener("click", () => ring(fn));
+      grid.appendChild(b);
+    }
+    sec.appendChild(grid);
+    const firstH2 = [...document.body.children].find((el) => el.tagName === "H2");
+    document.body.insertBefore(sec, firstH2 || null);
+    sec.scrollIntoView();
+  }
+
   /* ---------------- boot ---------------- */
 
   window.addEventListener("DOMContentLoaded", () => {
@@ -413,6 +479,7 @@
     const mode = params.get("mode");
     if (mode === "sheet") document.getElementById("sheet-title").scrollIntoView();
     if (mode === "play") { startPlay(parseBuild(), params.get("map")); document.getElementById("play-title").scrollIntoView(); }
+    if (mode === "sounds") buildSoundBoard();
     if (mode === "smoke") {
       document.getElementById("smoke-title").scrollIntoView();
       const seed = parseInt(params.get("seed") || "1", 10) || 1;

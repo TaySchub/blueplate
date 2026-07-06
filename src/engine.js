@@ -12,8 +12,12 @@
    (tools/sim.mjs, or the harness before wiring) leaves these as no-ops.
    src/main.js points them at the real audio object + UI. */
 const FX = {
-  shoot(typeId) {}, hit() {}, kill() {}, leak() {}, upgrade() {}, build() {},
+  shoot(typeId, path) {}, hit() {}, kill() {}, leak() {}, upgrade() {}, build() {},
   deny() {}, waveStart() {}, buy() {}, win() {}, lose() {}, calledEarly(bonus) {},
+  // Signature + economy hooks added by the audio pass (Issue #64). No-op by
+  // default and side-effect-only — the headless sim runs them as no-ops, so the
+  // difficulty gauge can't move; src/main.js wires them to real sounds.
+  crumb() {}, knockback(scale) {}, doubleFreeze() {}, fourthHand() {}, place() {}, sell() {},
 };
 
 /* =========================================================================
@@ -261,7 +265,7 @@ function tryBuild(x, y) {
     slurpTargets: [], slurpShow: 0, slurpSoundTimer: 0,   // Milkshake Slurper's attached straw(s)
   });
   spawnRing(x, y, def.color, 34, 0.4);
-  FX.build();
+  FX.place();
 }
 
 /* Upgrade paths (data/balance.json → TOWER_BY_ID[type].upgrades). Each tower has
@@ -345,7 +349,7 @@ function sellTower(t) {
   if (game.selectedTower === t) game.selectedTower = null;
   spawnRing(t.x, t.y, COLOR.gold, 34, 0.4);
   spawnFloatText(t.x, t.y - 14, "+$" + refund + " refund", COLOR.gold);
-  FX.build();
+  FX.sell();
 }
 
 // The currency you'd earn right now for calling the wave early — full value the
@@ -468,7 +472,7 @@ function updateTowers(step) {
         t.slurpShow = 0.12;   // keep the straw(s) drawn between sips
         if (t.cdTimer <= 0) {
           for (const e of t.slurpTargets) fireProjectile(t, e); t.cdTimer = t.cooldown;
-          if (t.slurpSoundTimer <= 0) { FX.shoot("sniper"); t.slurpSoundTimer = 0.32; }   // ONE shared sip sound, not per-straw
+          if (t.slurpSoundTimer <= 0) { FX.shoot("sniper", t.upgradePath); t.slurpSoundTimer = 0.32; }   // ONE shared sip sound, not per-straw
         }
       }
       continue;
@@ -482,13 +486,14 @@ function updateTowers(step) {
       if (inRange.length) {
         for (let i = 0; i < t.maxTargets; i++) fireProjectile(t, inRange[i % inRange.length]);
         t.cdTimer = t.cooldown;
+        if (t.maxTargets > 3) FX.fourthHand();   // Birthday Party's party-horn accent (audio pass)
       }
     } else {
       const shots = t.freezeTargets || 1;   // Paparazzi t2: one flash freezes 2 dishes at once
       if (shots > 1) {
         // Mirror the multi branch: fire at the frontmost `shots` dishes (pile on if fewer).
         const inRange = game.enemies.filter((e) => distance(t, e) <= t.range).sort((a, b) => b.dist - a.dist);
-        if (inRange.length) { for (let i = 0; i < shots; i++) fireProjectile(t, inRange[i % inRange.length]); t.cdTimer = t.cooldown; }
+        if (inRange.length) { for (let i = 0; i < shots; i++) fireProjectile(t, inRange[i % inRange.length]); t.cdTimer = t.cooldown; FX.doubleFreeze(); }
       } else {
         const target = pickTarget(t);
         if (target) { fireProjectile(t, target); t.cdTimer = t.cooldown; }
@@ -515,6 +520,7 @@ function fireProjectile(t, target) {
         if (e !== target && distance({ x: tx, y: ty }, e) <= t.crumbRadius) applyDamage(e, t.crumbDamage);
       }
       spawnCrumbSplash(tx, ty, t.crumbRadius);
+      FX.crumb();
     }
     // One Big Bite t2 — knockback: a dish that SURVIVES the bite is spit backward
     // along the belt. Lighter dishes fly farther (radius as the mass proxy, factor
@@ -524,15 +530,16 @@ function fireProjectile(t, target) {
       const factor = Math.max(0.5, Math.min(2, (t.knockbackSizeRef || target.radius) / target.radius));
       target.dist = Math.max(0, target.dist - t.knockbackBase * factor);
       spawnKnockbackPuff(tx, ty);
+      FX.knockback(factor);   // comedic size-scaled ptooey spit (audio pass)
     }
-    FX.shoot(t.typeId);
+    FX.shoot(t.typeId, t.upgradePath);
     return;
   }
   // The Kids' Table grabs the dish right on the belt — a hand clenches on it.
   if (t.typeId === "zap") {
     applyDamage(target, t.damage);
     spawnGrabHand(target.x, target.y, target.radius);
-    FX.shoot(t.typeId);
+    FX.shoot(t.typeId, t.upgradePath);
     return;
   }
   // The Milkshake Slurper sips instantly up an attached straw (drawn by
@@ -551,7 +558,7 @@ function fireProjectile(t, target) {
       vx: Math.cos(ang) * speed, vy: Math.sin(ang) * speed,
       damage: t.damage, radius: 4, color: def.color, hits: [], maxHits: 2, life: 1.6,
     });
-    FX.shoot(t.typeId);
+    FX.shoot(t.typeId, t.upgradePath);
     return;
   }
   game.projectiles.push({
@@ -560,7 +567,7 @@ function fireProjectile(t, target) {
     damage: t.damage, radius: t.typeId === "cannon" ? 6 : 4, behavior: def.behavior, color: def.color,
     splash: t.splash, slowDur: t.slowDur, slowFactor: t.slowFactor, freezeDur: t.freezeDur,
   });
-  FX.shoot(t.typeId);
+  FX.shoot(t.typeId, t.upgradePath);
 }
 
 function moveProjectiles(step) {
