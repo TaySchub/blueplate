@@ -158,6 +158,22 @@
         "birthdayParty": { "name": "Birthday Party", "tiers": [ { "cost": 150, "cooldownMul": 0.78 }, { "cost": 250, "cooldownMul": 0.85, "maxTargetsAdd": 1, "damage": 5 } ] },
         "teenageTable":  { "name": "Teenage Table",  "tiers": [ { "cost": 150, "damage": 8, "range": 8 }, { "cost": 200, "damage": 8, "range": 8 } ] }
       }
+    },
+    "cook": {
+      "name": "The Short-Order Cook", "blurb": "Sears the 2 nearest dishes on a hot griddle — fast multi-hits (mid range)",
+      "cost": 300, "range": 110, "damage": 14, "cooldown": 0.6, "behavior": "multi", "maxTargets": 2,
+      "upgrades": {
+        "slingingHash":    { "name": "Slinging Hash",    "tiers": [ { "cost": 250, "cooldownMul": 0.8 }, { "cost": 550, "maxTargetsAdd": 1, "damage": 6 } ] },
+        "seasonedGriddle": { "name": "Seasoned Griddle", "tiers": [ { "cost": 250, "damage": 10 }, { "cost": 500, "damage": 8, "knockbackBase": 70, "knockbackSizeRef": 12, "knockbackChance": 0.5 } ] }
+      }
+    },
+    "eater": {
+      "name": "The Competitive Eater", "blurb": "Locks one dish and devours it — consecutive kills ramp bite speed (combo)",
+      "cost": 450, "range": 120, "damage": 12, "cooldown": 0.4, "behavior": "single", "comboCap": 4, "comboRamp": 0.18,
+      "upgrades": {
+        "waterDunk":  { "name": "Water Dunk",  "tiers": [ { "cost": 300, "cooldownMul": 0.78 }, { "cost": 550, "solomonSplit": true, "damage": 6 } ] },
+        "recordPace": { "name": "Record Pace", "tiers": [ { "cost": 300, "comboCapAdd": 3 }, { "cost": 550, "comboCapAdd": 2, "mustardBonus": 25 } ] }
+      }
     }
   },
   "waveGen": {

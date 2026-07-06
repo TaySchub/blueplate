@@ -99,14 +99,21 @@ The backlog is GitHub Issues — the single roadmap. Don't create a parallel one
 
 - **`src/data.js` — data merge:** `TOWER_ART`/`ENEMY_ART` (art-only) + `BAL`
   (balance.json) → `TOWER_TYPES`/`ENEMY_TYPES`; economy in `RULES`; `COLOR`.
+  `TOWER_ORDER` is the deck order — **7 towers** now (arrow, cannon, frost, sniper,
+  zap, **cook**, **eater**); adding a tower = a balance.json `towers` block + a
+  `TOWER_ART` color/glow + a `TOWER_ORDER` entry, then `gen_balance.py`.
 - **`src/engine.js` — waves:** `makeWave(n)`/`waveTypeWeights` (data-driven from
   `waveGen.typeWeights` + `typeUnlock`) · `getWave` (endless past `waveCount`) ·
   `buildSpawnQueue`.
 - **`src/engine.js` — combat:** `updateTowers()` (per-type firing incl. sniper
-  straw-lock + zap multi pile-on) · `fireProjectile()` (cannon/zap/sniper act
-  instantly; only arrow + frost shots travel) · `resolveHit()` ·
-  `applyDamage()` · `pickTarget()` (First/Last/Strong/Close) · `moveEnemies()`
-  (freeze → slow) · side effects via the `FX` hooks (wired in `src/main.js`).
+  straw-lock, zap multi pile-on, **eater** single lock-on + kill combo via
+  `eaterBiteCooldown` — Solomon double-half-hit + Mustard max-combo bounty bonus) ·
+  `fireProjectile()` (cannon/zap/sniper/**cook** act instantly; only arrow + frost
+  shots travel — the cook is behavior `"multi"` and sears each target, with the
+  Order Up `knockbackChance` roll) · `resolveHit()` · `applyDamage()` ·
+  `pickTarget()` (First/Last/Strong/Close) · `moveEnemies()` (freeze → slow) · side
+  effects via the `FX` hooks (wired in `src/main.js`). **New tower branches never
+  enter the sim's reference build, so they consume no gate RNG.**
 - **`src/engine.js` — run loop & economy (ENDLESS — no "won" phase, Issue #75):**
   `startRun` · `startNextWave` · `checkWaveEnd` (always advances — clearing a
   wave never wins; arms auto-start) · `endRun` (defeat only; records
@@ -153,29 +160,37 @@ The backlog is GitHub Issues — the single roadmap. Don't create a parallel one
   path (locks the other) and applies a tier's deltas via `applyUpgradeDeltas`
   (stat keys + signature flags: `pierce`, `crumbRadius`/`crumbDamage`,
   `knockbackBase`/`knockbackSizeRef`, `freezeTargets`/`drainTargets`,
-  `maxTargetsAdd`). The headless sim's reference player buys along a fixed
+  `maxTargetsAdd`, plus Roster Growth 1's `knockbackChance` (cook Order Up),
+  `comboCapAdd`/`solomonSplit`/`mustardBonus` (eater)). The headless sim's reference player buys along a fixed
   `SIM_PATHS` path. Rework tracked in pinned Issue #54. `sellTower(t)` refunds
   `floor(RULES.sellRefund × t.spent)` (spend tracked per tower: base + tiers)
   and frees the floor; the scripted sims never sell.
 - **`src/art.js`:** `drawCustomer()` → `drawRegular`/`drawBigAppetite`/
-  `drawPhotographer`/`drawMilkshakeSlurper`/`drawKidsTable` · `drawFood()` +
+  `drawPhotographer`/`drawMilkshakeSlurper`/`drawKidsTable`/**`drawShortOrderCook`**
+  (a griddle station, not a seated diner)/**`drawCompetitiveEater`** · `drawFood()` +
   `drawFoodBites`/`BITE_SPOTS` · shared helpers `drawFace`/`drawLimb`/
   `fillCircle`/`roundRect`/`drawSpark4`.
 - **`src/render.js`:** `render()` · `drawToolbar`/`drawHUD`/
   `drawSelectedTowerPanel` + `towerPanel()` (geometry shared with input
   hit-testing) · scene draws (`drawPath`/`drawCore`/`drawEnemies`/
-  `drawTowers`/`drawSlurpStraws`/`drawObstacles`) · `drawPlacementGhost`
+  `drawTowers`/`drawSlurpStraws`/`drawEaterBites` (eater chomp marker + combo tag)/`drawObstacles`) · `drawPlacementGhost`
   (replaced `drawSlots`: pointer-follow build ghost + range preview,
   green/red by `canPlace` + affordability). Scene surfaces (floor/belt/kitchen/
   chute) read the active map's `THEME`, so a reskin is JSON-only; the hub
   `MAP_BTN` map picker (drawMenu) cycles `MAPS`. Pause menu `drawPausedOverlay` +
   `pauseMenuRects` (auto-start segmented row / Resume / Save & Quit, board-space,
   shared draw+hit geometry); hub `RESUME_RUN_BTN` "Continue — Wave N" (drawMenu,
-  shown when `hasSave()`, Issue #83).
+  shown when `hasSave()`, Issue #83). **Scrolling rail (Roster Growth 1):**
+  `railLayout`/`railCardRect` (scroll-aware, ONE source for draw + hit-test),
+  `drawRail` (clip to zone + edge fades + scroll thumb), and the input helpers
+  `railScrollable`/`railDragTo`/`railWheel` (`railScroll` owned here).
 - **`src/main.js`:** boot · `setupInput` · `startGameLoop` (fixed timestep) ·
   the FX wiring. Pause-menu + hub-Continue hit-testing route to `restoreRun`; the
   `pagehide`/`visibilitychange→hidden` listeners auto-pause on mobile (Issue #83 —
-  the checkpoint is already on disk, so no unload save write is needed).
+  the checkpoint is already on disk, so no unload save write is needed). The rail
+  is a **drag-or-tap**: a press in the card zone starts `railDrag`; `onMove` scrolls
+  past an 8px threshold; `onUp` selects only if it did not scroll (so a swipe never
+  mis-fires a build). Wheel over the rail scrolls on desktop.
 - **`src/audio.js`:** the `audio` object (`voice`/`noiseBurst`/`env` +
   per-event effects) — touch only on a dedicated audio branch.
 

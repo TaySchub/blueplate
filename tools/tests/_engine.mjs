@@ -34,7 +34,7 @@ export function loadEngine() {
        game, startRun, startNextWave, checkWaveEnd, endRun, tryBuild, tryUpgrade, sellTower, setTargeting,
        fireProjectile, moveProjectiles, update, applyDamage, moveEnemies,
        applyUpgradeDeltas, towerPaths, nextTier, updateTowers, TOWER_BY_ID, ENEMY_TYPES, RULES, canPlace, distance,
-       loadMap, MAPS, pointAtDistance,
+       loadMap, MAPS, pointAtDistance, eaterBiteCooldown,
        // META accessor for the auto-start test (META is a let binding, so a
        // plain property would capture a stale reference).
        getMeta() { return META; },

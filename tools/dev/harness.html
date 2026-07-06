@@ -61,7 +61,7 @@
 <h2 id="sheet-title">1 · Contact sheet — screenshot this for art PRs</h2>
 <p class="hint">Drawn by the real drawCustomer()/drawFood(). Rows: customers by tiers bought (bib at tier 1, sparkle at tier 2), attack fx where one exists, toolbar size (r=8); The Regular's upgrade-path fork escalation; food fresh / ¾HP / ½HP / hurt-flash / true belt size. Self-check against <code>docs/ART_STYLE.md</code> before requesting review.</p>
 <button id="redraw-sheet">Redraw sheet</button>
-<canvas id="sheet-canvas" width="800" height="1800"></canvas>
+<canvas id="sheet-canvas" width="800" height="2080"></canvas>
 
 <!-- ============ 2) SMOKE RUN ============ -->
 <h2 id="smoke-title">2 · Smoke run — paste the JSON in gameplay PRs</h2>
@@ -249,8 +249,42 @@
     ];
     ktStates.forEach((st, i) => drawCustomer(ctx, "zap", ktCols[i], ktY + 92, 17, TOWER_BY_ID.zap.color, st));
 
+    // --- The Short-Order Cook (Roster Growth 1) — a STATION with a person ---
+    // Slinging Hash grows the spatula (Rush Ticket = 3 sears); Seasoned Griddle
+    // runs the griddle hotter (Order Up = a chance to spatula-fling a dish back).
+    const ckY = 1290;
+    title("THE SHORT-ORDER COOK — upgrade paths (bigger spatula on Slinging Hash; hotter griddle on Seasoned Griddle)", ckY);
+    const ckCols = [130, 290, 450, 600, 730];
+    const ckHead = ["base", "Slinging Hash 1", "Rush Ticket 2", "Seasoned Griddle 1", "Order Up 2"];
+    ckCols.forEach((x, i) => label(ckHead[i], x, ckY + 22));
+    const ckStates = [
+      { level: 1 },
+      { level: 2, path: "slingingHash", tier: 1 },
+      { level: 3, path: "slingingHash", tier: 2 },
+      { level: 2, path: "seasonedGriddle", tier: 1 },
+      { level: 3, path: "seasonedGriddle", tier: 2 },
+    ];
+    ckStates.forEach((st, i) => drawCustomer(ctx, "cook", ckCols[i], ckY + 92, 17, TOWER_BY_ID.cook.color, st));
+
+    // --- The Competitive Eater (Roster Growth 1) — Slurper-derived table dressing ---
+    // Water Dunk grows the water cup (Solomon Method splits each bite); Record Pace
+    // raises the combo ceiling (Mustard Belt = a champion's buckle + bounty bonus).
+    const ceY = 1440;
+    title("THE COMPETITIVE EATER — upgrade paths (bigger cup on Water Dunk; belt buckle on Record Pace)", ceY);
+    const ceCols = [130, 290, 450, 600, 730];
+    const ceHead = ["base", "Water Dunk 1", "Solomon 2", "Record Pace 1", "Mustard Belt 2"];
+    ceCols.forEach((x, i) => label(ceHead[i], x, ceY + 22));
+    const ceStates = [
+      { level: 1 },
+      { level: 2, path: "waterDunk", tier: 1 },
+      { level: 3, path: "waterDunk", tier: 2 },
+      { level: 2, path: "recordPace", tier: 1 },
+      { level: 3, path: "recordPace", tier: 2 },
+    ];
+    ceStates.forEach((st, i) => drawCustomer(ctx, "eater", ceCols[i], ceY + 92, 17, TOWER_BY_ID.eater.color, st));
+
     // --- Foods: one row each; cols fresh, ¾HP, ½HP, hurt, true belt size ---
-    const fy = 1350;
+    const fy = 1590;
     title("FOODS — fresh · ¾HP bite · ½HP bite · hurt flash · TRUE size on belt", fy - 26);
     const foodCols = [200, 320, 440, 560, 700];
     const foodHead = ["fresh", "¾ HP", "½ HP", "hurt", "true size"];

@@ -39,14 +39,39 @@ const MAP_BTN = { x: 24, y: 390, w: 196, h: 54 };   // hub map picker, bottom-le
 // board hit-tests apply the inverse of the board translate through this.
 function boardPtr() { return { x: game.pointer.x - BOARD.x, y: game.pointer.y - BOARD.y }; }
 
-// One tower card in the left rail — stacked below the mute/pause row and centered
-// in the remaining height so 4 or 5 unlocked towers both sit tidily. Single
-// source shared by draw + hit-testing.
+const RAIL_BOTTOM = 6;   // gap below the last rail card
+
+// Scroll state for the rail (Roster Growth 1): the roster grows past the 5 cards
+// the rail fits (7 today, ~12 later), so it becomes a scroll list. `railScroll` is
+// px scrolled from the top; it's clamped whenever the layout is read.
+let railScroll = 0;
+// Rail layout math — ONE source shared by draw + hit-testing (the cardRect
+// discipline). Fits → centered (original behavior); overflows → top-aligned and
+// offset by railScroll.
+function railLayout(n) {
+  const zoneTop = RAIL_TOP, zoneH = DESIGN.h - RAIL_TOP - RAIL_BOTTOM;
+  const step = RAIL_CARD.h + RAIL_CARD.gap;
+  const contentH = n * RAIL_CARD.h + (n - 1) * RAIL_CARD.gap;
+  return { zoneTop, zoneH, zoneBottom: zoneTop + zoneH, step, contentH,
+           scrollable: contentH > zoneH, maxScroll: Math.max(0, contentH - zoneH) };
+}
+function clampRailScroll(n) {
+  railScroll = Math.max(0, Math.min(railScroll, railLayout(n).maxScroll));
+}
+// Input-facing scroll helpers (called from src/main.js). railScroll is owned here.
+function railScrollable() { return railLayout(deckTypes().length).scrollable; }
+function railDragTo(startScroll, deltaY) { railScroll = startScroll - deltaY; clampRailScroll(deckTypes().length); }
+function railWheel(deltaY) { railScroll += deltaY; clampRailScroll(deckTypes().length); }
+// One tower card in the left rail. Single source shared by draw + hit-testing +
+// the touch-target audit; applies the scroll offset once the deck overflows.
 function railCardRect(i, n) {
-  const zoneH = DESIGN.h - RAIL_TOP - 6;
-  const totalH = n * RAIL_CARD.h + (n - 1) * RAIL_CARD.gap;
-  const y0 = RAIL_TOP + Math.max(0, (zoneH - totalH) / 2);
-  return { x: 8, y: y0 + i * (RAIL_CARD.h + RAIL_CARD.gap), w: RAIL_CARD.w, h: RAIL_CARD.h };
+  const L = railLayout(n);
+  if (!L.scrollable) {
+    const y0 = L.zoneTop + Math.max(0, (L.zoneH - L.contentH) / 2);
+    return { x: 8, y: y0 + i * L.step, w: RAIL_CARD.w, h: RAIL_CARD.h };
+  }
+  clampRailScroll(n);
+  return { x: 8, y: L.zoneTop - railScroll + i * L.step, w: RAIL_CARD.w, h: RAIL_CARD.h };
 }
 // Mute + pause live in the rail top during a run; the menu keeps mute at the
 // canvas top-right (there's no rail on the hub). Rects shared by draw + input.
@@ -110,6 +135,7 @@ function render() {
   drawEnemies(ctx);
   drawProjectiles(ctx);
   drawSlurpStraws(ctx);
+  drawEaterBites(ctx);
   drawTowers(ctx);
   drawParticles(ctx);
   drawPlacementGhost(ctx);
@@ -623,6 +649,36 @@ function drawSlurpStraws(ctx) {
   }
 }
 
+// The Competitive Eater's on-belt read: a pulsing green "chomp" bracket on its
+// locked dish while it's biting, plus a small combo tag over the tower when a
+// streak is building (the combo is tower state, mirroring the slurp visual).
+function drawEaterBites(ctx) {
+  for (const t of game.towers) {
+    if (t.typeId !== "eater") continue;
+    if (t.slurpShow > 0) {
+      const pulse = 0.5 + 0.5 * Math.sin(game.elapsed * 22);
+      for (const tgt of (t.slurpTargets || [])) {
+        if (!game.enemies.includes(tgt)) continue;
+        const pr = (tgt.radius || 10) + 4;
+        ctx.strokeStyle = "#0b0e14"; ctx.lineWidth = 4; ctx.lineCap = "round";
+        ctx.beginPath(); ctx.arc(tgt.x, tgt.y, pr, -0.9 - pulse * 0.35, -0.05 + pulse * 0.35); ctx.stroke();
+        ctx.beginPath(); ctx.arc(tgt.x, tgt.y, pr, Math.PI - 0.9 - pulse * 0.35, Math.PI - 0.05 + pulse * 0.35); ctx.stroke();
+        ctx.strokeStyle = "#8cc152"; ctx.lineWidth = 2.2;
+        ctx.beginPath(); ctx.arc(tgt.x, tgt.y, pr, -0.9 - pulse * 0.35, -0.05 + pulse * 0.35); ctx.stroke();
+        ctx.beginPath(); ctx.arc(tgt.x, tgt.y, pr, Math.PI - 0.9 - pulse * 0.35, Math.PI - 0.05 + pulse * 0.35); ctx.stroke();
+      }
+    }
+    if (t.combo > 1) {
+      const ty = t.y - 30;
+      ctx.font = "bold 11px system-ui, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      const label = "×" + t.combo, w = ctx.measureText(label).width + 10;
+      ctx.fillStyle = "rgba(11,14,20,0.72)"; roundRect(ctx, t.x - w / 2, ty - 8, w, 16, 8); ctx.fill();
+      ctx.fillStyle = t.combo >= t.comboCap ? "#ffcf4a" : "#8cc152"; ctx.fillText(label, t.x, ty);
+      ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+    }
+  }
+}
+
 function drawTowers(ctx) {
   for (const t of game.towers) {
     const def = TOWER_BY_ID[t.typeId];
@@ -709,9 +765,27 @@ function drawRail(ctx) {
   ctx.strokeStyle = COLOR.ctrlLine; ctx.lineWidth = 1;
   ctx.beginPath(); ctx.moveTo(RAIL.w - 0.5, 0); ctx.lineTo(RAIL.w - 0.5, DESIGN.h); ctx.stroke();
   const deck = deckTypes();
+  const L = railLayout(deck.length);
+  clampRailScroll(deck.length);
+  // Clip the card list to the rail zone so scrolled cards don't spill over the
+  // pause/mute row above or the canvas edge below.
+  ctx.save();
+  ctx.beginPath(); ctx.rect(0, L.zoneTop, RAIL.w, L.zoneH); ctx.clip();
   for (let i = 0; i < deck.length; i++) {
     const def = deck[i], r = railCardRect(i, deck.length);
+    if (r.y + r.h < L.zoneTop || r.y > L.zoneBottom) continue;   // fully scrolled off → skip
     drawDeckCard(ctx, r, def, game.selectedType === def.id, inRect(game.pointer, r), game.currency >= def.cost, 15);
+  }
+  ctx.restore();
+  if (L.scrollable) {
+    // Edge fades: a soft cue that there's more above / below.
+    if (railScroll > 1) { const g = ctx.createLinearGradient(0, L.zoneTop, 0, L.zoneTop + 18); g.addColorStop(0, COLOR.railBg); g.addColorStop(1, "rgba(18,22,31,0)"); ctx.fillStyle = g; ctx.fillRect(0, L.zoneTop, RAIL.w - 1, 18); }
+    if (railScroll < L.maxScroll - 1) { const g = ctx.createLinearGradient(0, L.zoneBottom - 18, 0, L.zoneBottom); g.addColorStop(0, "rgba(18,22,31,0)"); g.addColorStop(1, COLOR.railBg); ctx.fillStyle = g; ctx.fillRect(0, L.zoneBottom - 18, RAIL.w - 1, 18); }
+    // Scroll indicator: a thin track + a proportional thumb on the rail's edge.
+    const trackX = RAIL.w - 5, thumbH = Math.max(24, L.zoneH * (L.zoneH / L.contentH));
+    const thumbY = L.zoneTop + (L.zoneH - thumbH) * (L.maxScroll ? railScroll / L.maxScroll : 0);
+    ctx.fillStyle = "rgba(255,255,255,0.08)"; roundRect(ctx, trackX, L.zoneTop, 3, L.zoneH, 1.5); ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,0.32)"; roundRect(ctx, trackX, thumbY, 3, thumbH, 1.5); ctx.fill();
   }
 }
 
