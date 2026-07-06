@@ -570,8 +570,11 @@ function drawMilkshakeSlurper(ctx, cx, cy, r, color, opts) {
 // not yet redesigned. `firing` triggers per-tower attack flourishes (later pass).
 // One little kid in the huddle: yellow shirt, party hat, excited grin, arms up.
 function drawKid(ctx, kx, ky, kr, shirt, hatColor, armsUp, teen = 0) {
-  // Teenage Table stretches each kid into a lanky teen: taller torso + hat, longer arms.
-  const bodyBot = ky + kr * (1.7 + teen * 0.5), armEnd = ky - kr * (0.28 + teen * 0.55), hatApex = ky - kr * (2.05 + teen * 0.6);
+  // Teenage Table stretches each kid into a lanky teen: a touch taller torso + hat,
+  // longer arms. The stretch is deliberately gentle — enough to read "the kids grew
+  // up" without letting a tier-2 huddle dwarf its neighbors or overhang the booth pad
+  // (Issue #82; the old 0.5/0.55/0.6 coefficients made it ~2x every other tower).
+  const bodyBot = ky + kr * (1.7 + teen * 0.08), armEnd = ky - kr * (0.28 + teen * 0.12), hatApex = ky - kr * (2.05 + teen * 0.09);
   ctx.fillStyle = shirt; ctx.strokeStyle = MDARK; ctx.lineWidth = 1.8; ctx.lineJoin = "round";
   ctx.beginPath();
   ctx.moveTo(kx - kr * 0.92, bodyBot);
@@ -607,7 +610,7 @@ function drawKidsTable(ctx, cx, cy, r, color, opts) {
   // Teenage Table grows the whole huddle into teenagers; Birthday Party t2 seats a 4th kid.
   const teenTier = opts.path === "teenageTable" ? (opts.tier || 0) : 0;
   const partyTier = opts.path === "birthdayParty" ? (opts.tier || 0) : 0;
-  const s = 1 + teenTier * 0.2;   // the whole huddle scales up as they become teens
+  const s = 1 + teenTier * 0.03;  // teens are only a touch bigger — the lanky stretch (not raw scale) sells the age, so the huddle stays within the 42px booth pad (Issue #82)
   drawKid(ctx, cx, cy - r * 0.16, r * 0.5 * s, shirt, color, true, teenTier);              // back-center kid
   drawKid(ctx, cx - r * 0.64, cy + r * 0.34, r * 0.46 * s, shirt, "#ff6bd0", false, teenTier);  // front-left (pink hat)
   drawKid(ctx, cx + r * 0.64, cy + r * 0.34, r * 0.46 * s, shirt, "#7fe0ff", true, teenTier);   // front-right (cyan hat)
