@@ -19,6 +19,25 @@ Format is deliberately simple and plain-language.
   difficulty gate is byte-identical (blueplate survival@30 50.5%, seed 1/200).
 
 ### Added
+- **Save & Continue — resume a run at its wave start, even after closing the tab**
+  (Issue #83, Implementer hat). A run now checkpoints the START of the round you're
+  in — never a mid-wave snapshot. The checkpoint (map, wave, Tips, Health, and each
+  tower's type/position/committed path/tier/targeting) is written when you enter
+  prep, after every prep change (build / upgrade / sell / targeting), and frozen
+  the instant you call the wave — so a phone locked or a tab hard-closed **mid-wave**
+  already has its wave-start save on disk (no unload-handler heroics). The hub shows
+  a green **"Continue — Wave N"** (with the saved map's name) when a save exists;
+  the pause menu gains **Resume** and **"Save & Quit — resumes at wave start"**;
+  "Open for Service" starts fresh and says "(discards your saved run)". Restore
+  rebuilds the board through the real build/upgrade code paths, so `spent` and every
+  tier-2 signature flag reconstruct themselves, and parks prep past the early-call
+  window so the bonus can't be earned twice for the same wave. Defeat clears the
+  save; a version-mismatched or corrupt save is discarded silently. On iOS the
+  `pagehide` / `visibilitychange` events auto-pause a backgrounded run. Purely
+  additive to the engine and RNG-free: the difficulty gauge is byte-identical
+  (blueplate survival@30 50.5%, seed 1/200) and the seeded smokes are unchanged.
+  Covered by `tools/tests/save.test.mjs` (roundtrip + signature-flag rebuild +
+  defeat-clears + version-mismatch discard).
 - **Audio pass — bespoke sounds for every tower, upgrade signature, and economy
   action** (Issue #64, Implementer hat). 100% procedural Web Audio, no files, no
   deps. Each tower now sounds like what it *does*: The Regular's light fork tink

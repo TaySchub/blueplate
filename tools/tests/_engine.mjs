@@ -17,15 +17,26 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
 export function loadEngine() {
   globalThis.window = { BALANCE: JSON.parse(readFileSync(join(ROOT, "data", "balance.json"), "utf8")) };
-  globalThis.localStorage = { getItem: () => null, setItem: () => {} };
+  // A FUNCTIONAL in-memory localStorage (not the no-op stub) so the save-and-
+  // continue roundtrip test can checkpoint -> restore through the real serialize/
+  // read path. Existing mechanic tests never touch storage, so they're unaffected.
+  const __store = new Map();
+  globalThis.localStorage = {
+    getItem: (k) => (__store.has(k) ? __store.get(k) : null),
+    setItem: (k, v) => __store.set(k, String(v)),
+    removeItem: (k) => __store.delete(k),
+  };
   // The epilogue is concatenated INTO the bundle so it shares lexical scope with
   // the engine's top-level const/function declarations (same trick as sim.mjs).
   const bundle =
     ["src/data.js", "src/engine.js"].map((f) => readFileSync(join(ROOT, f), "utf8")).join("\n;\n") +
     `\n;globalThis.__ENGINE = {
-       game, startRun, tryBuild, tryUpgrade, sellTower, fireProjectile, moveProjectiles, update,
+       game, startRun, startNextWave, checkWaveEnd, endRun, tryBuild, tryUpgrade, sellTower, setTargeting,
+       fireProjectile, moveProjectiles, update,
        applyUpgradeDeltas, towerPaths, nextTier, updateTowers, TOWER_BY_ID, RULES, canPlace, distance,
        loadMap, MAPS, pointAtDistance,
+       // Save & Continue (Issue #83) — the checkpoint subsystem the roundtrip test drives.
+       serializeRun, saveCheckpoint, restoreRun, readSave, clearSave, hasSave,
        // reset() MUST set lives — at 0 lives checkLoss() flips the phase to "lost"
        // on the first update() tick and silently freezes all movement (bit two PR-2
        // review probes). Also give sane currency + a clean wave so update()-driven

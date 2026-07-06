@@ -27,8 +27,12 @@ const START_BTN = { x: 466, y: 388, w: 214, h: 56 };   // "Send/Call Wave", seat
 const RAIL_CARD = { w: RAIL.w - 16, h: 58, gap: 6 };   // vertical tower-deck cards filling the left rail
 const RAIL_TOP = 128;                                  // rail card zone start (below the stacked pause/mute)
 const SHEET_X = DESIGN.w - SHEET.w;                    // left edge of the slide-in upgrade sheet
-const CONTINUE_BTN = { x: DESIGN.w / 2 - 100, y: DESIGN.h / 2 + 40, w: 200, h: 54 };
+const CONTINUE_BTN = { x: DESIGN.w / 2 - 100, y: DESIGN.h / 2 + 40, w: 200, h: 54 };   // run-summary → hub
 const PLAY_BTN = { x: DESIGN.w / 2 - 110, y: 388, w: 220, h: 56 };
+// Hub "Continue — Wave N": resume the saved run, shown above Open for Service
+// only when a checkpoint exists (Issue #83). 56px tall so it clears 44 CSS px at
+// ~844x390 phone scale (canvas ~756 CSS, scale ~0.84 -> 56*0.84 = 47 CSS).
+const RESUME_RUN_BTN = { x: DESIGN.w / 2 - 130, y: 298, w: 260, h: 56 };
 const MAP_BTN = { x: 24, y: 390, w: 196, h: 54 };   // hub map picker, bottom-left (shown only with 2+ maps)
 
 // game.pointer is DESIGN coords (main.js maps client->design). Board hovers and
@@ -282,6 +286,23 @@ function drawMenu(ctx) {
     ctx.textBaseline = "alphabetic"; ctx.textAlign = "left";
   }
 
+  // Continue — resume the saved run at its wave start (Issue #83). Shown above
+  // "Open for Service" only when a checkpoint exists; the saved map's name rides
+  // the label so it's clear which run you're resuming.
+  const save = hasSave();
+  if (save) {
+    const cHover = inRect(game.pointer, RESUME_RUN_BTN);
+    ctx.fillStyle = cHover ? COLOR.good : "#1f6b3f";
+    roundRect(ctx, RESUME_RUN_BTN.x, RESUME_RUN_BTN.y, RESUME_RUN_BTN.w, RESUME_RUN_BTN.h, 10); ctx.fill();
+    const mapName = (MAPS.find((m) => m.id === save.mapId) || {}).name || "";
+    ctx.fillStyle = COLOR.ink; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.font = "bold 16px system-ui, sans-serif";
+    ctx.fillText("▶  Continue — Wave " + (save.waveIndex + 1), DESIGN.w / 2, RESUME_RUN_BTN.y + RESUME_RUN_BTN.h / 2 - 8);
+    ctx.font = "11px system-ui, sans-serif"; ctx.fillStyle = "rgba(235,240,245,0.75)";
+    ctx.fillText(mapName, DESIGN.w / 2, RESUME_RUN_BTN.y + RESUME_RUN_BTN.h / 2 + 10);
+    ctx.textBaseline = "alphabetic"; ctx.textAlign = "left";
+  }
+
   // Play button.
   const hover = inRect(game.pointer, PLAY_BTN);
   ctx.fillStyle = hover ? COLOR.core : "#2b3f66";
@@ -289,6 +310,11 @@ function drawMenu(ctx) {
   ctx.fillStyle = COLOR.ink; ctx.font = "bold 18px system-ui, sans-serif";
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
   ctx.fillText("▶  Open for Service", DESIGN.w / 2, PLAY_BTN.y + PLAY_BTN.h / 2);
+  // When a save exists, make it explicit that starting fresh drops it.
+  if (save) {
+    ctx.textBaseline = "alphabetic"; ctx.font = "10px system-ui, sans-serif"; ctx.fillStyle = COLOR.muted;
+    ctx.fillText("(discards your saved run)", DESIGN.w / 2, PLAY_BTN.y - 6);
+  }
   ctx.textBaseline = "alphabetic"; ctx.textAlign = "left";
 }
 
@@ -927,15 +953,43 @@ function drawPauseButton(ctx) {
   }
 }
 
-// Full-board dim + label while paused. Drawn under the toolbar/HUD so the
-// interactive UI stays bright — seating and upgrading work while paused.
+// Pause-menu geometry (BOARD space — hit-tested with boardPtr in main.js). One
+// source shared by draw + input. Button rows are 54 design px so each clears 44
+// CSS px at ~844x390 phone scale (Issue #79 touch bar).
+function pauseMenuRects() {
+  const w = 300, h = 196, x = (VIEW.w - w) / 2, y = 92;   // sits in the upper play area, clear of the apron (y=384)
+  const bx = x + 24, bw = w - 48;
+  return {
+    panel: { x, y, w, h },
+    resume: { x: bx, y: y + 62, w: bw, h: 54 },
+    saveQuit: { x: bx, y: y + 126, w: bw, h: 54 },
+  };
+}
+
+// Full-board dim + a centered pause menu. Drawn under the toolbar/HUD so the rail
+// and sheet stay bright — you can still seat & upgrade while paused. The menu adds
+// Resume and an honestly-labelled "Save & Quit" (Issue #83).
 function drawPausedOverlay(ctx) {
-  ctx.fillStyle = "rgba(8,10,15,0.45)"; ctx.fillRect(0, 0, VIEW.w, LOWER_Y);
+  ctx.fillStyle = "rgba(8,10,15,0.55)"; ctx.fillRect(0, 0, VIEW.w, LOWER_Y);
+  const m = pauseMenuRects();
+  // Panel.
+  ctx.fillStyle = "rgba(18,22,30,0.97)"; roundRect(ctx, m.panel.x, m.panel.y, m.panel.w, m.panel.h, 12); ctx.fill();
+  ctx.strokeStyle = COLOR.ctrlLineHi; ctx.lineWidth = 1.5; roundRect(ctx, m.panel.x, m.panel.y, m.panel.w, m.panel.h, 12); ctx.stroke();
   ctx.textAlign = "center";
-  ctx.fillStyle = COLOR.ink; ctx.font = "bold 26px system-ui, sans-serif";
-  ctx.fillText("PAUSED", VIEW.w / 2, VIEW.h / 2 - 40);
-  ctx.fillStyle = COLOR.muted; ctx.font = "13px system-ui, sans-serif";
-  ctx.fillText("P / Space or tap ▶ to resume — you can still seat & upgrade", VIEW.w / 2, VIEW.h / 2 - 18);
-  ctx.textAlign = "left";
+  ctx.fillStyle = COLOR.ink; ctx.font = "bold 24px system-ui, sans-serif";
+  ctx.fillText("Paused", VIEW.w / 2, m.panel.y + 38);
+  // Resume (green).
+  const rHover = inRect(boardPtr(), m.resume);
+  ctx.fillStyle = rHover ? COLOR.good : "#1f6b3f"; roundRect(ctx, m.resume.x, m.resume.y, m.resume.w, m.resume.h, 9); ctx.fill();
+  ctx.fillStyle = COLOR.ink; ctx.font = "bold 17px system-ui, sans-serif"; ctx.textBaseline = "middle";
+  ctx.fillText("▶  Resume", VIEW.w / 2, m.resume.y + m.resume.h / 2);
+  // Save & Quit (honest label: it resumes at wave start).
+  const sHover = inRect(boardPtr(), m.saveQuit);
+  ctx.fillStyle = sHover ? COLOR.core : "#2b3f66"; roundRect(ctx, m.saveQuit.x, m.saveQuit.y, m.saveQuit.w, m.saveQuit.h, 9); ctx.fill();
+  ctx.fillStyle = COLOR.ink; ctx.font = "bold 15px system-ui, sans-serif";
+  ctx.fillText("Save & Quit", VIEW.w / 2, m.saveQuit.y + m.saveQuit.h / 2 - 7);
+  ctx.fillStyle = COLOR.parchment || COLOR.muted; ctx.font = "10px system-ui, sans-serif";
+  ctx.fillText("resumes at wave start", VIEW.w / 2, m.saveQuit.y + m.saveQuit.h / 2 + 11);
+  ctx.textBaseline = "alphabetic"; ctx.textAlign = "left";
 }
 

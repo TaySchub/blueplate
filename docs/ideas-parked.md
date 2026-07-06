@@ -21,3 +21,11 @@ real feature Issue; these later restaurants are parked here as concepts only:
   variant. Parked: a later map layout, out of the current single-map v1 scope.
 - **2026-07-03 — Buffet.** A **multi-lane** map (food comes down several belts at
   once). Parked: multi-lane is a bigger engine + balance change; well beyond v1.
+
+### Core mechanics (parked, not scrapped)
+
+- **Deck & hand (the original Hook, Issue #8) — parked 2026-07-06 by the developer:**
+  with a 5-tower roster a dealt hand is denial-RNG without deckbuilding upside;
+  identity has landed on board craft. Revisit if the roster grows past ~8, likely
+  as a run-start draft. GAME_BRIEF deckbuilder language intentionally intact
+  (parked ≠ scrapped).

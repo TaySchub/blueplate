@@ -40,6 +40,10 @@ window.__uiRects = function () {
   add("sell", sh.sell.rect); add("sheet close X", sh.close);
   add("start wave", { x: START_BTN.x + BOARD.x, y: START_BTN.y, w: START_BTN.w, h: START_BTN.h });
   add("hub: play", PLAY_BTN); add("hub: map picker", MAP_BTN);
+  add("hub: continue", RESUME_RUN_BTN);   // Save & Continue (Issue #83)
+  const pm = pauseMenuRects();             // board-space → shift by BOARD.x for the CSS audit
+  add("pause: resume", { x: pm.resume.x + BOARD.x, y: pm.resume.y, w: pm.resume.w, h: pm.resume.h });
+  add("pause: save & quit", { x: pm.saveQuit.x + BOARD.x, y: pm.saveQuit.y, w: pm.saveQuit.w, h: pm.saveQuit.h });
   shopButtonRects().forEach((b, i) => add("hub: shop " + (i + 1), b.rect));
   for (let i = 0; i < 5; i++) add("hub card " + (i + 1), hubCardRect(i));
   if (console.table) console.table(rows);
@@ -82,8 +86,20 @@ function setupInput(canvas) {
     if (inRect(p, muteBtnRect())) { audio.muted = !audio.muted; return; }
     if ((game.phase === "prep" || game.phase === "wave") && inRect(p, pauseBtnRect())) { togglePause(); return; }
 
+    // Pause menu (board space) — active only while paused: Resume, or Save & Quit
+    // (returns to the hub; the checkpoint is already on disk). Swallow taps elsewhere
+    // on the panel so they don't fall through to the board behind it (Issue #83).
+    if (gamePaused && (game.phase === "prep" || game.phase === "wave")) {
+      const pm = pauseMenuRects();
+      if (inRect(b, pm.resume)) { gamePaused = false; audio.build(); return; }
+      if (inRect(b, pm.saveQuit)) { gamePaused = false; game.phase = "menu"; audio.build(); return; }
+      if (inRect(b, pm.panel)) return;
+    }
+
     // Hub / menu (design space).
     if (game.phase === "menu") {
+      // Continue — resume the saved run (checked first so nothing shadows it).
+      if (hasSave() && inRect(p, RESUME_RUN_BTN)) { if (restoreRun()) gamePaused = false; return; }
       for (const s of shopButtonRects()) if (inRect(p, s.rect)) { tryBuyShop(s.item); return; }
       // Tap a regular's card → toggle its upgrade-path details view.
       const deck = deckTypes();
@@ -113,7 +129,7 @@ function setupInput(canvas) {
       const sheet = towerSheet(game.selectedTower);
       if (inRect(p, sheet.close)) { game.selectedTower = null; audio.build(); return; }
       if (inRect(p, sheet.rect)) {
-        for (const m of sheet.modes) if (inRect(p, m.rect)) { game.selectedTower.targeting = m.mode; audio.build(); return; }
+        for (const m of sheet.modes) if (inRect(p, m.rect)) { setTargeting(game.selectedTower, m.mode); audio.build(); return; }
         for (const pb of sheet.paths) if (inRect(p, pb.rect)) { tryUpgrade(game.selectedTower, pb.id); return; }
         if (inRect(p, sheet.sell.rect)) { sellTower(game.selectedTower); game.selectedTower = null; return; }
         return;
@@ -151,6 +167,16 @@ function setupInput(canvas) {
     if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
     if (e.code === "KeyP" || e.code === "Space") { e.preventDefault(); togglePause(); }
   });
+
+  // Mobile lifecycle (Issue #83): on iOS Safari, pagehide and visibilitychange->
+  // hidden are the reliable "the app is going away" signals — beforeunload is NOT,
+  // so we don't rely on it. Auto-pause when the page is hidden so a backgrounded run
+  // doesn't advance. No save write is needed here: the checkpoint is already on disk
+  // (written at prep entry + frozen at wave call), so a phone locked mid-wave already
+  // has its wave-start snapshot persisted and the hub will offer Continue on reopen.
+  const autoPauseHidden = () => { if (game.phase === "prep" || game.phase === "wave") gamePaused = true; };
+  window.addEventListener("pagehide", autoPauseHidden);
+  document.addEventListener("visibilitychange", () => { if (document.hidden) autoPauseHidden(); });
 }
 
 /* =========================================================================

@@ -44,6 +44,129 @@ function saveMeta() {
 }
 let META = freshMeta();
 
+/* =========================================================================
+   1c) SAVE & CONTINUE — a wave-start checkpoint (Issue #83).
+
+   The checkpoint is the START of the round the player is in — never a mid-wave
+   snapshot. It stores the MINIMUM (mapId, waveIndex, currency, lives, and each
+   tower as {typeId, x, y, upgradePath, upgradeTier, targeting}) and rebuilds the
+   board through the real tryBuild / upgrade paths on restore, so `spent` and
+   every signature flag reconstruct themselves. We never field-dump live tower
+   objects, and no enemies/projectiles are ever serialized.
+
+   PURITY (do not break): serialize + write consume ZERO Math.random. saveCheckpoint
+   runs on every prep entry / prep mutation / wave call — paths the seeded sim
+   exercises — so any RNG here would desync the difficulty gauge. It only reads
+   fields, builds a plain object, and writes localStorage (a guarded no-op headless
+   and on file://). restore is hub-only (never in the sim) but is kept RNG-free too.
+   ========================================================================= */
+
+const SAVE_KEY = "deckbound.save.v1";
+const SAVE_VERSION = 1;
+// True only while restoreRun is rebuilding the board: it drives tryBuild through
+// the real path with a bypassed cost, whose checkpointPrep would otherwise write a
+// half-built board (and a temporary Infinity currency) to disk. restoreRun writes
+// one clean checkpoint itself once the board is whole.
+let restoring = false;
+
+// The wave-start snapshot of the CURRENT game state. Pure: no RNG, no mutation.
+function serializeRun() {
+  return {
+    version: SAVE_VERSION,
+    mapId: game.mapId,
+    waveIndex: game.waveIndex,
+    currency: game.currency,
+    lives: game.lives,
+    towers: game.towers.map((t) => ({
+      typeId: t.typeId, x: t.x, y: t.y,
+      upgradePath: t.upgradePath, upgradeTier: t.upgradeTier, targeting: t.targeting,
+    })),
+  };
+}
+// Write the checkpoint (synchronous localStorage, guarded exactly like META —
+// blocked storage / file:// / the headless stub all fall through as no-ops).
+function saveCheckpoint() {
+  if (restoring) return;   // don't persist the half-rebuilt board mid-restore
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify(serializeRun())); } catch (e) {}
+}
+// Overwrite the checkpoint ONLY while in prep, so a mid-wave build/sell/upgrade
+// can't move the frozen wave-start snapshot — that's what lets "closed the tab
+// mid-wave" resume at the wave's start with no unload handler.
+function checkpointPrep() { if (game.phase === "prep") saveCheckpoint(); }
+// Discard the checkpoint (on defeat; a fresh run overwrites it instead).
+function clearSave() { try { localStorage.removeItem(SAVE_KEY); } catch (e) {} }
+// Read + validate the checkpoint. Unparseable JSON, a version mismatch, a missing
+// tower list, or an unknown map → null (discard silently, never crash).
+function readSave() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return null;
+    const save = JSON.parse(raw);
+    if (!save || save.version !== SAVE_VERSION || !Array.isArray(save.towers)) return null;
+    if (!MAPS.some((m) => m.id === save.mapId)) return null;
+    return save;
+  } catch (e) { return null; }
+}
+// The parsed checkpoint if one is resumable (for the hub's "Continue — Wave N"),
+// else null.
+function hasSave() { return readSave(); }
+
+// Rebuild one placed tower from its snapshot through the REAL code paths so
+// `spent` and every signature flag reconstruct identically. Cost is bypassed
+// (currency is already the saved wave-start value). ZERO Math.random: placement
+// is tryBuild (RNG-free) and tiers re-apply via tryUpgrade's exact state
+// mutations MINUS the cosmetic spawnUpgradeSparkles (which would consume RNG).
+function rebuildTowerFromSave(ts) {
+  const savedType = game.selectedType, savedCurrency = game.currency;
+  game.selectedType = ts.typeId;
+  game.currency = Infinity;               // bypass the affordability check in tryBuild
+  tryBuild(ts.x, ts.y);                   // real placement path → a proper tower object (spent = base)
+  game.selectedType = savedType;
+  game.currency = savedCurrency;
+  const t = game.towers[game.towers.length - 1];
+  if (!t || t.x !== ts.x || t.y !== ts.y) return;   // placement rejected — shouldn't happen for a valid save
+  t.targeting = ts.targeting || "first";
+  const upgrades = TOWER_BY_ID[ts.typeId].upgrades;
+  for (let i = 0; i < (ts.upgradeTier || 0); i++) {
+    if (!ts.upgradePath || !upgrades[ts.upgradePath]) break;
+    const tier = upgrades[ts.upgradePath].tiers[t.upgradeTier];
+    if (!tier) break;
+    t.spent += tier.cost;                 // same spend bookkeeping tryUpgrade does
+    t.upgradePath = ts.upgradePath;       // commit → the other path locks out
+    t.upgradeTier++;
+    applyUpgradeDeltas(t, tier);          // rebuilds pierce/crumb/knockback/maxTargets/… flags
+  }
+}
+// Resume the saved run: land in PREP of the saved wave with the board rebuilt.
+// Returns true on success, false if there's no valid save.
+function restoreRun() {
+  const save = readSave();
+  if (!save) return false;
+  restoring = true;                       // suppress checkpoint writes until the board is whole
+  loadMap(save.mapId);                    // rebind the map (consumes no RNG)
+  // startRun-equivalent reset, but keep the SAVED currency/lives/waveIndex and
+  // don't overwrite the checkpoint we're restoring from.
+  game.phase = "prep";
+  game.mapId = MAP.id;
+  game.maxLives = RULES.startLives + (META.boughtLives ? 3 : 0);
+  game.lives = Math.min(save.lives, game.maxLives);
+  game.currency = save.currency;
+  game.waveIndex = save.waveIndex;
+  game.towers = []; game.enemies = []; game.projectiles = []; game.particles = [];
+  game.spawnQueue = []; game.killed = 0; game.coreHurtFlash = 0;
+  game.score = 0; game.lastRun = null; game.selectedTower = null;
+  // Anti-exploit: park prep past the early-call window so the wave's early-call
+  // bonus can't be earned a second time on the same wave after a restore.
+  game.prepElapsed = RULES.earlyCallWindow + 1;
+  const deck = deckTypes();
+  game.selectedType = deck.length ? deck[0].id : "arrow";
+  for (const ts of save.towers) rebuildTowerFromSave(ts);
+  restoring = false;
+  saveCheckpoint();   // one clean checkpoint reflecting the fully-rebuilt wave-start board
+  setMessage("Resumed at Wave " + (game.waveIndex + 1) + " — seat more customers, then Send Out the food", 4);
+  return true;
+}
+
 // The Essence shop shown on the hub screen.
 const SHOP = [
   { id: "sniper", label: "Reserve the Milkshake Slurper's seat", cost: 3, owned: () => META.unlocked.includes("sniper"), buy: () => META.unlocked.push("sniper") },
@@ -224,6 +347,7 @@ function startRun() {
   const deck = deckTypes();
   game.selectedType = deck.length ? deck[0].id : "arrow";
   setMessage("Pick a customer below, seat them at a table, then Send Out the food");
+  saveCheckpoint();   // entering prep (wave 0) — overwrites any prior save, so "Open for Service" starts fresh
 }
 
 function setMessage(text, seconds = 3.5) { game.message = text; game.messageTimer = seconds; }
@@ -266,6 +390,7 @@ function tryBuild(x, y) {
   });
   spawnRing(x, y, def.color, 34, 0.4);
   FX.place();
+  checkpointPrep();   // a prep build updates the wave-start snapshot (no-op mid-wave)
 }
 
 /* Upgrade paths (data/balance.json → TOWER_BY_ID[type].upgrades). Each tower has
@@ -332,6 +457,14 @@ function tryUpgrade(t, pathId) {
   t.upgradeFlash = 0.6;
   spawnUpgradeSparkles(t);
   FX.upgrade();
+  checkpointPrep();   // a prep upgrade updates the wave-start snapshot (no-op mid-wave)
+}
+
+// Set a placed tower's targeting priority. Its own function so the checkpoint
+// tracks a targeting change (a prep mutation) the same as build/upgrade/sell.
+function setTargeting(t, mode) {
+  t.targeting = mode;
+  checkpointPrep();
 }
 
 // Sell a placed tower for a partial refund of everything spent on it (base
@@ -350,6 +483,7 @@ function sellTower(t) {
   spawnRing(t.x, t.y, COLOR.gold, 34, 0.4);
   spawnFloatText(t.x, t.y - 14, "+$" + refund + " refund", COLOR.gold);
   FX.sell();
+  checkpointPrep();   // a prep sell updates the wave-start snapshot (no-op mid-wave)
 }
 
 // The currency you'd earn right now for calling the wave early — full value the
@@ -376,6 +510,10 @@ function startNextWave() {
     setMessage("Wave " + (game.waveIndex + 1) + " incoming!");
   }
   FX.waveStart();
+  // Freeze the wave-start snapshot (currency now includes any early-call bonus).
+  // This is the LAST write until the next prep — during the wave the stored save
+  // stays this wave-start board, so a tab closed mid-wave resumes here.
+  saveCheckpoint();
 }
 
 /* =========================================================================
@@ -647,6 +785,7 @@ function checkWaveEnd() {
     // only in defeat, and the score is waves survived (Issue #75).
     game.waveIndex++; game.phase = "prep"; game.prepElapsed = 0;
     setMessage("Wave cleared!  +" + RULES.earnPerWave + " Tips — seat more customers, then Send Out the food", 4);
+    saveCheckpoint();   // entering prep for the next wave — the new wave-start snapshot
   }
 }
 
@@ -667,6 +806,7 @@ function endRun() {
   const best = newBest ? wave : prevBest;
   META.bestWave = best;
   saveMeta();
+  clearSave();   // defeat ends the run — the checkpoint is spent, discard it
   game.lastRun = { wave, best, newBest, killed: game.killed, essence, score: game.score };
   game.phase = "lost";
   FX.lose();

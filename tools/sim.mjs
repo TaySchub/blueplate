@@ -79,7 +79,7 @@ globalThis.window = {
 };
 // Explicit no-op storage: the engine's loadMeta/saveMeta are try/catch-guarded
 // anyway, but Node 22+ ships an experimental localStorage that warns on touch.
-globalThis.localStorage = { getItem: () => null, setItem: () => {} };
+globalThis.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
 const bundle =
   ["src/data.js", "src/engine.js"]
     .map((f) => readFileSync(join(ROOT, f), "utf8"))

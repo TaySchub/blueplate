@@ -112,6 +112,20 @@ The backlog is GitHub Issues — the single roadmap. Don't create a parallel one
   advances — clearing a wave never wins) · `endRun` (defeat only; records
   `META.bestWave`, the persisted best-wave record); meta in `META`/`SHOP`/
   `loadMeta`; particles as pure data via `spawn*`/`updateParticles`.
+- **`src/engine.js` — save & continue (checkpoint = wave start, Issue #83):**
+  `serializeRun` builds the minimal snapshot (`SAVE_KEY`/`SAVE_VERSION`: mapId,
+  waveIndex, currency, lives, towers as `{typeId,x,y,upgradePath,upgradeTier,
+  targeting}`); `saveCheckpoint` writes it (guarded localStorage, **zero
+  Math.random** so the seeded sim stays byte-identical), `checkpointPrep` only in
+  prep. Written on prep entry (`startRun`/`checkWaveEnd`), every prep mutation
+  (`tryBuild`/`tryUpgrade`/`sellTower`/`setTargeting`), and frozen at the wave
+  call (`startNextWave`) — so a tab closed mid-wave already has its wave-start
+  save. `restoreRun` → `loadMap` + reset + `rebuildTowerFromSave` (real
+  `tryBuild`/upgrade paths, cost bypassed, no RNG — the `restoring` flag suppresses
+  mid-rebuild writes), parks `prepElapsed` past `earlyCallWindow` (no double early
+  bonus). `endRun` calls `clearSave`; `readSave`/`hasSave` validate + discard a
+  version-mismatch/unparseable/unknown-map blob. Behavior test:
+  `tools/tests/save.test.mjs`.
 - **`src/engine.js` — free placement (no fixed slots, no tower cap):**
   `canPlace(x, y)` (bounds / `pathBuffer` off the belt / `towerSpacing` /
   obstacle rects, all from the ACTIVE map's bound state) · `tryBuild(x, y)`
@@ -149,9 +163,14 @@ The backlog is GitHub Issues — the single roadmap. Don't create a parallel one
   (replaced `drawSlots`: pointer-follow build ghost + range preview,
   green/red by `canPlace` + affordability). Scene surfaces (floor/belt/kitchen/
   chute) read the active map's `THEME`, so a reskin is JSON-only; the hub
-  `MAP_BTN` map picker (drawMenu) cycles `MAPS`.
+  `MAP_BTN` map picker (drawMenu) cycles `MAPS`. Pause menu `drawPausedOverlay` +
+  `pauseMenuRects` (Resume / Save & Quit, board-space, shared draw+hit geometry);
+  hub `RESUME_RUN_BTN` "Continue — Wave N" (drawMenu, shown when `hasSave()`,
+  Issue #83).
 - **`src/main.js`:** boot · `setupInput` · `startGameLoop` (fixed timestep) ·
-  the FX wiring.
+  the FX wiring. Pause-menu + hub-Continue hit-testing route to `restoreRun`; the
+  `pagehide`/`visibilitychange→hidden` listeners auto-pause on mobile (Issue #83 —
+  the checkpoint is already on disk, so no unload save write is needed).
 - **`src/audio.js`:** the `audio` object (`voice`/`noiseBurst`/`env` +
   per-event effects) — touch only on a dedicated audio branch.
 
