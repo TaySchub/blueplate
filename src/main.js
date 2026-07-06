@@ -19,6 +19,34 @@ function togglePause() {
   gamePaused = !gamePaused;
 }
 
+// DEV/QA (Issue #79 touch-target acceptance): prints every interactive rect's
+// CSS size at the CURRENT viewport, so we can prove each clears 44 CSS px on a
+// phone. Call window.__uiRects() from the console (e.g. at ~844x390). Inert
+// unless called — safe to keep as a layout-audit helper; strip if undesired.
+window.__uiRects = function () {
+  const cr = game.canvas.getBoundingClientRect();
+  const s = cr.width / DESIGN.w;                 // design px -> CSS px
+  const rows = [];
+  const add = (name, r) => {
+    const w = r.w * s, h = r.h * s, min = Math.min(w, h);
+    rows.push({ name, cssW: +w.toFixed(1), cssH: +h.toFixed(1), minCss: +min.toFixed(1), pass: min >= 44 });
+  };
+  for (let i = 0; i < 5; i++) add("rail card " + (i + 1) + "/5", railCardRect(i, 5));   // worst case: full 5-tower deck
+  add("pause", pauseBtnRect()); add("mute (run)", muteBtnRect());
+  const fake = { typeId: "arrow", upgradeTier: 0, upgradePath: null, targeting: "first", spent: 50 };
+  const sh = towerSheet(fake);
+  sh.modes.forEach((m) => add("target: " + m.label, m.rect));
+  sh.paths.forEach((p) => add("path: " + p.name, p.rect));
+  add("sell", sh.sell.rect); add("sheet close X", sh.close);
+  add("start wave", { x: START_BTN.x + BOARD.x, y: START_BTN.y, w: START_BTN.w, h: START_BTN.h });
+  add("hub: play", PLAY_BTN); add("hub: map picker", MAP_BTN);
+  shopButtonRects().forEach((b, i) => add("hub: shop " + (i + 1), b.rect));
+  for (let i = 0; i < 5; i++) add("hub card " + (i + 1), hubCardRect(i));
+  if (console.table) console.table(rows);
+  return { scale: +s.toFixed(3), canvasCssW: +cr.width.toFixed(1), canvasCssH: +cr.height.toFixed(1),
+           allPass: rows.every((r) => r.pass), rows };
+};
+
 window.addEventListener("DOMContentLoaded", () => {
   const canvas = document.getElementById("game-canvas");
   if (!canvas) { console.error("Deckbound: could not find the game canvas."); return; }
@@ -36,26 +64,30 @@ window.addEventListener("DOMContentLoaded", () => {
 });
 
 function setupInput(canvas) {
+  // Pointer in DESIGN coords (the full 900x450 canvas). The board scene is drawn
+  // shifted right by BOARD.x, so board hit-tests apply the inverse (see `b`
+  // below) — the presentation viewport transform's inverse mapping. The engine
+  // still lives entirely in board coords; only this shell knows about the offset.
   const toDesign = (clientX, clientY) => {
     const r = canvas.getBoundingClientRect();
-    return { x: ((clientX - r.left) / r.width) * VIEW.w, y: ((clientY - r.top) / r.height) * VIEW.h };
+    return { x: ((clientX - r.left) / r.width) * DESIGN.w, y: ((clientY - r.top) / r.height) * DESIGN.h };
   };
 
   const onDown = (clientX, clientY) => {
     audio.unlock();
-    const p = toDesign(clientX, clientY);
+    const p = toDesign(clientX, clientY);                 // design coords (chrome)
+    const b = { x: p.x - BOARD.x, y: p.y - BOARD.y };     // board coords (playfield) — inverse transform
 
-    // Mute (always available).
-    if (p.x >= VIEW.w - 44 && p.x <= VIEW.w - 12 && p.y >= 12 && p.y <= 44) { audio.muted = !audio.muted; return; }
+    // Mute (always available) + pause (only during a run) — both design-space chrome.
+    if (inRect(p, muteBtnRect())) { audio.muted = !audio.muted; return; }
+    if ((game.phase === "prep" || game.phase === "wave") && inRect(p, pauseBtnRect())) { togglePause(); return; }
 
-    // Pause (only shown/meaningful during a run — sits left of the mute button).
-    if ((game.phase === "prep" || game.phase === "wave") && p.x >= VIEW.w - 84 && p.x <= VIEW.w - 52 && p.y >= 12 && p.y <= 44) { togglePause(); return; }
-
-    // Hub / menu.
+    // Hub / menu (design space).
     if (game.phase === "menu") {
-      for (const b of shopButtonRects()) {
-        if (inRect(p, b.rect)) { tryBuyShop(b.item); return; }
-      }
+      for (const s of shopButtonRects()) if (inRect(p, s.rect)) { tryBuyShop(s.item); return; }
+      // Tap a regular's card → toggle its upgrade-path details view.
+      const deck = deckTypes();
+      for (let i = 0; i < deck.length; i++) if (inRect(p, hubCardRect(i))) { toggleHubCard(deck[i].id); audio.build(); return; }
       if (pickableMaps().length > 1 && inRect(p, MAP_BTN)) {
         // Cycle to the next NON-RETIRED map (the picker lists only these), remember
         // it, and load it so the hub label + the coming run reflect the choice.
@@ -69,41 +101,43 @@ function setupInput(canvas) {
       return;
     }
 
-    // Run summary → back to hub.
+    // Run summary → back to hub (design space).
     if (game.phase === "lost") {
       if (inRect(p, CONTINUE_BTN)) { game.phase = "menu"; }
       return;
     }
 
-    // Selected-tower panel (targeting + upgrade) — check its buttons first so a
-    // click on the panel doesn't fall through to the slot/tower underneath it.
+    // Upgrade SHEET (design space) — checked first so a tap on it never falls
+    // through to the board it overlays. Close on the X; swallow background taps.
     if (game.selectedTower) {
-      const panel = towerPanel(game.selectedTower);
-      if (inRect(p, panel.rect)) {
-        for (const b of panel.modes) if (inRect(p, b.rect)) { game.selectedTower.targeting = b.mode; audio.build(); return; }
-        for (const pb of panel.paths) if (inRect(p, pb.rect)) { tryUpgrade(game.selectedTower, pb.id); return; }
-        if (inRect(p, panel.sell.rect)) { sellTower(game.selectedTower); return; }
-        return; // clicked panel background — swallow the click
+      const sheet = towerSheet(game.selectedTower);
+      if (inRect(p, sheet.close)) { game.selectedTower = null; audio.build(); return; }
+      if (inRect(p, sheet.rect)) {
+        for (const m of sheet.modes) if (inRect(p, m.rect)) { game.selectedTower.targeting = m.mode; audio.build(); return; }
+        for (const pb of sheet.paths) if (inRect(p, pb.rect)) { tryUpgrade(game.selectedTower, pb.id); return; }
+        if (inRect(p, sheet.sell.rect)) { sellTower(game.selectedTower); game.selectedTower = null; return; }
+        return;
       }
     }
 
-    // Toolbar: select a card from your deck.
+    // Left rail (design space): select a card from your deck. Also closes the
+    // sheet — tapping the rail means you're building, not upgrading.
     const deck = deckTypes();
     for (let i = 0; i < deck.length; i++) {
-      if (inRect(p, cardRect(i))) { game.selectedType = deck[i].id; return; }
+      if (inRect(p, railCardRect(i, deck.length))) { game.selectedType = deck[i].id; game.selectedTower = null; return; }
     }
 
-    if (game.phase === "prep" && inRect(p, START_BTN)) { startNextWave(); return; }
+    // Board interactions use the inverse transform (board coords).
+    if (game.phase === "prep" && inRect(b, START_BTN)) { startNextWave(); return; }
 
-    // Click a placed tower → select it (opens the targeting/upgrade panel).
-    for (const t of game.towers) if (distance(p, t) <= 18) { game.selectedTower = t; return; }
+    // Click a placed tower → select it (opens the upgrade sheet).
+    for (const t of game.towers) if (distance(b, t) <= 18) { game.selectedTower = t; return; }
 
     // Click valid open floor → seat the selected customer right there (free
     // placement — canPlace covers bounds/belt/spacing/obstacles).
-    if (canPlace(p.x, p.y)) { tryBuild(p.x, p.y); game.selectedTower = null; return; }
+    if (canPlace(b.x, b.y)) { tryBuild(b.x, b.y); game.selectedTower = null; return; }
 
-    // Clicked empty-but-unbuildable space → just close any open panel (no deny
-    // spam on stray clicks; the ghost already shows red there).
+    // Clicked empty-but-unbuildable space (or elsewhere) → close any open sheet.
     game.selectedTower = null;
   };
 

@@ -25,6 +25,27 @@ Format is deliberately simple and plain-language.
   the difficulty gate is untouched (audio isn't loaded in the headless sim).
 
 ### Changed
+- **Mobile-first UI restructure — landscape rail + slide-in upgrade sheet**
+  (Issue #79). On a phone the whole 800×450 board scaled down, so upgrade
+  buttons were tiny and hard to press. This pass moves the chrome **off** the
+  board via a presentation-layer **viewport transform**: the design canvas grows
+  to **900×450**, the tower deck becomes a **left rail** (cards stacked, pause +
+  mute on top), the floating tower popover becomes a **right slide-in sheet**
+  (portrait/name/committed-path header, a 2×2 targeting grid, two full-width
+  path rows, Sell), the retired bottom toolbar frees an **apron** under the board
+  for the tower blurb + the Send/Call-Wave button, and the hub gains **roomier,
+  tappable customer cards** that expand a details view of each tower's two
+  upgrade paths. The engine, maps, placement bounds, and sim are **untouched** —
+  the board stays an 800×450 coordinate space offset right by the rail
+  (`ctx.translate(BOARD.x, 0)`), and input maps the inverse; `data/balance.json`
+  is unchanged, so the difficulty gauge can't move (`sim --check` byte-identical:
+  blueplate survival@30 **50.5%**, seed 1/200). **Touch targets:** at
+  iPhone-landscape scale (~844×390, canvas ~756 CSS px) **every** interactive
+  rect measures **≥44 CSS px** in its smaller dimension (measured table in the
+  PR). Also: `touch-action: none` on the canvas + `maximum-scale=1` +
+  `overscroll-behavior: none` kill double-tap zoom and scroll-bounce. New chrome
+  is named `COLOR` entries (`railBg`/`sheetBg`/`sheetScrim`); no mascot redraws,
+  no new dependencies.
 - **Tower evenness pass — path parity via delta magnitudes** (Issue #77, Stage 2).
   Two upgrade paths dominated their siblings on the survival gauge — **Fork Frenzy
   +43.5 pts** and **Paparazzi +29.5** — while the other eight already sat in a tight

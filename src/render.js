@@ -6,15 +6,52 @@
   Panel/button geometry lives here and is shared with input hit-testing.
 */
 
-const START_BTN = { x: 470, y: 402, w: 210, h: 38 };
-const CONTINUE_BTN = { x: VIEW.w / 2 - 85, y: VIEW.h / 2 + 44, w: 170, h: 38 };
-const PLAY_BTN = { x: VIEW.w / 2 - 90, y: 340, w: 180, h: 44 };
-const MAP_BTN = { x: VIEW.w / 2 - 90, y: 298, w: 180, h: 26 };   // hub map picker (shares geometry w/ hit-testing)
-const TOOLBAR = { y: 398, cardW: 66, cardH: 44, gap: 6, startX: 8 };
+/* =========================================================================
+   LANDSCAPE LAYOUT (Issue #79) — the presentation-layer viewport transform.
 
-function cardRect(i) {
-  return { x: TOOLBAR.startX + i * (TOOLBAR.cardW + TOOLBAR.gap), y: TOOLBAR.y, w: TOOLBAR.cardW, h: TOOLBAR.cardH };
+   The board scene draws inside a single ctx.translate(BOARD.x, 0), so every
+   constant below in VIEW (board) coords lands shifted right by the rail, and the
+   engine/sim never see it. Chrome that lives OFF the board — the left tower RAIL,
+   the right upgrade SHEET, the hub, and the mute/pause toggles — is positioned in
+   DESIGN coords (the full 900x450 canvas) and drawn outside the translate.
+   ========================================================================= */
+
+// Board-space chrome (drawn INSIDE the board translate; hit-tested with boardPtr).
+const LOWER_Y = 384;   // board y where the control apron begins — just below the playfield (placement bounds y1=382)
+const START_BTN = { x: 466, y: 388, w: 214, h: 56 };   // "Send/Call Wave", seated in the apron — sized ≥44 CSS at phone scale
+
+// Design-space chrome (drawn OUTSIDE the translate; hit-tested with game.pointer).
+// Sizes are tuned so EVERY interactive rect clears 44 CSS px at ~844x390 phone
+// scale (canvas ~756 CSS wide, scale ~0.84 -> a rect needs >=53 design px in its
+// smaller dimension).
+const RAIL_CARD = { w: RAIL.w - 16, h: 58, gap: 6 };   // vertical tower-deck cards filling the left rail
+const RAIL_TOP = 128;                                  // rail card zone start (below the stacked pause/mute)
+const SHEET_X = DESIGN.w - SHEET.w;                    // left edge of the slide-in upgrade sheet
+const CONTINUE_BTN = { x: DESIGN.w / 2 - 100, y: DESIGN.h / 2 + 40, w: 200, h: 54 };
+const PLAY_BTN = { x: DESIGN.w / 2 - 110, y: 388, w: 220, h: 56 };
+const MAP_BTN = { x: 24, y: 390, w: 196, h: 54 };   // hub map picker, bottom-left (shown only with 2+ maps)
+
+// game.pointer is DESIGN coords (main.js maps client->design). Board hovers and
+// board hit-tests apply the inverse of the board translate through this.
+function boardPtr() { return { x: game.pointer.x - BOARD.x, y: game.pointer.y - BOARD.y }; }
+
+// One tower card in the left rail — stacked below the mute/pause row and centered
+// in the remaining height so 4 or 5 unlocked towers both sit tidily. Single
+// source shared by draw + hit-testing.
+function railCardRect(i, n) {
+  const zoneH = DESIGN.h - RAIL_TOP - 6;
+  const totalH = n * RAIL_CARD.h + (n - 1) * RAIL_CARD.gap;
+  const y0 = RAIL_TOP + Math.max(0, (zoneH - totalH) / 2);
+  return { x: 8, y: y0 + i * (RAIL_CARD.h + RAIL_CARD.gap), w: RAIL_CARD.w, h: RAIL_CARD.h };
 }
+// Mute + pause live in the rail top during a run; the menu keeps mute at the
+// canvas top-right (there's no rail on the hub). Rects shared by draw + input.
+function muteBtnRect() {
+  return game.phase === "menu"
+    ? { x: DESIGN.w - 66, y: 10, w: 54, h: 54 }
+    : { x: 8, y: 68, w: RAIL.w - 16, h: 54 };   // stacked under pause in the rail
+}
+function pauseBtnRect() { return { x: 8, y: 8, w: RAIL.w - 16, h: 54 }; }
 function inRect(p, r) { return p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h; }
 
 // A cost pill: an inset chip with the Tips coin + amount. Gold when affordable,
@@ -44,7 +81,15 @@ function drawCostChip(ctx, ax, midY, cost, affordable, h = 15, anchor = "center"
 
 function render() {
   const ctx = game.ctx;
+  // Design canvas backdrop (fills the rail + any letterbox margins).
+  ctx.fillStyle = COLOR.bg; ctx.fillRect(0, 0, DESIGN.w, DESIGN.h);
   if (game.phase === "menu") { drawMenu(ctx); drawMuteButton(ctx); return; }
+
+  // --- Board space: everything the engine positions lives here, drawn shifted
+  // right by the rail via one translate. Board-space chrome (HUD, apron, Start,
+  // selection ring) rides along so it stays aligned with the board + particles.
+  ctx.save();
+  ctx.translate(BOARD.x, BOARD.y);
   const shaking = game.shake > 0.05;
   if (shaking) {
     ctx.save();
@@ -65,13 +110,19 @@ function render() {
   drawParticles(ctx);
   drawPlacementGhost(ctx);
   if (shaking) ctx.restore();
-  // Paused: dim the board (UI below stays bright — you can still seat/upgrade).
+  // Paused: dim the play area (the apron + rail + sheet stay bright — you can
+  // still seat/upgrade).
   if (typeof gamePaused !== "undefined" && gamePaused) drawPausedOverlay(ctx);
-  drawToolbar(ctx);
+  drawApron(ctx);
   drawStartButton(ctx);
   drawHUD(ctx);
-  drawSelectedTowerPanel(ctx);
+  drawSelectionRing(ctx);
   drawMessage(ctx);
+  ctx.restore();
+
+  // --- Design space: chrome off the board.
+  drawRail(ctx);
+  drawTowerSheet(ctx);
   drawMuteButton(ctx);
   drawPauseButton(ctx);
   if (game.phase === "lost") drawSummary(ctx);
@@ -79,83 +130,140 @@ function render() {
 
 /* ---- Hub / menu screen ---- */
 
+const HUB_SHOP_X = 640;                       // shop column (right side of the widened hub)
 function shopButtonRects() {
   const out = [];
-  const x = 430, w = 330, h = 40, gap = 12;
-  let y = 150;
+  const x = HUB_SHOP_X, w = DESIGN.w - HUB_SHOP_X - 24, h = 54, gap = 12;
+  let y = 152;
   for (const item of SHOP) { out.push({ item, rect: { x, y, w, h } }); y += h + gap; }
   return out;
 }
 
+// A regular's collection card on the hub — roomier than the rail card, showing
+// the role blurb, and tappable to expand its upgrade-path details. `hubOpen`
+// holds the expanded tower id (set by input's toggleHubCard). Geometry shared
+// by draw + hit-testing.
+let hubOpen = null;
+function toggleHubCard(id) { hubOpen = hubOpen === id ? null : id; }
+function hubCardRect(i) { return { x: 40 + i * 104, y: 146, w: 94, h: 132 }; }
+function hubSlotCount() { return deckTypes().length + (META.unlocked.includes("sniper") ? 0 : 1); }
+
+function drawHubCard(ctx, r, def, expanded) {
+  const hover = inRect(game.pointer, r);
+  ctx.fillStyle = expanded ? COLOR.ctrlSel : COLOR.ctrlBg;
+  roundRect(ctx, r.x, r.y, r.w, r.h, 8); ctx.fill();
+  ctx.lineWidth = expanded ? 2 : 1;
+  ctx.strokeStyle = expanded ? def.color : (hover ? COLOR.ctrlLineHi : COLOR.ctrlLine);
+  roundRect(ctx, r.x, r.y, r.w, r.h, 8); ctx.stroke();
+  if (expanded) { ctx.fillStyle = def.color; roundRect(ctx, r.x + 5, r.y + 3, r.w - 10, 3, 1.5); ctx.fill(); }
+  const cx = r.x + r.w / 2;
+  drawSoftShadow(ctx, cx, r.y + 42, 21, 6, COLOR.unitShadow);
+  drawCustomer(ctx, def.id, cx, r.y + 34, 21, def.color);
+  ctx.fillStyle = COLOR.ink; ctx.font = "bold 11px system-ui, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
+  ctx.fillText(fitText(ctx, def.name.replace(/^The /, ""), r.w - 8), cx, r.y + 74);
+  // Role blurb — the "more fun" bit: what this customer does, visible on the card.
+  ctx.fillStyle = COLOR.muted; ctx.font = "8.5px system-ui, sans-serif";
+  const lines = wrapLabel(ctx, def.blurb, r.w - 12, 3);
+  let by = r.y + 88;
+  for (const ln of lines) { ctx.fillText(ln, cx, by); by += 10; }
+  drawCostChip(ctx, cx, r.y + r.h - 11, def.cost, true, 13);
+  ctx.textAlign = "left";
+}
+
+// The expanded details view under the cards: the tapped regular's two upgrade
+// paths (names live in balance.json) so you can plan a build before Opening.
+function drawHubDetails(ctx, def) {
+  const x = 40, y = 288, w = 560, h = 66;
+  ctx.fillStyle = COLOR.panel; roundRect(ctx, x, y, w, h, 10); ctx.fill();
+  ctx.strokeStyle = def.color; ctx.lineWidth = 1.5; roundRect(ctx, x, y, w, h, 10); ctx.stroke();
+  drawSoftShadow(ctx, x + 30, y + 34, 17, 5, COLOR.unitShadow);
+  drawCustomer(ctx, def.id, x + 30, y + 28, 17, def.color);
+  ctx.fillStyle = COLOR.ink; ctx.font = "bold 12px system-ui, sans-serif"; ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+  ctx.fillText(def.name, x + 58, y + 22);
+  ctx.fillStyle = COLOR.muted; ctx.font = "10px system-ui, sans-serif";
+  ctx.fillText(fitText(ctx, def.blurb, w - 70), x + 58, y + 38);
+  ctx.fillStyle = COLOR.gold; ctx.font = "9px system-ui, sans-serif";
+  ctx.fillText("UPGRADE PATHS", x + 58, y + 54);
+  const paths = towerPaths(def.id);
+  const pw = (w - 58 - 24) / 2;
+  paths.forEach((pp, i) => {
+    const px = x + 200 + i * (pw + 12), py = y + 44;
+    ctx.fillStyle = COLOR.ctrlBg; roundRect(ctx, px, py, pw, 16, 5); ctx.fill();
+    ctx.strokeStyle = COLOR.ctrlLine; ctx.lineWidth = 1; roundRect(ctx, px, py, pw, 16, 5); ctx.stroke();
+    ctx.fillStyle = COLOR.ink; ctx.font = "9px system-ui, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText(fitText(ctx, pp.name, pw - 8), px + pw / 2, py + 9);
+    ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+  });
+}
+
 function drawMenu(ctx) {
   ctx.fillStyle = COLOR.bg;
-  ctx.fillRect(0, 0, VIEW.w, VIEW.h);
+  ctx.fillRect(0, 0, DESIGN.w, DESIGN.h);
   ctx.strokeStyle = COLOR.grid; ctx.lineWidth = 1;
   const gap = 50;
   ctx.beginPath();
-  for (let x = gap; x < VIEW.w; x += gap) { ctx.moveTo(x, 0); ctx.lineTo(x, VIEW.h); }
-  for (let y = gap; y < VIEW.h; y += gap) { ctx.moveTo(0, y); ctx.lineTo(VIEW.w, y); }
+  for (let x = gap; x < DESIGN.w; x += gap) { ctx.moveTo(x, 0); ctx.lineTo(x, DESIGN.h); }
+  for (let y = gap; y < DESIGN.h; y += gap) { ctx.moveTo(0, y); ctx.lineTo(DESIGN.w, y); }
   ctx.stroke();
 
   // Title.
   ctx.textAlign = "left";
   ctx.fillStyle = COLOR.ink;
-  ctx.font = "bold 34px system-ui, sans-serif";
-  ctx.fillText("Deckbound", 40, 62);
+  ctx.font = "bold 32px system-ui, sans-serif";
+  ctx.fillText("Deckbound", 40, 54);
   ctx.fillStyle = COLOR.muted;
   ctx.font = "14px system-ui, sans-serif";
-  ctx.fillText("Seat the customers. Eat the food. Don't let dinner get away.", 42, 86);
+  ctx.fillText("Seat the customers. Eat the food. Don't let dinner get away.", 42, 78);
 
   // Golden Forks (meta currency) + best-wave record (survival is the score now).
   ctx.fillStyle = COLOR.essence;
   ctx.font = "bold 18px system-ui, sans-serif";
-  ctx.fillText("✦ Golden Forks: " + META.essence, 42, 122);
+  ctx.fillText("✦ Golden Forks: " + META.essence, 42, 110);
   if (META.bestWave > 0) {
     ctx.fillStyle = COLOR.muted; ctx.font = "13px system-ui, sans-serif";
-    ctx.fillText("Best run:  Wave " + META.bestWave, 250, 121);
+    ctx.fillText("Best run:  Wave " + META.bestWave, 250, 109);
   }
 
-  // Your regulars (collection).
+  // Your regulars — roomier, tappable cards (tap to expand upgrade-path details).
   ctx.fillStyle = COLOR.ink;
   ctx.font = "bold 14px system-ui, sans-serif";
-  ctx.fillText("Your regulars", 42, 156);
+  ctx.fillText("Your regulars", 42, 134);
+  ctx.fillStyle = COLOR.muted; ctx.font = "11px system-ui, sans-serif";
+  ctx.fillText("tap a customer to see their upgrade paths", 158, 134);
   const deck = deckTypes();
-  let dx = 46;
-  for (const def of deck) {
-    // Collection cards use the same card language as the toolbar (portrait /
-    // name / Tips-cost chip). Not interactive here, so no selected/hover state.
-    drawDeckCard(ctx, { x: dx, y: 168, w: 64, h: 78 }, def, false, false, true, 13);
-    dx += 72;
-  }
-  // Locked slot hint if Sniper not yet unlocked — same card frame, a vector
-  // padlock (not a glyph), consistent with the deck.
+  for (let i = 0; i < deck.length; i++) drawHubCard(ctx, hubCardRect(i), deck[i], hubOpen === deck[i].id);
+  // Locked slot hint if Sniper not yet unlocked — same card frame, a vector padlock.
   if (!META.unlocked.includes("sniper")) {
-    ctx.fillStyle = COLOR.chip;
-    roundRect(ctx, dx, 168, 64, 78, 8); ctx.fill();
+    const r = hubCardRect(deck.length);
+    ctx.fillStyle = COLOR.chip; roundRect(ctx, r.x, r.y, r.w, r.h, 8); ctx.fill();
     ctx.strokeStyle = COLOR.ctrlLine; ctx.setLineDash([4, 4]); ctx.lineWidth = 1.5;
-    roundRect(ctx, dx, 168, 64, 78, 8); ctx.stroke(); ctx.setLineDash([]);
-    drawLockIcon(ctx, dx + 32, 200, 9, COLOR.muted);
+    roundRect(ctx, r.x, r.y, r.w, r.h, 8); ctx.stroke(); ctx.setLineDash([]);
+    drawLockIcon(ctx, r.x + r.w / 2, r.y + r.h / 2 - 6, 11, COLOR.muted);
     ctx.fillStyle = COLOR.muted; ctx.textAlign = "center"; ctx.font = "10px system-ui, sans-serif"; ctx.textBaseline = "alphabetic";
-    ctx.fillText("locked", dx + 32, 228);
+    ctx.fillText("locked", r.x + r.w / 2, r.y + r.h / 2 + 26);
     ctx.textAlign = "left";
   }
+  // Expanded details for the tapped regular (still unlocked/owned).
+  if (hubOpen && deck.some((d) => d.id === hubOpen)) drawHubDetails(ctx, TOWER_BY_ID[hubOpen]);
 
-  // Shop.
-  ctx.fillStyle = COLOR.ink; ctx.font = "bold 14px system-ui, sans-serif";
-  ctx.fillText("Golden Forks shop", 430, 140);
+  // Shop (right column).
+  ctx.fillStyle = COLOR.ink; ctx.font = "bold 14px system-ui, sans-serif"; ctx.textAlign = "left";
+  ctx.fillText("Golden Forks shop", HUB_SHOP_X, 134);
   for (const b of shopButtonRects()) {
     const owned = b.item.owned();
     const affordable = META.essence >= b.item.cost;
     const hover = inRect(game.pointer, b.rect);
-    ctx.fillStyle = owned ? "#1a241b" : (hover && affordable ? "#26324a" : "#1b2230");
+    ctx.fillStyle = owned ? "#1a241b" : (hover && affordable ? COLOR.ctrlSel : COLOR.ctrlBg);
     roundRect(ctx, b.rect.x, b.rect.y, b.rect.w, b.rect.h, 8); ctx.fill();
-    ctx.strokeStyle = owned ? COLOR.good : (affordable ? "#4a5670" : "#2a3242");
+    ctx.strokeStyle = owned ? COLOR.good : (affordable ? COLOR.ctrlLineHi : COLOR.ctrlLine);
     ctx.lineWidth = 1; roundRect(ctx, b.rect.x, b.rect.y, b.rect.w, b.rect.h, 8); ctx.stroke();
-    ctx.fillStyle = COLOR.ink; ctx.font = "13px system-ui, sans-serif"; ctx.textAlign = "left";
-    ctx.fillText(b.item.label, b.rect.x + 12, b.rect.y + 25);
+    ctx.fillStyle = COLOR.ink; ctx.font = "12px system-ui, sans-serif"; ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+    const lines = wrapLabel(ctx, b.item.label, b.rect.w - 24, 2);
+    let ly = b.rect.y + (lines.length === 1 ? 24 : 19);
+    for (const ln of lines) { ctx.fillText(ln, b.rect.x + 12, ly); ly += 14; }
     ctx.textAlign = "right";
-    if (owned) { ctx.fillStyle = COLOR.good; ctx.fillText("owned ✓", b.rect.x + b.rect.w - 12, b.rect.y + 25); }
-    else { ctx.fillStyle = affordable ? COLOR.essence : COLOR.bad; ctx.fillText("✦ " + b.item.cost, b.rect.x + b.rect.w - 12, b.rect.y + 25); }
+    if (owned) { ctx.fillStyle = COLOR.good; ctx.fillText("owned ✓", b.rect.x + b.rect.w - 12, b.rect.y + b.rect.h - 10); }
+    else { ctx.fillStyle = affordable ? COLOR.essence : COLOR.bad; ctx.fillText("✦ " + b.item.cost, b.rect.x + b.rect.w - 12, b.rect.y + b.rect.h - 10); }
     ctx.textAlign = "left";
   }
 
@@ -165,12 +273,12 @@ function drawMenu(ctx) {
   // ships. Click cycles maps; the label shows the active map's name.
   if (pickableMaps().length > 1) {
     const mapHover = inRect(game.pointer, MAP_BTN);
-    ctx.fillStyle = mapHover ? "#26324a" : "#1b2230";
+    ctx.fillStyle = mapHover ? COLOR.ctrlSel : COLOR.ctrlBg;
     roundRect(ctx, MAP_BTN.x, MAP_BTN.y, MAP_BTN.w, MAP_BTN.h, 8); ctx.fill();
-    ctx.strokeStyle = "#4a5670"; ctx.lineWidth = 1;
+    ctx.strokeStyle = COLOR.ctrlLineHi; ctx.lineWidth = 1;
     roundRect(ctx, MAP_BTN.x, MAP_BTN.y, MAP_BTN.w, MAP_BTN.h, 8); ctx.stroke();
     ctx.fillStyle = COLOR.muted; ctx.font = "12px system-ui, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    ctx.fillText("Map:  " + MAP.name, VIEW.w / 2, MAP_BTN.y + MAP_BTN.h / 2);
+    ctx.fillText("Map:  " + MAP.name, MAP_BTN.x + MAP_BTN.w / 2, MAP_BTN.y + MAP_BTN.h / 2);
     ctx.textBaseline = "alphabetic"; ctx.textAlign = "left";
   }
 
@@ -180,7 +288,7 @@ function drawMenu(ctx) {
   roundRect(ctx, PLAY_BTN.x, PLAY_BTN.y, PLAY_BTN.w, PLAY_BTN.h, 10); ctx.fill();
   ctx.fillStyle = COLOR.ink; ctx.font = "bold 18px system-ui, sans-serif";
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
-  ctx.fillText("▶  Open for Service", VIEW.w / 2, PLAY_BTN.y + PLAY_BTN.h / 2);
+  ctx.fillText("▶  Open for Service", DESIGN.w / 2, PLAY_BTN.y + PLAY_BTN.h / 2);
   ctx.textBaseline = "alphabetic"; ctx.textAlign = "left";
 }
 
@@ -194,7 +302,7 @@ function drawBackground(ctx) {
   ctx.fillStyle = fl.bg; ctx.fillRect(0, 0, VIEW.w, VIEW.h);
   const tile = fl.tileSize;
   ctx.fillStyle = fl.tile;
-  for (let gy = 0; gy < TOOLBAR.y; gy += tile)
+  for (let gy = 0; gy < VIEW.h; gy += tile)
     for (let gx = 0; gx < VIEW.w; gx += tile)
       if (((gx / tile) + (gy / tile)) & 1) ctx.fillRect(gx, gy, tile, tile);
   // A booth/table pad under each PLACED tower — the table appears when the
@@ -263,7 +371,7 @@ function drawWallFrame(ctx) {
   if (!wf) return;
   const m = 8, t = wf.thickness || 6;
   ctx.strokeStyle = wf.color; ctx.lineWidth = t; ctx.lineJoin = "round";
-  roundRect(ctx, m + t / 2, m + t / 2, VIEW.w - 2 * m - t, (TOOLBAR.y - 3) - 2 * m - t, 16);
+  roundRect(ctx, m + t / 2, m + t / 2, VIEW.w - 2 * m - t, (LOWER_Y - 3) - 2 * m - t, 16);
   ctx.stroke();
 }
 
@@ -320,9 +428,10 @@ function drawObstacles(ctx) {
 // panel, and existing towers (hovering those means select, not build).
 function drawPlacementGhost(ctx) {
   if (game.phase !== "prep" && game.phase !== "wave") return;
-  const p = game.pointer, b = PLACEMENT.bounds;
+  const p = boardPtr(), b = PLACEMENT.bounds;
   if (p.x < b.x0 || p.x > b.x1 || p.y < b.y0 || p.y > b.y1) return;
-  if (game.selectedTower && inRect(p, towerPanel(game.selectedTower).rect)) return;
+  // Hide the ghost while the pointer is over the open upgrade sheet (design space).
+  if (game.selectedTower && game.pointer.x >= SHEET_X) return;
   for (const t of game.towers) if (distance(p, t) <= 18) return;
   const def = TOWER_BY_ID[game.selectedType];
   const buildable = canPlace(p.x, p.y) && game.currency >= def.cost;
@@ -344,8 +453,9 @@ function drawPlacementGhost(ctx) {
 }
 
 function drawTowerRanges(ctx) {
+  const ptr = boardPtr();
   for (const t of game.towers) {
-    const hover = distance(game.pointer, t) <= t.range;
+    const hover = distance(ptr, t) <= t.range;
     const col = TOWER_BY_ID[t.typeId].color;
     if (hover) {   // a faint fill so the hovered customer's reach reads at a glance
       ctx.globalAlpha = 0.06; ctx.fillStyle = col;
@@ -513,7 +623,7 @@ function drawTowers(ctx) {
     drawCustomer(ctx, t.typeId, t.x + ox, t.y + oy, radius, def.color, { level: t.upgradeTier + 1, path: t.upgradePath, tier: t.upgradeTier, firing: justFired, bite });
     // Two tier pips: filled = tiers bought on this tower's committed path.
     for (let i = 0; i < MAX_TIER; i++) { ctx.beginPath(); ctx.arc(t.x - 4 + i * 8, t.y - radius - 16, 3, 0, Math.PI * 2); ctx.fillStyle = i < t.upgradeTier ? COLOR.upgradeSpark : "#39404f"; ctx.fill(); }
-    if (distance(game.pointer, t) <= 18 && t.upgradeTier < MAX_TIER) {
+    if (distance(boardPtr(), t) <= 18 && t.upgradeTier < MAX_TIER) {
       let cheapest = Infinity;
       for (const pp of towerPaths(t.typeId)) { const nt = nextTier(t, pp.id); if (nt && nt.cost < cheapest) cheapest = nt.cost; }
       if (cheapest < Infinity) {
@@ -565,17 +675,30 @@ function drawDeckCard(ctx, r, def, selected, hover, affordable, portraitR) {
   ctx.globalAlpha = 1;
 }
 
-function drawToolbar(ctx) {
-  ctx.fillStyle = COLOR.panel; ctx.fillRect(0, TOOLBAR.y - 2, VIEW.w, VIEW.h - TOOLBAR.y + 2);
+// The left tower-deck RAIL (design space): the cards you seat customers from,
+// stacked top-to-bottom OFF the board so they stay big and legible on a phone.
+// Replaces the retired bottom toolbar; tapping a card sets the build type.
+function drawRail(ctx) {
+  ctx.fillStyle = COLOR.railBg; ctx.fillRect(0, 0, RAIL.w, DESIGN.h);
+  ctx.strokeStyle = COLOR.ctrlLine; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(RAIL.w - 0.5, 0); ctx.lineTo(RAIL.w - 0.5, DESIGN.h); ctx.stroke();
   const deck = deckTypes();
   for (let i = 0; i < deck.length; i++) {
-    const def = deck[i], r = cardRect(i);
-    drawDeckCard(ctx, r, def, game.selectedType === def.id, inRect(game.pointer, r), game.currency >= def.cost, 9);
+    const def = deck[i], r = railCardRect(i, deck.length);
+    drawDeckCard(ctx, r, def, game.selectedType === def.id, inRect(game.pointer, r), game.currency >= def.cost, 15);
   }
+}
+
+// The control apron under the board (board space): the selected customer's role
+// blurb on the left, the Send/Call Wave button (drawStartButton) on the right —
+// living in the band the retired toolbar freed up, below the playfield.
+function drawApron(ctx) {
   const def = TOWER_BY_ID[game.selectedType];
-  ctx.fillStyle = COLOR.muted; ctx.font = "11px system-ui, sans-serif"; ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
-  const cardsEnd = TOOLBAR.startX + deck.length * (TOOLBAR.cardW + TOOLBAR.gap);
-  ctx.fillText(def.name + ": " + def.blurb, cardsEnd + 6, TOOLBAR.y + 16);
+  if (!def || (game.phase !== "prep" && game.phase !== "wave")) return;
+  ctx.fillStyle = COLOR.muted; ctx.font = "12px system-ui, sans-serif";
+  ctx.textAlign = "left"; ctx.textBaseline = "middle";
+  ctx.fillText(fitText(ctx, def.name + " — " + def.blurb, START_BTN.x - 26), 14, LOWER_Y + (VIEW.h - LOWER_Y) / 2);
+  ctx.textBaseline = "alphabetic";
 }
 
 function drawStartButton(ctx) {
@@ -583,8 +706,8 @@ function drawStartButton(ctx) {
     if (game.phase === "wave") { ctx.fillStyle = COLOR.muted; ctx.font = "12px system-ui, sans-serif"; ctx.textAlign = "center"; ctx.fillText("serving — seat/upgrade live", START_BTN.x + START_BTN.w / 2, START_BTN.y + 24); }
     return;
   }
-  const hover = inRect(game.pointer, START_BTN);
-  ctx.fillStyle = hover ? COLOR.core : "#2b3f66"; roundRect(ctx, START_BTN.x, START_BTN.y, START_BTN.w, START_BTN.h, 8); ctx.fill();
+  const hover = inRect(boardPtr(), START_BTN);
+  ctx.fillStyle = hover ? COLOR.core : "#2b3f66"; roundRect(ctx, START_BTN.x, START_BTN.y, START_BTN.w, START_BTN.h, 10); ctx.fill();
   const bonus = earlyCallBonusNow();
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
   if (bonus > 0) {
@@ -599,106 +722,130 @@ function drawStartButton(ctx) {
   ctx.textBaseline = "alphabetic";
 }
 
-// Geometry for the selected-tower panel (targeting modes + two upgrade-path
-// buttons). Shared by the click handler and the renderer so hit-testing matches
-// what's drawn.
-function towerPanel(t) {
-  const W = 190, H = 132;   // grew 22px for the Sell row (flip/clamp below keys off H)
-  const x = Math.max(6, Math.min(VIEW.w - W - 6, t.x - W / 2));
-  let y = t.y + 24;
-  if (y + H > TOOLBAR.y - 4) y = t.y - 24 - H;      // flip above the tower if it'd cover the toolbar
-  y = Math.max(6, Math.min(TOOLBAR.y - H - 6, y));
-  const rect = { x, y, w: W, h: H };
-  const bw = 42, bh = 20, gap = 4, by = y + 26;
-  const modes = TARGETING_MODES.map(([mode, label], i) => ({
-    mode, label, rect: { x: x + 6 + i * (bw + gap), y: by, w: bw, h: bh },
-  }));
-  // Two full-width upgrade-path buttons stacked below the targeting row.
+// Geometry for the RIGHT upgrade SHEET (design space): a full-height slide-in
+// panel that replaced the floating popover. ONE source shared by the click
+// handler and the renderer (the towerPanel discipline survives; the popover
+// doesn't). Rows are sized so every interactive rect clears 44 CSS px at phone
+// scale — the reason targeting is a 2x2 grid, not one row of four.
+function towerSheet(t) {
+  const x = SHEET_X, w = SHEET.w, pad = 14;
+  const gx = x + pad, gw = w - 2 * pad;
+  const close = { x: x + w - 62, y: 8, w: 54, h: 54 };
+  const bw = (gw - 10) / 2, bh = 56, gGap = 10, gTop = 104;
+  const modes = TARGETING_MODES.map(([mode, label], i) => {
+    const col = i % 2, row = (i / 2) | 0;
+    return { mode, label, rect: { x: gx + col * (bw + 10), y: gTop + row * (bh + gGap), w: bw, h: bh } };
+  });
+  const rowH = 56, rowGap = 10, pathsTop = gTop + 2 * bh + gGap + 14;
   const paths = towerPaths(t.typeId).map((pp, i) => ({
-    id: pp.id, name: pp.name, rect: { x: x + 6, y: y + 52 + i * 26, w: W - 12, h: 22 },
+    id: pp.id, name: pp.name, rect: { x: gx, y: pathsTop + i * (rowH + rowGap), w: gw, h: rowH },
   }));
-  // Full-width Sell row under the paths — same geometry-sharing pattern.
-  const sell = { rect: { x: x + 6, y: y + 104, w: W - 12, h: 22 } };
-  return { rect, modes, paths, sell };
+  const sell = { rect: { x: gx, y: pathsTop + 2 * (rowH + rowGap) + 8, w: gw, h: rowH } };
+  return { rect: { x, y: 0, w, h: VIEW.h }, close, modes, paths, sell, gTop };
 }
 
-function drawSelectedTowerPanel(ctx) {
+// Selection ring around the chosen customer — board space, drawn inside the board
+// translate so it tracks the tower.
+function drawSelectionRing(ctx) {
   const t = game.selectedTower;
   if (!t || game.phase === "menu") return;
-  const def = TOWER_BY_ID[t.typeId];
-  const p = towerPanel(t);
-  // Selection ring — a crisp solid ring plus a faint dashed halo so the chosen
-  // customer reads clearly against the board.
   ctx.strokeStyle = COLOR.core; ctx.globalAlpha = 0.95; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.arc(t.x, t.y, 21, 0, Math.PI * 2); ctx.stroke();
   ctx.globalAlpha = 0.4; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
   ctx.beginPath(); ctx.arc(t.x, t.y, 25, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
   ctx.globalAlpha = 1;
-  // Panel background.
-  ctx.fillStyle = "rgba(14,18,28,0.96)"; roundRect(ctx, p.rect.x, p.rect.y, p.rect.w, p.rect.h, 8); ctx.fill();
-  ctx.strokeStyle = def.color; ctx.lineWidth = 1; roundRect(ctx, p.rect.x, p.rect.y, p.rect.w, p.rect.h, 8); ctx.stroke();
-  // Header: tower name + which path/tier this tower is committed to.
-  ctx.fillStyle = COLOR.ink; ctx.font = "bold 11px system-ui, sans-serif"; ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+}
+
+// The RIGHT upgrade SHEET (design space): tower header, targeting grid, the two
+// path rows, and Sell. Slides in from the right when a tower is selected and back
+// out when deselected/sold — presentation juice only, no gameplay timing.
+let sheetProgress = 0, sheetTower = null;
+function drawTowerSheet(ctx) {
+  const opening = !!game.selectedTower && (game.phase === "prep" || game.phase === "wave");
+  if (game.selectedTower) sheetTower = game.selectedTower;
+  sheetProgress = opening ? Math.min(1, sheetProgress + 0.18) : Math.max(0, sheetProgress - 0.22);
+  if (sheetProgress <= 0 || !sheetTower) { if (sheetProgress <= 0) sheetTower = null; return; }
+  const t = sheetTower;
+  if (!game.towers.includes(t)) { sheetProgress = 0; sheetTower = null; return; }   // sold out from under us
+  const def = TOWER_BY_ID[t.typeId];
+  const s = towerSheet(t);
+  const ease = 1 - Math.pow(1 - sheetProgress, 3);         // easeOutCubic slide-in
+  ctx.save();
+  ctx.translate((1 - ease) * (SHEET.w + 14), 0);
+  // Soft scrim strip along the sheet's left edge for depth over the board.
+  ctx.fillStyle = COLOR.sheetScrim; ctx.fillRect(s.rect.x - 12, 0, 12, DESIGN.h);
+  // Sheet body + tower-colored left rule.
+  ctx.fillStyle = COLOR.sheetBg; ctx.fillRect(s.rect.x, 0, s.rect.w, DESIGN.h);
+  ctx.strokeStyle = def.color; ctx.globalAlpha = 0.9; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(s.rect.x + 1, 0); ctx.lineTo(s.rect.x + 1, DESIGN.h); ctx.stroke(); ctx.globalAlpha = 1;
+  // Header: portrait + name + committed path/tier.
+  drawSoftShadow(ctx, s.rect.x + 34, 52, 18, 6, COLOR.unitShadow);
+  drawCustomer(ctx, t.typeId, s.rect.x + 34, 46, 18, def.color);
+  ctx.fillStyle = COLOR.ink; ctx.font = "bold 13px system-ui, sans-serif"; ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+  ctx.fillText(fitText(ctx, def.name, s.close.x - (s.rect.x + 60) - 4), s.rect.x + 60, 40);
   const sub = t.upgradeTier === 0 ? "choose an upgrade path" : def.upgrades[t.upgradePath].name + "  " + t.upgradeTier + "/" + MAX_TIER;
-  ctx.fillText(def.name + "  ·  " + sub, p.rect.x + 8, p.rect.y + 16);
-  ctx.textAlign = "left";
-  // Targeting mode buttons.
+  ctx.fillStyle = COLOR.muted; ctx.font = "10px system-ui, sans-serif";
+  ctx.fillText(fitText(ctx, sub, s.rect.w - 72), s.rect.x + 60, 58);
+  // Close (X).
+  const closeHover = inRect(game.pointer, s.close);
+  ctx.strokeStyle = closeHover ? COLOR.bad : COLOR.muted; ctx.lineWidth = 2; ctx.lineCap = "round";
+  const cxr = s.close.x + s.close.w / 2, cyr = s.close.y + s.close.h / 2, cr = 9;
+  ctx.beginPath(); ctx.moveTo(cxr - cr, cyr - cr); ctx.lineTo(cxr + cr, cyr + cr); ctx.moveTo(cxr + cr, cyr - cr); ctx.lineTo(cxr - cr, cyr + cr); ctx.stroke();
+  // Targeting label + 2x2 grid.
+  ctx.fillStyle = COLOR.muted; ctx.font = "9px system-ui, sans-serif"; ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+  ctx.fillText("TARGETING", s.rect.x + 14, s.gTop - 7);
   const cur = t.targeting || "first";
-  for (const b of p.modes) {
-    const on = cur === b.mode;
-    ctx.fillStyle = on ? COLOR.ctrlSel : COLOR.ctrlBg; roundRect(ctx, b.rect.x, b.rect.y, b.rect.w, b.rect.h, 5); ctx.fill();
-    ctx.strokeStyle = on ? def.color : COLOR.ctrlLine; ctx.lineWidth = on ? 1.5 : 1; roundRect(ctx, b.rect.x, b.rect.y, b.rect.w, b.rect.h, 5); ctx.stroke();
-    ctx.fillStyle = on ? COLOR.ink : COLOR.muted; ctx.font = "9px system-ui, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  for (const b of s.modes) {
+    const on = cur === b.mode, hov = inRect(game.pointer, b.rect);
+    ctx.fillStyle = on || hov ? COLOR.ctrlSel : COLOR.ctrlBg; roundRect(ctx, b.rect.x, b.rect.y, b.rect.w, b.rect.h, 8); ctx.fill();
+    ctx.strokeStyle = on ? def.color : (hov ? COLOR.ctrlLineHi : COLOR.ctrlLine); ctx.lineWidth = on ? 2 : 1; roundRect(ctx, b.rect.x, b.rect.y, b.rect.w, b.rect.h, 8); ctx.stroke();
+    ctx.fillStyle = on ? COLOR.ink : COLOR.muted; ctx.font = "bold 12px system-ui, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
     ctx.fillText(b.label, b.rect.x + b.rect.w / 2, b.rect.y + b.rect.h / 2 + 0.5);
   }
-  // Two upgrade-path buttons. Buying tier 1 of one commits this tower and greys
-  // the other out for good; the committed path then reveals its tier-2 cost.
-  ctx.font = "bold 10px system-ui, sans-serif"; ctx.textBaseline = "middle";
-  for (const pb of p.paths) {
+  // Two upgrade-path rows. Buying tier 1 of one commits the tower and greys the
+  // other out; the committed path then reveals its tier-2 cost.
+  for (const pb of s.paths) {
     const r = pb.rect;
     const committed = t.upgradePath === pb.id;
     const lockedOut = t.upgradePath !== null && !committed;
     const maxed = committed && t.upgradeTier >= MAX_TIER;
-    const tier = nextTier(t, pb.id);                 // null if maxed or locked out
+    const tier = nextTier(t, pb.id);                       // null if maxed or locked out
     const afford = tier && game.currency >= tier.cost;
+    const hov = inRect(game.pointer, r) && !lockedOut && !maxed;
     let bg, border;
     if (lockedOut) { bg = "#161a22"; border = "#242a36"; }
     else if (maxed) { bg = "#16281c"; border = COLOR.good; }
-    else { bg = afford ? "#16281c" : "#2a1f26"; border = afford ? COLOR.good : COLOR.bad; }
+    else { bg = afford ? (hov ? "#1c3324" : "#16281c") : "#2a1f26"; border = afford ? COLOR.good : COLOR.bad; }
     ctx.globalAlpha = lockedOut ? 0.5 : 1;
-    ctx.fillStyle = bg; roundRect(ctx, r.x, r.y, r.w, r.h, 5); ctx.fill();
-    ctx.strokeStyle = border; ctx.lineWidth = committed ? 1.5 : 1; roundRect(ctx, r.x, r.y, r.w, r.h, 5); ctx.stroke();
-    // Path name (left) + cost/state tag (right) — a Tips cost pill when buyable,
-    // a vector padlock when locked out, "MAX" when maxed.
+    ctx.fillStyle = bg; roundRect(ctx, r.x, r.y, r.w, r.h, 8); ctx.fill();
+    ctx.strokeStyle = border; ctx.lineWidth = committed ? 2 : 1; roundRect(ctx, r.x, r.y, r.w, r.h, 8); ctx.stroke();
     const mid = r.y + r.h / 2;
-    ctx.fillStyle = lockedOut ? COLOR.muted : COLOR.ink; ctx.textAlign = "left"; ctx.textBaseline = "middle";
-    ctx.fillText(fitText(ctx, pb.name, r.w - 60), r.x + 8, mid + 0.5);
+    ctx.fillStyle = lockedOut ? COLOR.muted : COLOR.ink; ctx.textAlign = "left"; ctx.textBaseline = "middle"; ctx.font = "bold 12px system-ui, sans-serif";
+    ctx.fillText(fitText(ctx, pb.name, r.w - 66), r.x + 10, mid - 7);
+    ctx.font = "9px system-ui, sans-serif"; ctx.fillStyle = COLOR.muted;
+    ctx.fillText(committed ? (maxed ? "committed · maxed" : "committed path") : (lockedOut ? "path locked out" : "next: tier " + (t.upgradeTier + 1)), r.x + 10, mid + 9);
     ctx.font = "bold 10px system-ui, sans-serif";
     if (lockedOut) {
-      ctx.fillStyle = COLOR.muted; ctx.textAlign = "right"; ctx.fillText("locked", r.x + r.w - 8, mid + 0.5);
-      drawLockIcon(ctx, r.x + r.w - 8 - ctx.measureText("locked").width - 9, mid, 4.5, COLOR.muted);
+      ctx.fillStyle = COLOR.muted; ctx.textAlign = "right"; ctx.fillText("locked", r.x + r.w - 10, mid);
+      drawLockIcon(ctx, r.x + r.w - 10 - ctx.measureText("locked").width - 9, mid, 4.5, COLOR.muted);
     } else if (maxed) {
-      ctx.fillStyle = COLOR.good; ctx.textAlign = "right"; ctx.fillText("MAX", r.x + r.w - 8, mid + 0.5);
+      ctx.fillStyle = COLOR.good; ctx.textAlign = "right"; ctx.fillText("MAX", r.x + r.w - 10, mid);
     } else {
-      drawCostChip(ctx, r.x + r.w - 8, mid, tier.cost, afford, 15, "right");
-      ctx.font = "bold 10px system-ui, sans-serif";
+      drawCostChip(ctx, r.x + r.w - 10, mid, tier.cost, afford, 16, "right");
     }
   }
   ctx.globalAlpha = 1;
-  // Sell row — destructive affordance (muted red), with the live refund shown as
-  // a gold payout pill (you get Tips back).
-  const sr = p.sell.rect;
-  const refund = Math.floor(RULES.sellRefund * t.spent);
-  const sellHover = inRect(game.pointer, sr);
-  const smid = sr.y + sr.h / 2;
-  ctx.fillStyle = sellHover ? "#33181b" : "#241418";
-  roundRect(ctx, sr.x, sr.y, sr.w, sr.h, 5); ctx.fill();
-  ctx.strokeStyle = sellHover ? COLOR.bad : "#7e3634"; ctx.lineWidth = 1;
-  roundRect(ctx, sr.x, sr.y, sr.w, sr.h, 5); ctx.stroke();
-  ctx.fillStyle = sellHover ? COLOR.bad : "#c98a8a"; ctx.textAlign = "left"; ctx.textBaseline = "middle"; ctx.font = "bold 10px system-ui, sans-serif";
-  ctx.fillText("Sell tower", sr.x + 8, smid + 0.5);
-  drawCostChip(ctx, sr.x + sr.w - 8, smid, refund, true, 15, "right");
+  // Sell row — destructive affordance (muted red) with the live refund as a gold
+  // payout pill.
+  const sr = s.sell.rect, refund = Math.floor(RULES.sellRefund * t.spent);
+  const sellHover = inRect(game.pointer, sr), smid = sr.y + sr.h / 2;
+  ctx.fillStyle = sellHover ? "#33181b" : "#241418"; roundRect(ctx, sr.x, sr.y, sr.w, sr.h, 8); ctx.fill();
+  ctx.strokeStyle = sellHover ? COLOR.bad : "#7e3634"; ctx.lineWidth = 1; roundRect(ctx, sr.x, sr.y, sr.w, sr.h, 8); ctx.stroke();
+  ctx.fillStyle = sellHover ? COLOR.bad : "#c98a8a"; ctx.textAlign = "left"; ctx.textBaseline = "middle"; ctx.font = "bold 12px system-ui, sans-serif";
+  ctx.fillText("Sell tower", sr.x + 10, smid + 0.5);
+  drawCostChip(ctx, sr.x + sr.w - 10, smid, refund, true, 16, "right");
   ctx.textBaseline = "alphabetic"; ctx.textAlign = "left";
+  ctx.restore();
 }
 
 function drawHUD(ctx) {
@@ -731,30 +878,32 @@ function drawMessage(ctx) {
 }
 
 function drawSummary(ctx) {
-  ctx.fillStyle = "rgba(8,10,15,0.82)"; ctx.fillRect(0, 0, VIEW.w, VIEW.h);
+  const cx = DESIGN.w / 2, cy = DESIGN.h / 2;
+  ctx.fillStyle = "rgba(8,10,15,0.82)"; ctx.fillRect(0, 0, DESIGN.w, DESIGN.h);
   ctx.textAlign = "center";
   const r = game.lastRun || { wave: 1, best: 1, newBest: false, killed: 0, essence: 0, score: 0 };
   // Endless: a run ends only in defeat. Headline the waves survived; a new
   // personal best gets its own callout, otherwise show the record to beat.
   ctx.fillStyle = COLOR.bad; ctx.font = "bold 40px system-ui, sans-serif";
-  ctx.fillText("CLOSING TIME", VIEW.w / 2, VIEW.h / 2 - 58);
+  ctx.fillText("CLOSING TIME", cx, cy - 58);
   ctx.fillStyle = COLOR.ink; ctx.font = "bold 20px system-ui, sans-serif";
-  ctx.fillText("You survived to Wave " + r.wave, VIEW.w / 2, VIEW.h / 2 - 28);
-  if (r.newBest) { ctx.fillStyle = COLOR.essence; ctx.font = "bold 15px system-ui, sans-serif"; ctx.fillText("★ New best run!", VIEW.w / 2, VIEW.h / 2 - 6); }
-  else { ctx.fillStyle = COLOR.muted; ctx.font = "14px system-ui, sans-serif"; ctx.fillText("Best run:  Wave " + (r.best || r.wave), VIEW.w / 2, VIEW.h / 2 - 6); }
+  ctx.fillText("You survived to Wave " + r.wave, cx, cy - 28);
+  if (r.newBest) { ctx.fillStyle = COLOR.essence; ctx.font = "bold 15px system-ui, sans-serif"; ctx.fillText("★ New best run!", cx, cy - 6); }
+  else { ctx.fillStyle = COLOR.muted; ctx.font = "14px system-ui, sans-serif"; ctx.fillText("Best run:  Wave " + (r.best || r.wave), cx, cy - 6); }
   ctx.fillStyle = COLOR.ink; ctx.font = "14px system-ui, sans-serif";
-  ctx.fillText("Dishes eaten: " + r.killed, VIEW.w / 2, VIEW.h / 2 + 15);
+  ctx.fillText("Dishes eaten: " + r.killed, cx, cy + 15);
   ctx.fillStyle = COLOR.essence; ctx.font = "bold 16px system-ui, sans-serif";
-  ctx.fillText("✦ +" + r.essence + " Golden Forks earned", VIEW.w / 2, VIEW.h / 2 + 36);
+  ctx.fillText("✦ +" + r.essence + " Golden Forks earned", cx, cy + 36);
   const hover = inRect(game.pointer, CONTINUE_BTN);
   ctx.fillStyle = hover ? COLOR.core : "#2b3f66"; roundRect(ctx, CONTINUE_BTN.x, CONTINUE_BTN.y, CONTINUE_BTN.w, CONTINUE_BTN.h, 8); ctx.fill();
   ctx.fillStyle = COLOR.ink; ctx.font = "bold 15px system-ui, sans-serif"; ctx.textBaseline = "middle";
-  ctx.fillText("Continue →", VIEW.w / 2, CONTINUE_BTN.y + CONTINUE_BTN.h / 2); ctx.textBaseline = "alphabetic";
+  ctx.fillText("Continue →", cx, CONTINUE_BTN.y + CONTINUE_BTN.h / 2); ctx.textBaseline = "alphabetic";
 }
 
 function drawMuteButton(ctx) {
-  const x = VIEW.w - 44, y = 12;
-  ctx.fillStyle = "rgba(0,0,0,0.35)"; ctx.fillRect(x, y, 32, 32);
+  const rr = muteBtnRect();
+  ctx.fillStyle = "rgba(0,0,0,0.35)"; roundRect(ctx, rr.x, rr.y, rr.w, rr.h, 7); ctx.fill();
+  const x = rr.x + (rr.w - 32) / 2, y = rr.y + (rr.h - 32) / 2;
   ctx.fillStyle = audio.muted ? COLOR.muted : COLOR.core;
   ctx.beginPath(); ctx.moveTo(x + 9, y + 13); ctx.lineTo(x + 14, y + 13); ctx.lineTo(x + 19, y + 9); ctx.lineTo(x + 19, y + 23); ctx.lineTo(x + 14, y + 19); ctx.lineTo(x + 9, y + 19); ctx.closePath(); ctx.fill();
   if (audio.muted) { ctx.strokeStyle = COLOR.coreHurt; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x + 22, y + 11); ctx.lineTo(x + 28, y + 21); ctx.moveTo(x + 28, y + 11); ctx.lineTo(x + 22, y + 21); ctx.stroke(); }
@@ -767,8 +916,9 @@ function drawMuteButton(ctx) {
 function drawPauseButton(ctx) {
   if (game.phase !== "prep" && game.phase !== "wave") return;
   const paused = typeof gamePaused !== "undefined" && gamePaused;
-  const x = VIEW.w - 84, y = 12;
-  ctx.fillStyle = "rgba(0,0,0,0.35)"; ctx.fillRect(x, y, 32, 32);
+  const rr = pauseBtnRect();
+  ctx.fillStyle = "rgba(0,0,0,0.35)"; roundRect(ctx, rr.x, rr.y, rr.w, rr.h, 7); ctx.fill();
+  const x = rr.x + (rr.w - 32) / 2, y = rr.y + (rr.h - 32) / 2;
   ctx.fillStyle = paused ? COLOR.good : COLOR.core;
   if (paused) {   // play triangle = "resume"
     ctx.beginPath(); ctx.moveTo(x + 12, y + 8); ctx.lineTo(x + 25, y + 16); ctx.lineTo(x + 12, y + 24); ctx.closePath(); ctx.fill();
@@ -780,7 +930,7 @@ function drawPauseButton(ctx) {
 // Full-board dim + label while paused. Drawn under the toolbar/HUD so the
 // interactive UI stays bright — seating and upgrading work while paused.
 function drawPausedOverlay(ctx) {
-  ctx.fillStyle = "rgba(8,10,15,0.45)"; ctx.fillRect(0, 0, VIEW.w, TOOLBAR.y - 2);
+  ctx.fillStyle = "rgba(8,10,15,0.45)"; ctx.fillRect(0, 0, VIEW.w, LOWER_Y);
   ctx.textAlign = "center";
   ctx.fillStyle = COLOR.ink; ctx.font = "bold 26px system-ui, sans-serif";
   ctx.fillText("PAUSED", VIEW.w / 2, VIEW.h / 2 - 40);

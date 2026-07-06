@@ -190,3 +190,18 @@ Render `tools/dev/harness.html?mode=sheet` and check:
   register, counter+stools, prep) are their own kinds. The kitchen is an
   obstacle *structure* here (not the diner's swing-door), entrance dressing
   (OPEN sign + windows) lives in the right margin.
+- **2026-07-05** (Mobile-first UI restructure, Issue #79) — **Chrome lives OFF
+  the board; the board is a viewport-transformed layer.** The presentation canvas
+  is **900×450** = an 800×450 **board** (the sacred engine/sim coordinate space,
+  `VIEW`) offset right by a **100px tower rail** (`ctx.translate(BOARD.x, 0)`;
+  input maps the inverse). Layout conventions set here: the deck is a **left rail**
+  (vertical cards, pause+mute stacked on top), the tower panel is a **right
+  slide-in sheet** (not a floating popover) with a **2×2 targeting grid** and
+  full-width path/Sell rows, and the retired bottom toolbar's band becomes a
+  board **apron** for the tower blurb + Send/Call-Wave button. This is a
+  **landscape-only** presentation (portrait out of scope). Touch-target rule
+  (the phone acceptance bar): **every interactive rect ≥44 CSS px** in its
+  smaller dimension at ~844×390 (design rects are sized ≥53px since scale ≈0.84).
+  New chrome surfaces are **named `COLOR` entries** (`railBg`/`sheetBg`/
+  `sheetScrim`), consistent with the #71 named-chrome discipline — **structure,
+  not a new palette**; mascot art is **unchanged** (presentation-only).

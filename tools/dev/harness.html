@@ -77,7 +77,7 @@
 <button id="play-pause">Pause</button>
 <button id="play-step">Step 1 frame</button>
 <select id="play-speed"><option>1</option><option>2</option><option selected>4</option><option>8</option></select>
-<canvas id="game-canvas" width="800" height="450"></canvas>
+<canvas id="game-canvas" width="900" height="450"></canvas>   <!-- 900x450 design canvas (800x450 board + 100px rail), Issue #79 -->
 
 <!-- Freeze the game's own rAF loop BEFORE src/main.js boots: startGameLoop()
      runs at DOMContentLoaded and would otherwise fight the harness driver. The

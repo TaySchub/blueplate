@@ -39,6 +39,9 @@ html, body {
     env(safe-area-inset-bottom)
     env(safe-area-inset-left);
   box-sizing: border-box;
+  /* Kill the iOS rubber-band scroll bounce so a mistaken drag on the page can't
+     jiggle the game (Issue #79 mobile QoL). */
+  overscroll-behavior: none;
 }
 
 /* --- Header --- */
@@ -61,7 +64,7 @@ html, body {
 /* --- Play area --- */
 .stage {
   width: 100%;
-  max-width: 820px;
+  max-width: 920px;
   flex: 0 0 auto;
   display: flex;
   align-items: center;
@@ -70,11 +73,12 @@ html, body {
 
 /*
   The canvas sizes ITSELF to fit within BOTH the viewport width and the
-  viewport height, in either orientation, with the 16:9 ratio locked. We keep
+  viewport height, in either orientation, with the 2:1 ratio locked (the
+  900x450 design canvas — the 800x450 board plus the 100px tower rail). We keep
   height derived (height: auto + aspect-ratio) and only ever set the WIDTH, as
   the smaller of two limits:
     - 100%                              → never wider than the page.
-    - (available height) * 16 / 9       → never so wide that the derived 16:9
+    - (available height) * 2            → never so wide that the derived 2:1
                                           height would exceed the room we have.
   "available height" is 100svh (viewport WITH Safari's toolbars showing — so we
   never size into the strip a floating toolbar sits over) minus a reservation
@@ -83,17 +87,21 @@ html, body {
   top/bottom clipping.
 */
 #game-canvas {
-  width: min(100%, (100svh - 210px) * 16 / 9);
-  max-width: 800px;
+  width: min(100%, (100svh - 200px) * 2);
+  max-width: 900px;
   height: auto;
-  aspect-ratio: 16 / 9;
+  aspect-ratio: 2 / 1;
   background: var(--panel);
   border: 1px solid #2a3040;
   border-radius: 10px;
+  /* No default touch gestures ON the canvas: this stops iOS double-tap-to-zoom
+     and scroll/pan when a finger lands on the play area, so every tap is a game
+     tap (Issue #79). Paired with the viewport meta's maximum-scale=1. */
+  touch-action: none;
   /*
     No image-rendering override: the art is smooth vector-style canvas drawing
     (anti-aliased curves), not pixel art, so the browser's default smooth
-    scaling is what keeps mascots/outlines crisp when the 800x450 canvas is
+    scaling is what keeps mascots/outlines crisp when the 900x450 canvas is
     scaled up on Retina/iPhone screens. `pixelated` here made everything blocky.
   */
 }
@@ -107,19 +115,18 @@ html, body {
 }
 
 /*
-  Landscape phones (short viewports): height is the tight constraint. We shrink
-  the header/tagline/footer chrome so the canvas gets more room, and — because
-  there's now less chrome to account for — reserve LESS vertical space in the
-  same width: min(...) formula. The canvas keeps sizing itself from the ratio;
-  no flexbox height chain, so nothing clips top/bottom on iOS Safari.
+  Landscape phones (short viewports): height is the tight constraint, and the
+  touch-target acceptance bar (every interactive rect >= 44 CSS px) wants the
+  canvas as LARGE as possible. So we hide the page header + footer entirely and
+  reserve almost no vertical chrome — the canvas fills the height and the design
+  chrome (rail, sheet, apron buttons) scales up with it. The canvas keeps sizing
+  itself from the 2:1 ratio; no flexbox height chain, so nothing clips on iOS.
 */
 @media (orientation: landscape) and (max-height: 500px) {
-  .site-header { margin: 6px 0 4px; }
-  .site-header h1 { font-size: clamp(18px, 4vw, 26px); }
-  .tagline { font-size: clamp(10px, 2vw, 12px); margin-top: 2px; }
-  .site-footer { margin: 4px 0; font-size: 10px; }
+  .site-header { display: none; }
+  .site-footer { display: none; }
 
   #game-canvas {
-    width: min(100%, (100svh - 96px) * 16 / 9);
+    width: min(100%, (100svh - 12px) * 2);
   }
 }

@@ -13,7 +13,24 @@
    1) CONFIG
    ========================================================================= */
 
+// The BOARD coordinate space — the engine, maps, placement bounds, the sim, and
+// every gameplay position live here. It is SACRED: never change these numbers.
+// tools/sim.mjs runs the engine headless against this exact VIEW, so any drift
+// here is a balance drift. The engine's only VIEW use is particle culling at the
+// board edge (engine.js) — a board-space bound, not a chrome dependency.
 const VIEW = { w: 800, h: 450 };
+
+// Landscape mobile-first chrome (Issue #79). On a phone the whole board scaled
+// down, so upgrade buttons were tiny. The fix is a presentation-only VIEWPORT
+// TRANSFORM: the DESIGN canvas is wider than the board so the tower deck lives
+// in a LEFT RAIL and the upgrade panel slides in as a RIGHT SHEET — chrome OFF
+// the board, big touch targets kept. The renderer offsets the 800x450 board
+// right by BOARD.x (a single ctx.translate) and input maps the inverse; the
+// board's coordinate space is UNCHANGED, so engine/sim/placement never see this.
+const DESIGN = { w: 900, h: 450 };              // full canvas (internal drawing buffer)
+const RAIL = { w: 100 };                        // left tower-deck rail
+const BOARD = { x: DESIGN.w - VIEW.w, y: 0 };   // board offset inside the design canvas (=100,0)
+const SHEET = { w: 232 };                       // right slide-in upgrade sheet
 
 const COLOR = {
   bg: "#10131a", grid: "#1b2130",
@@ -35,6 +52,12 @@ const COLOR = {
   chip: "#0e1319",          // inset backing for cost chips
   hudBg: "rgba(0,0,0,0.42)",// HUD readout backing
   unitShadow: "rgba(0,0,0,0.33)",   // soft drop-shadow that lifts seated customers off the floor
+  // Landscape chrome surfaces (Issue #79) — the LEFT tower rail and the RIGHT
+  // slide-in upgrade sheet. Named like the rest of the chrome so the diner
+  // remaster re-points them in one place; not map surfaces.
+  railBg: "#12161f",        // left tower-rail surface (seated a touch deeper than panel)
+  sheetBg: "#0e1420",       // right upgrade-sheet surface (reads as an overlay above the board)
+  sheetScrim: "rgba(8,10,15,0.5)",  // soft dim over the board's right edge behind the open sheet
 };
 
 /* Difficulty & economy numbers come from data/balance.json, loaded as

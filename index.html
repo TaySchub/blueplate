@@ -15,8 +15,11 @@
 <head>
   <meta charset="UTF-8" />
 
-  <!-- Makes the page scale correctly on phones (needed for iPhone play). -->
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <!-- Makes the page scale correctly on phones (needed for iPhone play).
+       maximum-scale=1 + user-scalable=no stop iOS Safari's double-tap-to-zoom on
+       the canvas (a tower-defense game wants taps, not zoom gestures) — paired
+       with touch-action:none on the canvas in style.css. -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
 
   <title>Deckbound</title>
 
@@ -35,11 +38,13 @@
   <main class="stage">
     <!--
       The <canvas> is where all game graphics are drawn. Its internal drawing
-      size (800x450) is fixed here; CSS controls how big it looks on screen.
-      src/render.js draws the belt, the trash chute, and the whole scene onto it.
+      size (900x450) is fixed here; CSS controls how big it looks on screen. The
+      board is an 800x450 coordinate space offset right by a 100px tower rail — a
+      presentation-only viewport transform (Issue #79); the engine still lives in
+      board coords. src/render.js draws the rail, the scene, and the upgrade sheet.
     -->
-    <canvas id="game-canvas" width="800" height="450"
-            aria-label="Deckbound game area: the conveyor belt and the trash chute"></canvas>
+    <canvas id="game-canvas" width="900" height="450"
+            aria-label="Deckbound game area: the tower rail, the conveyor belt, and the trash chute"></canvas>
   </main>
 
   <!-- Footer: a quiet status line we can use while building. -->
@@ -56,11 +61,11 @@
        bundler — double-clicking index.html still works):
        data (constants + balance merge) -> engine (DOM-free logic) -> audio ->
        art (pure draw fns) -> render (UI/scene) -> main (boot/input/loop). -->
-  <script src="src/data.js?v=2e05eddb" defer></script>
+  <script src="src/data.js?v=ff6a0645" defer></script>
   <script src="src/engine.js?v=05e796f8" defer></script>
   <script src="src/audio.js?v=3f8eae9c" defer></script>
   <script src="src/art.js?v=c99c8d9b" defer></script>
-  <script src="src/render.js?v=47e99711" defer></script>
-  <script src="src/main.js?v=1d2884f5" defer></script>
+  <script src="src/render.js?v=995cf16a" defer></script>
+  <script src="src/main.js?v=e0bf812f" defer></script>
 </body>
 </html>
