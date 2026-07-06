@@ -31,7 +31,8 @@ window.__uiRects = function () {
     const w = r.w * s, h = r.h * s, min = Math.min(w, h);
     rows.push({ name, cssW: +w.toFixed(1), cssH: +h.toFixed(1), minCss: +min.toFixed(1), pass: min >= 44 });
   };
-  for (let i = 0; i < 5; i++) add("rail card " + (i + 1) + "/5", railCardRect(i, 5));   // worst case: full 5-tower deck
+  const nDeck = deckTypes().length;   // the real deck (7 with cook+eater) — the scrolling rail keeps card height constant
+  for (let i = 0; i < nDeck; i++) add("rail card " + (i + 1) + "/" + nDeck, railCardRect(i, nDeck));
   add("pause", pauseBtnRect()); add("mute (run)", muteBtnRect());
   const fake = { typeId: "arrow", upgradeTier: 0, upgradePath: null, targeting: "first", spent: 50 };
   const sh = towerSheet(fake);
@@ -77,6 +78,10 @@ function setupInput(canvas) {
     const r = canvas.getBoundingClientRect();
     return { x: ((clientX - r.left) / r.width) * DESIGN.w, y: ((clientY - r.top) / r.height) * DESIGN.h };
   };
+
+  // In-progress rail drag-scroll: { startY, startScroll, moved } while a pointer is
+  // down in the rail card zone, else null. Resolves to a tap (select) or a scroll.
+  let railDrag = null;
 
   const onDown = (clientX, clientY) => {
     audio.unlock();
@@ -143,11 +148,13 @@ function setupInput(canvas) {
       }
     }
 
-    // Left rail (design space): select a card from your deck. Also closes the
-    // sheet — tapping the rail means you're building, not upgrading.
-    const deck = deckTypes();
-    for (let i = 0; i < deck.length; i++) {
-      if (inRect(p, railCardRect(i, deck.length))) { game.selectedType = deck[i].id; game.selectedTower = null; return; }
+    // Left rail (design space): the deck can overflow the rail (Roster Growth 1),
+    // so a press in the card zone begins a DRAG-OR-TAP rather than selecting on
+    // press: onMove scrolls if it moves past the threshold, and onUp selects the
+    // card only if it did NOT scroll (so a swipe never fires an accidental build).
+    if (p.x <= RAIL.w && p.y >= RAIL_TOP) {
+      railDrag = { startY: p.y, startScroll: railScroll, moved: false };
+      return;
     }
 
     // Board interactions use the inverse transform (board coords).
@@ -164,9 +171,40 @@ function setupInput(canvas) {
     game.selectedTower = null;
   };
 
+  // Pointer move: update the hover pointer AND drive a rail drag-scroll in
+  // progress. A drag past DRAG_THRESHOLD design px flips it from a tap into a
+  // scroll, so onUp won't select a card (Roster Growth 1 scrolling rail).
+  const DRAG_THRESHOLD = 8;
+  const onMove = (clientX, clientY) => {
+    game.pointer = toDesign(clientX, clientY);
+    if (railDrag) {
+      const dy = game.pointer.y - railDrag.startY;
+      if (Math.abs(dy) > DRAG_THRESHOLD) railDrag.moved = true;
+      railDragTo(railDrag.startScroll, dy);
+    }
+  };
+  // Pointer up: resolve a rail drag-or-tap. If it didn't scroll, it's a tap →
+  // select the card under the release point (and close any open sheet).
+  const onUp = (clientX, clientY) => {
+    if (!railDrag) return;
+    const scrolled = railDrag.moved;
+    const p = toDesign(clientX, clientY);
+    railDrag = null;
+    if (scrolled) return;
+    const deck = deckTypes();
+    for (let i = 0; i < deck.length; i++) {
+      if (inRect(p, railCardRect(i, deck.length))) { game.selectedType = deck[i].id; game.selectedTower = null; return; }
+    }
+  };
+
   canvas.addEventListener("mousedown", (e) => onDown(e.clientX, e.clientY));
+  canvas.addEventListener("mousemove", (e) => onMove(e.clientX, e.clientY));
+  window.addEventListener("mouseup", (e) => onUp(e.clientX, e.clientY));
   canvas.addEventListener("touchstart", (e) => { if (e.touches[0]) { e.preventDefault(); onDown(e.touches[0].clientX, e.touches[0].clientY); } }, { passive: false });
-  canvas.addEventListener("mousemove", (e) => { game.pointer = toDesign(e.clientX, e.clientY); });
+  canvas.addEventListener("touchmove", (e) => { if (e.touches[0]) { if (railDrag) e.preventDefault(); onMove(e.touches[0].clientX, e.touches[0].clientY); } }, { passive: false });
+  canvas.addEventListener("touchend", (e) => { const t = e.changedTouches[0]; if (t) onUp(t.clientX, t.clientY); });
+  // Desktop wheel over the rail scrolls the deck (only when it overflows).
+  canvas.addEventListener("wheel", (e) => { const p = toDesign(e.clientX, e.clientY); if (p.x <= RAIL.w && railScrollable()) { e.preventDefault(); railWheel(e.deltaY); } }, { passive: false });
 
   // Keyboard: P or Space toggles pause. Skipped while typing in a form field
   // (the dev harness has inputs on the same page as the game).

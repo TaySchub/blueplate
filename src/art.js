@@ -618,6 +618,160 @@ function drawKidsTable(ctx, cx, cy, r, color, opts) {
   if (level >= 3) { ctx.fillStyle = "#fff2b0"; drawSpark4(ctx, cx + r * 1.05, cy - r * 0.85, r * 0.4); }
 }
 
+// The Short-Order Cook (#cook) — art diversification: NOT a seated diner but a
+// STATION with a person. A cook in a white toque stands behind a flat-top griddle,
+// a red apron (signature color) the dominant read, flipping with a spatula. Griddle
+// glow runs hotter on Seasoned Griddle; the spatula grows on Slinging Hash.
+function drawShortOrderCook(ctx, cx, cy, r, color, opts) {
+  const level = opts.level || 1;
+  const griddleTier = opts.path === "seasonedGriddle" ? (opts.tier || 0) : 0;   // Order Up: hotter griddle
+  const hashTier = opts.path === "slingingHash" ? (opts.tier || 0) : 0;         // Rush Ticket: bigger spatula
+  const apron = color, whites = "#eef2fb", hair = "#3a2a1c";
+  const headR = r * 0.46, hy = cy - r * 0.74, shoulderY = cy - r * 0.18;
+  // Back arm resting on the griddle rim (behind the torso).
+  drawLimb(ctx, cx - r * 0.5, shoulderY + r * 0.16, cx - r * 0.86, cy + r * 0.42, r * 0.24, whites);
+  fillCircle(ctx, cx - r * 0.86, cy + r * 0.46, r * 0.16, SKIN);
+  // Torso — white chef's shirt.
+  ctx.fillStyle = whites; ctx.strokeStyle = MDARK; ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(cx - r * 0.6, shoulderY);
+  ctx.quadraticCurveTo(cx - r * 0.7, cy + r * 0.3, cx - r * 0.58, cy + r * 0.72);
+  ctx.lineTo(cx + r * 0.58, cy + r * 0.72);
+  ctx.quadraticCurveTo(cx + r * 0.7, cy + r * 0.3, cx + r * 0.6, shoulderY);
+  ctx.quadraticCurveTo(cx, shoulderY - r * 0.3, cx - r * 0.6, shoulderY);
+  ctx.closePath(); ctx.fill(); ctx.stroke();
+  // Red apron (SIGNATURE COLOR) over the shirt — a bib rectangle + skirt.
+  ctx.fillStyle = apron; ctx.strokeStyle = MDARK; ctx.lineWidth = 1.6;
+  roundRect(ctx, cx - r * 0.44, cy - r * 0.02, r * 0.88, r * 0.78, r * 0.1); ctx.fill(); ctx.stroke();
+  ctx.strokeStyle = "rgba(0,0,0,0.18)"; ctx.lineWidth = 1;   // apron pocket seam
+  ctx.beginPath(); ctx.moveTo(cx - r * 0.3, cy + r * 0.42); ctx.lineTo(cx + r * 0.3, cy + r * 0.42); ctx.stroke();
+  // Side towel tucked at the apron (tier 1 marker, echoes the napkin-bib convention).
+  if (level >= 2) {
+    ctx.fillStyle = "#f4f7ff"; ctx.strokeStyle = MDARK; ctx.lineWidth = 1;
+    roundRect(ctx, cx + r * 0.16, cy + r * 0.26, r * 0.2, r * 0.5, r * 0.05); ctx.fill(); ctx.stroke();
+  }
+  // Neck + head.
+  ctx.fillStyle = SKIN; ctx.strokeStyle = MDARK; ctx.lineWidth = 2;
+  roundRect(ctx, cx - r * 0.16, hy + headR * 0.5, r * 0.32, r * 0.44, r * 0.1); ctx.fill(); ctx.stroke();
+  for (const ex of [-headR, headR]) fillCircle(ctx, cx + ex, hy + headR * 0.06, headR * 0.22, SKIN);   // ears
+  fillCircle(ctx, cx, hy, headR, SKIN, 2);
+  // A red neckerchief under the chin (ties the signature color to the face).
+  ctx.fillStyle = apron; ctx.strokeStyle = MDARK; ctx.lineWidth = 1.4;
+  ctx.beginPath(); ctx.moveTo(cx - headR * 0.7, hy + headR * 0.86); ctx.lineTo(cx + headR * 0.7, hy + headR * 0.86); ctx.lineTo(cx, hy + headR * 1.4); ctx.closePath(); ctx.fill(); ctx.stroke();
+  // Toque (chef's hat) — a band + a puffy dome.
+  ctx.fillStyle = whites; ctx.strokeStyle = MDARK; ctx.lineWidth = 1.8; ctx.lineJoin = "round";
+  roundRect(ctx, cx - headR * 0.92, hy - headR * 0.66, headR * 1.84, headR * 0.62, headR * 0.14); ctx.fill(); ctx.stroke();   // band
+  ctx.beginPath();
+  ctx.moveTo(cx - headR * 0.86, hy - headR * 0.5);
+  ctx.quadraticCurveTo(cx - headR * 1.16, hy - headR * 1.7, cx - headR * 0.3, hy - headR * 1.5);
+  ctx.quadraticCurveTo(cx, hy - headR * 1.9, cx + headR * 0.3, hy - headR * 1.5);
+  ctx.quadraticCurveTo(cx + headR * 1.16, hy - headR * 1.7, cx + headR * 0.86, hy - headR * 0.5);
+  ctx.closePath(); ctx.fill(); ctx.stroke();
+  // Focused face: eyes, cheeks, a small determined line of a mouth.
+  drawFace(ctx, cx, hy, headR, { grin: false, cheeks: true });
+  ctx.strokeStyle = MDARK; ctx.lineWidth = Math.max(1.2, headR * 0.12); ctx.lineCap = "round";
+  ctx.beginPath(); ctx.moveTo(cx - headR * 0.2, hy + headR * 0.6); ctx.lineTo(cx + headR * 0.28, hy + headR * 0.56); ctx.stroke();
+  // ---- Flat-top griddle in FRONT (drawn over the lower torso: he's behind it) ----
+  const gY = cy + r * 0.66, gHalf = r * 0.98, gH = r * 0.34;
+  ctx.fillStyle = "#3a4150"; ctx.strokeStyle = MDARK; ctx.lineWidth = 2;   // steel body
+  roundRect(ctx, cx - gHalf, gY, gHalf * 2, gH, r * 0.08); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = "#20252f";   // dark cooking surface
+  roundRect(ctx, cx - gHalf + r * 0.08, gY + r * 0.03, gHalf * 2 - r * 0.16, gH * 0.5, r * 0.05); ctx.fill();
+  // Sear glow along the surface — hotter/brighter on Seasoned Griddle.
+  const glow = ["rgba(255,150,90,0.5)", "rgba(255,150,90,0.72)", "rgba(255,120,70,0.92)"][griddleTier];
+  ctx.strokeStyle = glow; ctx.lineWidth = Math.max(1.4, r * 0.12); ctx.lineCap = "round";
+  ctx.beginPath(); ctx.moveTo(cx - gHalf * 0.7, gY + r * 0.12); ctx.lineTo(cx + gHalf * 0.7, gY + r * 0.12); ctx.stroke();
+  for (const sx of [-gHalf * 0.4, gHalf * 0.35]) fillCircle(ctx, cx + sx, gY + r * 0.12, r * 0.07, "#ffcf9c", 1);   // sizzling dishes
+  // Legs of the station.
+  ctx.strokeStyle = MDARK; ctx.lineWidth = Math.max(1.6, r * 0.12);
+  for (const lx of [-gHalf * 0.8, gHalf * 0.8]) { ctx.beginPath(); ctx.moveTo(cx + lx, gY + gH); ctx.lineTo(cx + lx, gY + gH + r * 0.4); ctx.stroke(); }
+  // Front arm raised, flipping — a spatula (grows on Slinging Hash).
+  const sr = r * (0.9 + hashTier * 0.28);
+  const sx0 = cx + r * 0.5, sy0 = shoulderY + r * 0.12, hx = cx + r * 0.92, hyy = cy - r * 0.34;
+  drawLimb(ctx, sx0, sy0, hx, hyy, r * 0.24, whites);
+  fillCircle(ctx, hx, hyy, r * 0.17, SKIN);
+  ctx.save(); ctx.translate(hx, hyy); ctx.rotate(-0.5);
+  ctx.strokeStyle = MDARK; ctx.lineWidth = Math.max(1.6, r * 0.1);
+  ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -sr * 0.8); ctx.stroke();   // spatula handle
+  ctx.fillStyle = "#c2c9d8"; ctx.strokeStyle = MDARK; ctx.lineWidth = 1.4;
+  roundRect(ctx, -sr * 0.26, -sr * 1.24, sr * 0.52, sr * 0.44, sr * 0.08); ctx.fill(); ctx.stroke();   // spatula blade
+  ctx.restore();
+  if (level >= 3) { ctx.fillStyle = "#fff2b0"; drawSpark4(ctx, cx - r * 1.02, hy - r * 0.5, r * 0.4); }
+}
+
+// The Competitive Eater (#eater) — Slurper-derived table dressing, varied: a lean
+// pro seated at a CONTEST table with a water cup and a stack of cleared plates. The
+// green shirt (signature color) is the read; open, determined mouth mid-bite.
+function drawCompetitiveEater(ctx, cx, cy, r, color, opts) {
+  const level = opts.level || 1;
+  const pace = opts.path === "recordPace" ? (opts.tier || 0) : 0;   // Mustard Belt: a belt buckle
+  const dunk = opts.path === "waterDunk" ? (opts.tier || 0) : 0;    // Solomon Method: bigger water cup
+  const shirt = color, pants = "#39415a", hy = cy - r * 0.58, headR = r * 0.52, shoulderY = cy - r * 0.02;
+  // Seated legs.
+  ctx.fillStyle = pants; ctx.strokeStyle = MDARK; ctx.lineWidth = 2;
+  for (const lx of [-r * 0.36, r * 0.36]) { roundRect(ctx, cx + lx - r * 0.24, cy + r * 0.74, r * 0.48, r * 0.7, r * 0.22); ctx.fill(); ctx.stroke(); }
+  // Arms down to the table in front.
+  const lhx = cx - r * 0.52, lhy = cy + r * 0.6, rhx = cx + r * 0.52, rhy = cy + r * 0.6;
+  drawLimb(ctx, cx - r * 0.62, shoulderY + r * 0.18, lhx, lhy, r * 0.26, shirt);
+  drawLimb(ctx, cx + r * 0.62, shoulderY + r * 0.18, rhx, rhy, r * 0.26, shirt);
+  // Torso — lean build (narrower than the other seated diners).
+  ctx.fillStyle = shirt; ctx.strokeStyle = MDARK; ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(cx - r * 0.56, shoulderY);
+  ctx.quadraticCurveTo(cx - r * 0.6, cy + r * 0.55, cx - r * 0.44, cy + r * 1.12);
+  ctx.quadraticCurveTo(cx, cy + r * 1.22, cx + r * 0.44, cy + r * 1.12);
+  ctx.quadraticCurveTo(cx + r * 0.6, cy + r * 0.55, cx + r * 0.56, shoulderY);
+  ctx.quadraticCurveTo(cx, shoulderY - r * 0.3, cx - r * 0.56, shoulderY);
+  ctx.closePath(); ctx.fill(); ctx.stroke();
+  // Napkin bib (level 2+).
+  if (level >= 2) {
+    ctx.fillStyle = "#f4f7ff"; ctx.strokeStyle = MDARK; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(cx - r * 0.4, cy + r * 0.12); ctx.lineTo(cx + r * 0.4, cy + r * 0.12); ctx.lineTo(cx, cy + r * 0.58); ctx.closePath(); ctx.fill(); ctx.stroke();
+  }
+  // Mustard Belt (Record Pace t2): a champion's belt buckle at the waist.
+  if (pace >= 2) {
+    ctx.fillStyle = "#ffcf4a"; ctx.strokeStyle = MDARK; ctx.lineWidth = 1.4;
+    roundRect(ctx, cx - r * 0.2, cy + r * 0.62, r * 0.4, r * 0.26, r * 0.06); ctx.fill(); ctx.stroke();
+  }
+  // Neck + head.
+  ctx.fillStyle = SKIN; ctx.strokeStyle = MDARK; ctx.lineWidth = 2;
+  roundRect(ctx, cx - r * 0.18, hy + headR * 0.5, r * 0.36, r * 0.46, r * 0.12); ctx.fill(); ctx.stroke();
+  for (const ex of [-headR, headR]) fillCircle(ctx, cx + ex, hy + headR * 0.05, headR * 0.2, SKIN);   // ears
+  fillCircle(ctx, cx, hy, headR, SKIN, 2);
+  // Short athletic hair.
+  ctx.fillStyle = "#2f2418"; ctx.strokeStyle = MDARK; ctx.lineWidth = 1.6;
+  ctx.beginPath();
+  ctx.moveTo(cx - headR * 0.98, hy - headR * 0.06);
+  ctx.quadraticCurveTo(cx - headR * 0.5, hy - headR * 1.12, cx, hy - headR * 1.02);
+  ctx.quadraticCurveTo(cx + headR * 0.5, hy - headR * 1.12, cx + headR * 0.98, hy - headR * 0.06);
+  ctx.quadraticCurveTo(cx + headR * 0.5, hy - headR * 0.5, cx, hy - headR * 0.46);
+  ctx.quadraticCurveTo(cx - headR * 0.5, hy - headR * 0.5, cx - headR * 0.98, hy - headR * 0.06);
+  ctx.closePath(); ctx.fill(); ctx.stroke();
+  // Determined face: eyes + cheeks, and a big open mouth mid-bite (an O).
+  drawFace(ctx, cx, hy, headR, { grin: false, cheeks: true });
+  ctx.fillStyle = "#7a2b2b"; ctx.strokeStyle = MDARK; ctx.lineWidth = 1.4;
+  ctx.beginPath(); ctx.ellipse(cx, hy + headR * 0.5, headR * 0.26, headR * 0.32, 0, 0, 7); ctx.fill(); ctx.stroke();
+  // ---- Contest table dressing in front: a stack of cleared plates + a water cup ----
+  // Plate stack (empties = the combo he's built).
+  const pY = cy + r * 0.92;
+  for (let i = 0; i < 3; i++) {
+    ctx.fillStyle = i % 2 ? "#e7ecf5" : "#f4f7ff"; ctx.strokeStyle = MDARK; ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.ellipse(cx - r * 0.5, pY - i * r * 0.14, r * 0.42, r * 0.13, 0, 0, 7); ctx.fill(); ctx.stroke();
+  }
+  // Water cup (bigger on Water Dunk) — the signature prop.
+  const cupH = r * (0.5 + dunk * 0.16), cupW = r * (0.34 + dunk * 0.08), cupX = cx + r * 0.55, cupTop = cy + r * 0.5;
+  ctx.fillStyle = "#bfe3f0"; ctx.strokeStyle = MDARK; ctx.lineWidth = 1.8;
+  ctx.beginPath();
+  ctx.moveTo(cupX - cupW / 2, cupTop); ctx.lineTo(cupX + cupW / 2, cupTop);
+  ctx.lineTo(cupX + cupW * 0.38, cupTop + cupH); ctx.lineTo(cupX - cupW * 0.38, cupTop + cupH); ctx.closePath();
+  ctx.fill(); ctx.stroke();
+  ctx.strokeStyle = "rgba(255,255,255,0.5)"; ctx.lineWidth = Math.max(1, r * 0.08); ctx.lineCap = "round";   // water line
+  ctx.beginPath(); ctx.moveTo(cupX - cupW * 0.36, cupTop + r * 0.1); ctx.lineTo(cupX + cupW * 0.36, cupTop + r * 0.1); ctx.stroke();
+  // Hands at the table.
+  fillCircle(ctx, lhx, lhy, r * 0.17, SKIN); fillCircle(ctx, rhx, rhy, r * 0.17, SKIN);
+  if (level >= 3) { ctx.fillStyle = "#fff2b0"; drawSpark4(ctx, cx - r * 1.02, hy - r * 0.62, r * 0.4); }
+}
+
 // Dispatch to a per-character mascot. Every tower id is a full mascot now.
 function drawCustomer(ctx, typeId, cx, cy, r, color, opts = {}) {
   ctx.save();
@@ -626,6 +780,8 @@ function drawCustomer(ctx, typeId, cx, cy, r, color, opts = {}) {
   else if (typeId === "frost") drawPhotographer(ctx, cx, cy, r, color, opts);
   else if (typeId === "sniper") drawMilkshakeSlurper(ctx, cx, cy, r, color, opts);
   else if (typeId === "zap") drawKidsTable(ctx, cx, cy, r, color, opts);
+  else if (typeId === "cook") drawShortOrderCook(ctx, cx, cy, r, color, opts);
+  else if (typeId === "eater") drawCompetitiveEater(ctx, cx, cy, r, color, opts);
   else drawRegular(ctx, cx, cy, r, color, opts);   // arrow (default)
   ctx.restore();
 }

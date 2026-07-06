@@ -45,6 +45,8 @@ cheap smooth canvas vectors.
    | The Photographer | `frost` | `#7fe0ff` cyan | beret + chest-held camera; flash pops on fire |
    | The Milkshake Slurper | `sniper` | `#c8a8ff` purple | soda-jerk paper cap + cradled shake + candy-stripe straw |
    | The Kids' Table | `zap` | `#ffe08a` yellow | a huddle of three party-hat kids, arms up |
+   | The Short-Order Cook | `cook` | `#e8574e` griddle red | white toque + **red apron**, stands behind a flat-top griddle, flipping with a spatula (a station, not a seated diner) |
+   | The Competitive Eater | `eater` | `#8cc152` contest green | lean, seated at a contest table with a **water cup + stack of cleared plates**, open mouth mid-bite |
 
    | Food | id | Color / edge | radius | Identity feature |
    |---|---|---|---|---|
@@ -205,3 +207,16 @@ Render `tools/dev/harness.html?mode=sheet` and check:
   New chrome surfaces are **named `COLOR` entries** (`railBg`/`sheetBg`/
   `sheetScrim`), consistent with the #71 named-chrome discipline — **structure,
   not a new palette**; mascot art is **unchanged** (presentation-only).
+- **2026-07-06** (Roster Growth 1) — **Silhouette diversification is ratified.**
+  New customers need NOT be another seated-in-a-circle figure. The **Short-Order
+  Cook** (`cook`) is a **station with a person** — a cook standing behind a
+  flat-top griddle — sized within the same readability bar (fits the booth pad,
+  reads at r=17). The **Competitive Eater** (`eater`) stays seated but **varies the
+  table dressing** (a contest table with a water cup + a stack of cleared plates
+  instead of the Slurper's shake). Two new signature colors joined the palette:
+  **griddle red `#e8574e`** (cook) and **contest green `#8cc152`** (eater), both
+  chosen clear of the existing five; signature color stays the dominant read (the
+  cook's red apron carries it over the white chef's whites). Tier markers keep the
+  house convention — a napkin/side-towel at tier 1, a `drawSpark4` chef's-kiss at
+  tier 2. The rail became **scrollable** here (the roster outgrew its 5 slots); the
+  scroll is chrome, not art (structure only).

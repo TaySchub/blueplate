@@ -88,9 +88,13 @@ const TOWER_ART = {
   frost:  { color: "#7fe0ff", glow: "#2b8fb5" },
   sniper: { color: "#c8a8ff", glow: "#7a4fd0" },
   zap:    { color: "#ffe08a", glow: "#b59a2b" },
+  // Roster Growth 1 (Issue-driven): two NEW signature colors, deliberately clear
+  // of the five above — cook a griddle red, eater a contest green.
+  cook:   { color: "#e8574e", glow: "#a83228" },
+  eater:  { color: "#8cc152", glow: "#4e7a24" },
 };
 // Fixed display order for the deck/toolbar.
-const TOWER_ORDER = ["arrow", "cannon", "frost", "sniper", "zap"];
+const TOWER_ORDER = ["arrow", "cannon", "frost", "sniper", "zap", "cook", "eater"];
 const TOWER_TYPES = TOWER_ORDER.map((id) => ({ id, ...BAL.towers[id], ...TOWER_ART[id] }));
 const TOWER_BY_ID = Object.fromEntries(TOWER_TYPES.map((t) => [t.id, t]));
 

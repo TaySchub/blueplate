@@ -33,12 +33,25 @@ function freshMeta() {
   // autoStart: the pause-menu "Auto-start next wave" setting — "off", or the
   // number of seconds after a wave resolves before the next one calls itself
   // (0 = instant). Persisted like every other META field.
-  return { essence: 0, unlocked: ["arrow", "cannon", "frost", "zap"], boughtCurrency: false, boughtLives: false, mapId: null, bestWave: 0, autoStart: "off" };
+  // unlocked: the towers available from the hub/rail. The Short-Order Cook and
+  // Competitive Eater ship INSTANTLY available (developer decision, Roster Growth
+  // 1) alongside the original four; the Slurper (sniper) stays Essence-gated.
+  return { essence: 0, unlocked: ["arrow", "cannon", "frost", "zap", "cook", "eater"], boughtCurrency: false, boughtLives: false, mapId: null, bestWave: 0, autoStart: "off" };
 }
 function loadMeta() {
   try {
     const s = localStorage.getItem(META_KEY);
-    if (s) return Object.assign(freshMeta(), JSON.parse(s));
+    if (s) {
+      const parsed = JSON.parse(s);
+      const meta = Object.assign(freshMeta(), parsed);
+      // Save migration: UNION the saved unlocked list with the fresh defaults, so a
+      // veteran save gains any newly-default-unlocked towers (cook/eater) while
+      // keeping everything it had earned (e.g. a purchased sniper). Object.assign
+      // above would otherwise let the saved array shadow the new defaults.
+      const saved = Array.isArray(parsed.unlocked) ? parsed.unlocked : [];
+      meta.unlocked = [...new Set([...freshMeta().unlocked, ...saved])];
+      return meta;
+    }
   } catch (e) { /* localStorage may be blocked (e.g. file://) — play without saving */ }
   return freshMeta();
 }
@@ -396,7 +409,13 @@ function tryBuild(x, y) {
     freezeDur: def.freezeDur || 0, maxTargets: def.maxTargets || 1,
     cdTimer: 0, upgradeFlash: 0, targeting: "first",
     lungeTimer: 0, lungeAngle: 0,   // brief lunge-toward-target on attack (drawTowers)
-    slurpTargets: [], slurpShow: 0, slurpSoundTimer: 0,   // Milkshake Slurper's attached straw(s)
+    slurpTargets: [], slurpShow: 0, slurpSoundTimer: 0,   // Milkshake Slurper's / Competitive Eater's locked dish(es)
+    // Roster Growth 1 signature/state fields (unset until a path is bought / the
+    // tower type uses them; inert for every existing tower).
+    knockbackChance: 0,   // Short-Order Cook "Order Up" t2: chance a sear flings a dish backward
+    combo: 0, comboCap: def.comboCap || 0, comboRamp: def.comboRamp || 0,   // Competitive Eater combo (bite-speed ramp)
+    solomonSplit: false,  // Competitive Eater "Solomon Method" t2: a bite lands as two half-hits
+    mustardBonus: 0,      // Competitive Eater "Mustard Belt" t2: bounty bonus while at max combo
   });
   spawnRing(x, y, def.color, 34, 0.4);
   FX.place();
@@ -448,6 +467,11 @@ function applyUpgradeDeltas(t, d) {
   if (d.freezeTargets) t.freezeTargets = d.freezeTargets;   // Paparazzi t2: flash freezes 2 at once
   if (d.drainTargets) t.drainTargets = d.drainTargets;      // Silly Straw t2: 2 straws drain at once
   if (d.maxTargetsAdd) t.maxTargets += d.maxTargetsAdd;     // Birthday Party t2: a 4th kid (the multi branch spreads/piles across maxTargets)
+  // Roster Growth 1 tier-2 signatures.
+  if (d.knockbackChance) t.knockbackChance = d.knockbackChance;   // Order Up t2 (cook): each sear MAY fling a dish backward
+  if (d.comboCapAdd) t.comboCap += d.comboCapAdd;                 // Record Pace (eater): a higher combo ceiling
+  if (d.solomonSplit) t.solomonSplit = true;                     // Solomon Method t2 (eater): a bite lands as two half-hits
+  if (d.mustardBonus) t.mustardBonus = d.mustardBonus;           // Mustard Belt t2 (eater): bounty bonus at max combo
 }
 
 // Buy the next tier of pathId for placed tower t. The first purchase commits the
@@ -599,6 +623,15 @@ function pickTarget(t) {
   return best;
 }
 
+// The Competitive Eater's effective bite cooldown: consecutive kills (combo)
+// ramp the bite RATE toward a cap. More combo → shorter cooldown → faster bites;
+// Record Pace raises comboCap (the ceiling), so it also raises the speed cap.
+// Pure (no RNG, no side effects) so the behavior test can assert the ramp.
+function eaterBiteCooldown(t) {
+  const stacks = Math.min(t.combo, t.comboCap);
+  return t.cooldown / (1 + stacks * t.comboRamp);
+}
+
 function updateTowers(step) {
   for (const t of game.towers) {
     if (t.upgradeFlash > 0) t.upgradeFlash -= step;
@@ -622,6 +655,44 @@ function updateTowers(step) {
           for (const e of t.slurpTargets) fireProjectile(t, e); t.cdTimer = t.cooldown;
           if (t.slurpSoundTimer <= 0) { FX.shoot("sniper", t.upgradePath); t.slurpSoundTimer = 0.32; }   // ONE shared sip sound, not per-straw
         }
+      }
+      continue;
+    }
+    // The Competitive Eater locks ONE dish (the Slurper's lock-on machinery) and
+    // devours it in rapid bites. Consecutive KILLS without an empty-lane gap build
+    // a combo that ramps bite speed to a cap; the combo resets when no dish is
+    // available. NO enemy-side status — the combo is tower state only.
+    if (t.typeId === "eater") {
+      t.slurpTargets = t.slurpTargets.filter((e) => game.enemies.includes(e) && distance(t, e) <= t.range);
+      if (t.slurpTargets.length === 0) {
+        const free = game.enemies.filter((e) => distance(t, e) <= t.range).sort((a, b) => b.dist - a.dist);
+        if (free.length) t.slurpTargets.push(free[0]);
+      }
+      if (t.slurpTargets.length === 0) { t.combo = 0; continue; }   // empty lane → the combo resets
+      t.slurpShow = 0.12;   // keep the "devouring this dish" marker drawn between bites
+      if (t.cdTimer <= 0) {
+        const target = t.slurpTargets[0];
+        // Solomon Method t2: the bite lands as TWO half-hits (visibly splits the
+        // dish) totalling one bite's damage. If the first half kills, the second is
+        // a no-op (target already gone) — same as any over-damage.
+        if (t.solomonSplit) {
+          applyDamage(target, t.damage / 2);
+          if (game.enemies.includes(target)) applyDamage(target, t.damage / 2);
+        } else {
+          applyDamage(target, t.damage);
+        }
+        if (!game.enemies.includes(target)) {   // the bite KILLED it
+          // Mustard Belt t2: while ALREADY at max combo, a kill pays a bounty BONUS
+          // (rides the per-kill Tips hook — extra Tips on top of the dish's bounty).
+          if (t.mustardBonus > 0 && t.combo >= t.comboCap) {
+            game.currency += t.mustardBonus; game.score += t.mustardBonus;
+            spawnFloatText(target.x, target.y - 24, "+$" + t.mustardBonus + " belt", COLOR.essence);
+          }
+          t.combo = Math.min(t.combo + 1, t.comboCap);   // consecutive kill → ramp toward the cap
+          t.slurpTargets = [];                            // freed; re-locks next tick if a dish is in range
+        }
+        t.cdTimer = eaterBiteCooldown(t);
+        if (t.slurpSoundTimer <= 0) { FX.shoot("eater", t.upgradePath); t.slurpSoundTimer = 0.3; }
       }
       continue;
     }
@@ -687,6 +758,24 @@ function fireProjectile(t, target) {
   if (t.typeId === "zap") {
     applyDamage(target, t.damage);
     spawnGrabHand(target.x, target.y, target.radius);
+    FX.shoot(t.typeId, t.upgradePath);
+    return;
+  }
+  // The Short-Order Cook sears the dish right on the griddle — instant multi-hit
+  // damage, no travel (the multi branch in updateTowers fires this per target).
+  // Order Up t2 gives each sear a CHANCE to spatula-fling a SURVIVING dish backward
+  // (the existing size-scaled knockback, factor clamped 0.5x–2x). The chance RNG
+  // runs ONLY for cook towers — never in the sim's reference build, so the gate
+  // stays byte-identical.
+  if (t.typeId === "cook") {
+    applyDamage(target, t.damage);
+    spawnSear(target.x, target.y, target.radius);
+    if (t.knockbackChance > 0 && t.knockbackBase > 0 && Math.random() < t.knockbackChance && game.enemies.includes(target)) {
+      const factor = Math.max(0.5, Math.min(2, (t.knockbackSizeRef || target.radius) / target.radius));
+      target.dist = Math.max(0, target.dist - t.knockbackBase * factor);
+      spawnKnockbackPuff(target.x, target.y);
+      FX.knockback(factor);
+    }
     FX.shoot(t.typeId, t.upgradePath);
     return;
   }
@@ -870,6 +959,16 @@ function spawnKnockbackPuff(x, y) {
   for (let i = 0; i < 7; i++) {
     const a = Math.random() * Math.PI * 2, sp = 70 + Math.random() * 110;
     game.particles.push({ type: "spark", x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r: 1.5 + Math.random() * 1.5, life: 0.22 + Math.random() * 0.16, maxLife: 0.38, color: "#d9b98a" });
+  }
+}
+// A quick griddle sizzle where the Short-Order Cook sears a dish: a hot flash ring
+// + a small warm spark spray. Reuses the generic ring/spark particle types (no new
+// draw code). Called only from the cook branch, so its RNG never touches the sim.
+function spawnSear(x, y, r) {
+  spawnRing(x, y, "#ffcaa0", (r || 10) + 8, 0.18);
+  for (let i = 0; i < 5; i++) {
+    const a = Math.random() * Math.PI * 2, sp = 40 + Math.random() * 70;
+    game.particles.push({ type: "spark", x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r: 1.4 + Math.random() * 1.6, life: 0.2 + Math.random() * 0.18, maxLife: 0.4, color: i % 2 ? "#ffd27a" : "#ff9a5c" });
   }
 }
 // A little kid hand that reaches in from a random side and clenches on a dish

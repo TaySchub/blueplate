@@ -5,6 +5,36 @@ Format is deliberately simple and plain-language.
 
 ## [Unreleased]
 
+### Added
+- **Roster Growth 1 — a scrolling tower rail + two new towers** (Implementer +
+  Designer + Art hats). The left rail now **scrolls** once the deck outgrows the 5
+  cards it fits (7 today, ~12 planned): drag/swipe on touch (with an 8px drag
+  threshold so a swipe never mis-fires a build), wheel on desktop, a proportional
+  scroll thumb, and top/bottom edge fades. Draw + hit-testing share one
+  scroll-aware `railCardRect`; every card stays ≥44 CSS px at phone scale. Two new
+  **instantly-available** towers (existing engine vocabulary only — no new status
+  effects):
+  - **The Short-Order Cook** (`cook`, ~300 Tips, griddle red) — a standing cook at
+    a flat-top griddle who sears the 2 nearest dishes (multi-target). *Slinging
+    Hash* → **Rush Ticket** (3 sears); *Seasoned Griddle* → **Order Up** (each sear
+    has a chance to spatula-fling a dish backward — the existing size-scaled
+    knockback).
+  - **The Competitive Eater** (`eater`, ~450 Tips, contest green) — locks one dish
+    and devours it; consecutive kills build a **combo** that ramps bite speed to a
+    cap (tower state, resets on an empty lane). *Water Dunk* → **Solomon Method**
+    (each bite lands as two half-hits); *Record Pace* → **Mustard Belt** (kills at
+    max combo pay a bounty bonus).
+  Both ship in the default unlocked set, and existing saves are migrated (the
+  unlocked list is UNIONed with the new defaults on load, so a veteran keeps a
+  purchased Slurper and gains the newcomers). Upgrade sheet, sell, save/restore,
+  and maplint all handle them data-driven. Sounds reuse the closest existing FX;
+  bespoke audio for the newcomers rides a future audio touch. **Content beside the
+  gate, not through it:** `node tools/sim.mjs --check` is byte-identical to main
+  (blueplate 57.0%, diner 34.5% retired; full output diff identical) and both smoke
+  JSONs are unchanged — the new towers are never in the reference build. New
+  behavior tests: `tools/tests/cook.test.mjs`, `tools/tests/eater.test.mjs`, and a
+  new-type case in `save.test.mjs`.
+
 ### Changed
 - **The economy is rebuilt so the game is fun from wave 1** (economy overhaul,
   stage 3; developer-ratified design, numbers only — no mechanic or upgrade
