@@ -5,11 +5,12 @@
 #   2. Generated files in sync: re-runs tools/gen_balance.py and fails if the
 #      committed balance.data.js or index.html cache-bust stamps differ — i.e.
 #      someone edited data/balance.json (or main.js) and forgot the generator.
-#   3. Balance band: tools/balance_sim.py --check plays the reference board
-#      (fixed seed, so no flakes) and fails if its win-rate leaves the
-#      target band in data/balance.json. The sim's number is the verdict —
+#   3. Balance band: node tools/sim.mjs --check plays the reference board through
+#      the REAL engine (fixed seed, so no flakes) and fails if survival@30 leaves
+#      the target band in data/balance.json. The sim's number is the verdict —
 #      a PR that breaks difficulty goes red instead of relying on a human
-#      reading the printout.
+#      reading the printout. (The Python second-opinion model and its wave-parity
+#      companion were retired in the economy overhaul — one gauge, one engine.)
 #
 # ~200 sims of the reference board keeps this step around a minute on the
 # runner while staying well inside the band's noise margin at the current
@@ -52,26 +53,9 @@ jobs:
       - name: Map lint
         run: node tools/maplint.mjs
 
-      # THE balance gate (Issue #54 PR 5 switched it here from balance_sim.py):
-      # the real engine, no mirror — real projectile travel, straw-lock, knockback,
-      # double-freeze. Difficulty is tuned against this. Gates every tuned map;
-      # fails outside the band.
+      # THE balance gate (Issue #54 PR 5 switched it here from the retired Python
+      # model): the real engine, no mirror — real projectile travel, straw-lock,
+      # knockback, double-freeze. Difficulty is tuned against this and ONLY this.
+      # Gates every tuned map; fails outside the band.
       - name: Balance band (real-engine sim)
         run: node tools/sim.mjs --check --sims 200
-
-      # The Python sim re-implements the wave formula; JS and Python round
-      # differently (Math.round vs banker's round), so this gate turns any
-      # silent formula drift into a red run. Stays while balance_sim.py exists.
-      - name: Wave parity (real engine vs Python sim)
-        run: |
-          node tools/sim.mjs --dump-waves /tmp/waves.json
-          python3 tools/check_parity.py /tmp/waves.json
-
-      # Report-only second opinion (demoted from the gate in PR 5): the Python
-      # model DIVERGES from the real engine (HP jitter + no real mechanics), so
-      # its number won't match. Since Issue #75 it mirrors the endless gauge —
-      # survival to wave 30 on the tuned gate map (blueplate). Kept during the
-      # transition; the developer may retire it.
-      - name: Python difficulty model (report only)
-        continue-on-error: true
-        run: python3 tools/balance_sim.py --check --sims 200 --map blueplate

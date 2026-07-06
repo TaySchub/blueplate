@@ -72,11 +72,11 @@ no bundler — `file://` double-click still works):**
 
 **Verification:**
 - `.github/workflows/ci.yml` — JS syntax, mechanic tests, generated-file sync,
-  the real-engine band gate, wave parity.
-- `tools/sim.mjs` — the difficulty gauge: the REAL engine run headless
-  (`--check` is the CI gate as of Issue #54 PR 5). `tools/balance_sim.py` is a
-  report-only second opinion (a 1-D model that reads higher — HP jitter, no
-  real mechanics); the wave-parity gate keeps it honest while it exists.
+  map lint, the real-engine band gate.
+- `tools/sim.mjs` — THE difficulty gauge, and the only one: the REAL engine run
+  headless (`--check` is the CI gate as of Issue #54 PR 5; the Python
+  second-opinion model and its wave-parity companion were retired in the
+  economy overhaul).
 - `tools/dev/harness.html` — contact sheet, seeded smoke run, play driver
   (`?map=<id>` selects a map).
 - `tools/maplint.mjs` — validates every `maps[]` entry against the placement
@@ -99,9 +99,8 @@ The backlog is GitHub Issues — the single roadmap. Don't create a parallel one
 
 - **`src/data.js` — data merge:** `TOWER_ART`/`ENEMY_ART` (art-only) + `BAL`
   (balance.json) → `TOWER_TYPES`/`ENEMY_TYPES`; economy in `RULES`; `COLOR`.
-- **`src/engine.js` — waves:** `makeWave(n)`/`waveTypeWeights` (mirrored in
-  `balance_sim.py`; parity-checked in CI) · `getWave` (endless past
-  `waveCount`) · `buildSpawnQueue`.
+- **`src/engine.js` — waves:** `makeWave(n)`/`waveTypeWeights` · `getWave`
+  (endless past `waveCount`) · `buildSpawnQueue`.
 - **`src/engine.js` — combat:** `updateTowers()` (per-type firing incl. sniper
   straw-lock + zap multi pile-on) · `fireProjectile()` (cannon/zap/sniper act
   instantly; only arrow + frost shots travel) · `resolveHit()` ·
@@ -148,7 +147,7 @@ The backlog is GitHub Issues — the single roadmap. Don't create a parallel one
   path (locks the other) and applies a tier's deltas via `applyUpgradeDeltas`
   (stat keys + signature flags: `pierce`, `crumbRadius`/`crumbDamage`,
   `knockbackBase`/`knockbackSizeRef`, `freezeTargets`/`drainTargets`,
-  `maxTargetsAdd`). Sim mirror: `apply_upgrade`/`buy_upgrades` on a fixed
+  `maxTargetsAdd`). The headless sim's reference player buys along a fixed
   `SIM_PATHS` path. Rework tracked in pinned Issue #54. `sellTower(t)` refunds
   `floor(RULES.sellRefund × t.spent)` (spend tracked per tower: base + tiers)
   and frees the floor; the scripted sims never sell.
@@ -185,10 +184,9 @@ worker's branch.
 ## Verification (prefer deterministic checks over opinions)
 
 CI (`.github/workflows/ci.yml`) runs on every PR: JS syntax, the mechanic
-behavior tests (`tools/tests/*.test.mjs`), generated-file sync, the balance band
-(`node tools/sim.mjs --check` — the real engine; `balance_sim.py` is a
-report-only second opinion), and wave parity. Never open a PR you expect to
-fail it.
+behavior tests (`tools/tests/*.test.mjs`), generated-file sync, map lint, and
+the balance band (`node tools/sim.mjs --check` — the real engine, the only
+gauge). Never open a PR you expect to fail it.
 
 **Definition of verified — do ALL of this yourself before requesting review.
 Never hand the developer an unverified change to preview:**
@@ -196,14 +194,12 @@ Never hand the developer an unverified change to preview:**
 1. **Everything:** serve the repo root (`python3 -m http.server`), load the
    game, zero console errors.
 2. **Difficulty/economy:** run `node tools/sim.mjs --check` (the real-engine
-   gate) and quote the win-rate in the PR. The number — not a model's "looks
-   balanced" — is the signal that tells the designer to tune `data/balance.json`.
-   (`python3 tools/balance_sim.py --check` is a report-only second opinion.)
+   gate, the ONLY gauge) and quote the win-rate in the PR. The number — not a
+   model's "looks balanced" — is the signal that tells the designer to tune
+   `data/balance.json`.
 3. **Any gameplay change:** run the smoke run in `tools/dev/harness.html`
    (`?mode=smoke&seed=1`) and paste its JSON verdict in the PR. Same seed →
-   same run, so a failing seed is a repro URL. For engine changes also run
-   `node tools/sim.mjs` — the real-engine win-rate (no mirror; reported in CI
-   too) — and quote it alongside the Python number.
+   same run, so a failing seed is a repro URL.
 4. **Art:** render the contact sheet (`tools/dev/harness.html?mode=sheet`),
    screenshot it, attach it to the PR, and self-check it against
    `docs/ART_STYLE.md` first. Batch a whole art pass into ONE sheet and one

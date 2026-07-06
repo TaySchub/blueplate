@@ -5,6 +5,20 @@ Format is deliberately simple and plain-language.
 
 ## [Unreleased]
 
+### Removed
+- **The Python second-opinion sim is retired** (economy overhaul, stage 1;
+  developer-approved). `tools/balance_sim.py` (the 1-D difficulty model) and
+  `tools/check_parity.py` (the wave-parity check that kept its mirrored wave
+  formula honest) are deleted, along with their CI steps and `tools/sim.mjs`'s
+  `--dump-waves` fixture flag (nothing else consumed it). The real-engine sim
+  (`node tools/sim.mjs --check`) has been THE gate since Issue #54 PR 5; with
+  the economy about to be rebuilt around real engine mechanics (per-kill
+  bounties), maintaining a diverging mirror is pure drag. Docs aligned:
+  `CLAUDE.md` (verification + landmarks), `SETUP-AND-LAUNCH.md`,
+  `data/balance.json` `_note`, the harness hints, and the designer/qa role
+  briefs now name one gauge. Verified: `--check` byte-identical to `main`
+  (blueplate survival@30 **50.5%**, diner 33.0% report-only, seed 1/200).
+
 ### Fixed
 - **Teenage Table tier-2 art no longer dwarfs the board** (Issue #82, Implementer
   hat). The Kids' Table's "Teenage Table" upgrade stacked a 40% whole-huddle
