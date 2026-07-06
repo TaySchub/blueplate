@@ -50,8 +50,6 @@ Multiple maps, large card pools, maze/free-path building, online or local multip
 v1 is complete. The developer has explicitly approved these additions *beyond*
 the frozen v1 scope above; they are being built as post-v1 features and noted
 here so the brief stays honest:
-- **Call the wave early for a bonus** — an opt-in prep-phase currency bonus for
-  starting waves promptly (does not change the no-clock prep).
 - **Per-tower targeting priority** — each tower can be set to First / Last /
   Strong / Close, changed live by selecting the tower.
 - **Larger map + generated waves** — a longer, more-winding single map (still one

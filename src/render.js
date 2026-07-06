@@ -734,16 +734,15 @@ function drawStartButton(ctx) {
   }
   const hover = inRect(boardPtr(), START_BTN);
   ctx.fillStyle = hover ? COLOR.core : "#2b3f66"; roundRect(ctx, START_BTN.x, START_BTN.y, START_BTN.w, START_BTN.h, 10); ctx.fill();
-  const bonus = earlyCallBonusNow();
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
-  if (bonus > 0) {
-    ctx.fillStyle = COLOR.ink; ctx.font = "bold 15px system-ui, sans-serif";
-    ctx.fillText("▶  Call Wave " + (game.waveIndex + 1), START_BTN.x + START_BTN.w / 2 - 22, START_BTN.y + START_BTN.h / 2);
-    ctx.fillStyle = COLOR.gold; ctx.font = "bold 13px system-ui, sans-serif";
-    ctx.fillText("+" + bonus, START_BTN.x + START_BTN.w - 32, START_BTN.y + START_BTN.h / 2);
-  } else {
-    ctx.fillStyle = COLOR.ink; ctx.font = "bold 15px system-ui, sans-serif";
-    ctx.fillText("▶  Send Wave " + (game.waveIndex + 1), START_BTN.x + START_BTN.w / 2, START_BTN.y + START_BTN.h / 2);
+  ctx.fillStyle = COLOR.ink; ctx.font = "bold 15px system-ui, sans-serif";
+  ctx.fillText("▶  Send Wave " + (game.waveIndex + 1), START_BTN.x + START_BTN.w / 2, START_BTN.y + START_BTN.h / 2);
+  // Auto-start countdown hint (pause menu setting): show the seconds left before
+  // this prep calls the wave itself, so the auto-call never feels like a surprise.
+  if (game.autoStartArmed && META.autoStart !== "off") {
+    const left = Math.max(0, META.autoStart - game.prepElapsed);
+    ctx.fillStyle = COLOR.gold; ctx.font = "bold 11px system-ui, sans-serif";
+    ctx.fillText("auto-start in " + left.toFixed(0) + "s", START_BTN.x + START_BTN.w / 2, START_BTN.y - 9);
   }
   ctx.textBaseline = "alphabetic";
 }
@@ -954,15 +953,23 @@ function drawPauseButton(ctx) {
 }
 
 // Pause-menu geometry (BOARD space — hit-tested with boardPtr in main.js). One
-// source shared by draw + input. Button rows are 54 design px so each clears 44
-// CSS px at ~844x390 phone scale (Issue #79 touch bar).
+// source shared by draw + input. Button rows are ≥48 design px so each clears 44
+// CSS px at ~844x390 phone scale (Issue #79 touch bar). The auto-start row is a
+// 5-way segmented control (Off / Instant / 1s / 2s / 3s → AUTOSTART_OPTIONS).
 function pauseMenuRects() {
-  const w = 300, h = 196, x = (VIEW.w - w) / 2, y = 92;   // sits in the upper play area, clear of the apron (y=384)
+  // Segments are 56 design px tall and ~58 wide so every one clears 44 CSS px
+  // at ~844x390 phone scale (canvas ≈ 0.84 scale → 44/0.84 ≈ 53 design px min).
+  const w = 360, h = 276, x = (VIEW.w - w) / 2, y = 56;   // sits in the upper play area, clear of the apron (y=384)
   const bx = x + 24, bw = w - 48;
+  const ow = (bw - 4 * 6) / 5;   // 5 segments, 6px gaps
+  const autoStart = AUTOSTART_OPTIONS.map(([value, label], i) => ({
+    value, label, rect: { x: bx + i * (ow + 6), y: y + 64, w: ow, h: 56 },
+  }));
   return {
     panel: { x, y, w, h },
-    resume: { x: bx, y: y + 62, w: bw, h: 54 },
-    saveQuit: { x: bx, y: y + 126, w: bw, h: 54 },
+    autoStart,
+    resume: { x: bx, y: y + 134, w: bw, h: 54 },
+    saveQuit: { x: bx, y: y + 198, w: bw, h: 54 },
   };
 }
 
@@ -977,7 +984,18 @@ function drawPausedOverlay(ctx) {
   ctx.strokeStyle = COLOR.ctrlLineHi; ctx.lineWidth = 1.5; roundRect(ctx, m.panel.x, m.panel.y, m.panel.w, m.panel.h, 12); ctx.stroke();
   ctx.textAlign = "center";
   ctx.fillStyle = COLOR.ink; ctx.font = "bold 24px system-ui, sans-serif";
-  ctx.fillText("Paused", VIEW.w / 2, m.panel.y + 38);
+  ctx.fillText("Paused", VIEW.w / 2, m.panel.y + 36);
+  // Auto-start segmented row: Off / Instant / 1s / 2s / 3s (persisted in META).
+  ctx.fillStyle = COLOR.muted; ctx.font = "9px system-ui, sans-serif";
+  ctx.fillText("AUTO-START NEXT WAVE", VIEW.w / 2, m.panel.y + 58);
+  for (const b of m.autoStart) {
+    const on = META.autoStart === b.value, hov = inRect(boardPtr(), b.rect);
+    ctx.fillStyle = on || hov ? COLOR.ctrlSel : COLOR.ctrlBg; roundRect(ctx, b.rect.x, b.rect.y, b.rect.w, b.rect.h, 8); ctx.fill();
+    ctx.strokeStyle = on ? COLOR.gold : (hov ? COLOR.ctrlLineHi : COLOR.ctrlLine); ctx.lineWidth = on ? 2 : 1; roundRect(ctx, b.rect.x, b.rect.y, b.rect.w, b.rect.h, 8); ctx.stroke();
+    ctx.fillStyle = on ? COLOR.ink : COLOR.muted; ctx.font = "bold 11px system-ui, sans-serif"; ctx.textBaseline = "middle";
+    ctx.fillText(b.label, b.rect.x + b.rect.w / 2, b.rect.y + b.rect.h / 2 + 0.5);
+    ctx.textBaseline = "alphabetic";
+  }
   // Resume (green).
   const rHover = inRect(boardPtr(), m.resume);
   ctx.fillStyle = rHover ? COLOR.good : "#1f6b3f"; roundRect(ctx, m.resume.x, m.resume.y, m.resume.w, m.resume.h, 9); ctx.fill();

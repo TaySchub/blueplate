@@ -10,8 +10,6 @@ window.BALANCE = {
     "startCurrency": 150,
     "startLives": 20,
     "earnPerWave": 40,
-    "earlyCallBonus": 18,
-    "earlyCallWindow": 8,
     "sellRefund": 0.7
   },
   "maps": [
@@ -431,25 +429,25 @@ window.BALANCE = {
       "name": "Hot Dog",
       "hpMul": 1.0,
       "speedMul": 1.0,
-      "reward": 5
+      "bounty": 5
     },
     "runner": {
       "name": "The Slider",
       "hpMul": 0.6,
       "speedMul": 1.7,
-      "reward": 5
+      "bounty": 5
     },
     "brute": {
       "name": "Tough Steak",
       "hpMul": 2.6,
       "speedMul": 0.7,
-      "reward": 9
+      "bounty": 9
     },
     "swarm": {
       "name": "Fry Swarm",
       "hpMul": 0.28,
       "speedMul": 1.2,
-      "reward": 2
+      "bounty": 2
     }
   },
   "towers": {
@@ -685,6 +683,25 @@ window.BALANCE = {
       "runner": 1,
       "swarm": 2,
       "brute": 4
+    },
+    "typeWeights": {
+      "mote": {
+        "base": 1.0,
+        "perWave": -0.05,
+        "min": 0.15
+      },
+      "runner": {
+        "base": 0.7,
+        "perWave": 0
+      },
+      "swarm": {
+        "base": 0.4,
+        "perWave": 0.02
+      },
+      "brute": {
+        "base": 0.2,
+        "perWave": 0.03
+      }
     },
     "endless": false
   }

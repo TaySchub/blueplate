@@ -156,8 +156,6 @@ function playGame(seed, build, map) {
           if (E.game.currency < cost(t)) break;
           E.tryUpgrade(t, pathFor(t.typeId));
         }
-        // Steady reference: let the early-call window lapse so the bonus is 0.
-        E.game.prepElapsed = E.RULES.earlyCallWindow + 1;
         E.startNextWave();
       }
       const wi = E.game.waveIndex;            // wave being played this tick (constant during a wave)

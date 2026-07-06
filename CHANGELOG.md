@@ -5,6 +5,39 @@ Format is deliberately simple and plain-language.
 
 ## [Unreleased]
 
+### Changed
+- **Economy mechanics land, provably inert** (economy overhaul, stage 2;
+  developer-approved — the numbers move in stage 3):
+  - **Per-kill bounties are now explicit data.** Each dish's on-kill Tips payout
+    is a `bounty` field in `balance.json` `enemyTypes` (renamed from `reward`,
+    values unchanged), awarded at the kill site with the existing "+$N tip"
+    float; a **zero** bounty now pays nothing and floats nothing, and a leaked
+    dish still pays nothing. New behavior test: `tools/tests/bounty.test.mjs`.
+  - **The early-call bonus is removed end to end** — engine (`earlyCallBonusNow`
+    + the `startNextWave` grant + the `FX.calledEarly` hook), `balance.json`
+    economy keys, the "+N" chip on the Call Wave button (now always "Send Wave
+    N"), the sim's window-lapse reference line, and the save system's
+    anti-double-bonus `prepElapsed` parking (moot). One GAME_BRIEF post-v1
+    bullet (the bonus's own entry) is deleted — that removal was pre-authorized.
+  - **Auto-start rounds.** A pause-menu segmented row (Off / Instant / 1s / 2s /
+    3s, ≥48 design px, persisted as `META.autoStart`): when set, the next wave
+    calls itself that many seconds after the previous wave RESOLVES. The run's
+    first prep is always manual, pausing suspends the countdown (update() halts
+    at the shell), and the first prep after a save-restore skips it once — a
+    breather to re-read the board. The Send Wave button shows an "auto-start in
+    Ns" hint while counting. New behavior test: `tools/tests/autostart.test.mjs`.
+  - **Wave-type weights moved to data.** `waveTypeWeights`' hardcoded
+    coefficients now live in `balance.json` `waveGen.typeWeights`
+    (base/perWave/min per type, identical values) so stage 3 can tune the wave
+    ramp like every other number.
+  - **Verified inert where it must be:** `node tools/sim.mjs --check`
+    byte-identical to stage 1 / main (blueplate survival@30 **50.5%**, seed
+    1/200); all behavior tests green (incl. the updated `save.test.mjs`);
+    maplint green. The harness smoke JSONs shift slightly BY DESIGN: the smoke
+    player calls every wave instantly, so it had been collecting the early-call
+    bonus the reference sim never took — removing the mechanic changes its
+    tips (quoted in the PR), while the difficulty gate itself is untouched.
+
 ### Removed
 - **The Python second-opinion sim is retired** (economy overhaul, stage 1;
   developer-approved). `tools/balance_sim.py` (the 1-D difficulty model) and

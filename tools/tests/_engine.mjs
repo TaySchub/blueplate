@@ -32,9 +32,12 @@ export function loadEngine() {
     ["src/data.js", "src/engine.js"].map((f) => readFileSync(join(ROOT, f), "utf8")).join("\n;\n") +
     `\n;globalThis.__ENGINE = {
        game, startRun, startNextWave, checkWaveEnd, endRun, tryBuild, tryUpgrade, sellTower, setTargeting,
-       fireProjectile, moveProjectiles, update,
-       applyUpgradeDeltas, towerPaths, nextTier, updateTowers, TOWER_BY_ID, RULES, canPlace, distance,
+       fireProjectile, moveProjectiles, update, applyDamage, moveEnemies,
+       applyUpgradeDeltas, towerPaths, nextTier, updateTowers, TOWER_BY_ID, ENEMY_TYPES, RULES, canPlace, distance,
        loadMap, MAPS, pointAtDistance,
+       // META accessor for the auto-start test (META is a let binding, so a
+       // plain property would capture a stale reference).
+       getMeta() { return META; },
        // Save & Continue (Issue #83) — the checkpoint subsystem the roundtrip test drives.
        serializeRun, saveCheckpoint, restoreRun, readSave, clearSave, hasSave,
        // reset() MUST set lives — at 0 lives checkLoss() flips the phase to "lost"
@@ -66,8 +69,8 @@ export function done(name) {
 // A plain dish struct at a given position / path distance; high hp by default so
 // it survives a hit unless a test wants a kill. Mirrors the fields the engine
 // touches (see spawnWaveEnemies).
-export function makeEnemy({ x = 0, y = 0, dist = 0, hp = 1e6, radius = 12, typeId = "mote", speed = 0 } = {}) {
-  return { typeId, x, y, dist, hp, maxHp: hp, radius, reward: 5, speed,
+export function makeEnemy({ x = 0, y = 0, dist = 0, hp = 1e6, radius = 12, typeId = "mote", speed = 0, bounty = 5 } = {}) {
+  return { typeId, x, y, dist, hp, maxHp: hp, radius, bounty, speed,
            hurtFlash: 0, slowTimer: 0, slowFactor: 1, freezeTimer: 0 };
 }
 

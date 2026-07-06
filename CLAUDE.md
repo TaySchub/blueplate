@@ -99,18 +99,24 @@ The backlog is GitHub Issues — the single roadmap. Don't create a parallel one
 
 - **`src/data.js` — data merge:** `TOWER_ART`/`ENEMY_ART` (art-only) + `BAL`
   (balance.json) → `TOWER_TYPES`/`ENEMY_TYPES`; economy in `RULES`; `COLOR`.
-- **`src/engine.js` — waves:** `makeWave(n)`/`waveTypeWeights` · `getWave`
-  (endless past `waveCount`) · `buildSpawnQueue`.
+- **`src/engine.js` — waves:** `makeWave(n)`/`waveTypeWeights` (data-driven from
+  `waveGen.typeWeights` + `typeUnlock`) · `getWave` (endless past `waveCount`) ·
+  `buildSpawnQueue`.
 - **`src/engine.js` — combat:** `updateTowers()` (per-type firing incl. sniper
   straw-lock + zap multi pile-on) · `fireProjectile()` (cannon/zap/sniper act
   instantly; only arrow + frost shots travel) · `resolveHit()` ·
   `applyDamage()` · `pickTarget()` (First/Last/Strong/Close) · `moveEnemies()`
   (freeze → slow) · side effects via the `FX` hooks (wired in `src/main.js`).
 - **`src/engine.js` — run loop & economy (ENDLESS — no "won" phase, Issue #75):**
-  `startRun` · `startNextWave` + `earlyCallBonusNow` · `checkWaveEnd` (always
-  advances — clearing a wave never wins) · `endRun` (defeat only; records
-  `META.bestWave`, the persisted best-wave record); meta in `META`/`SHOP`/
-  `loadMeta`; particles as pure data via `spawn*`/`updateParticles`.
+  `startRun` · `startNextWave` · `checkWaveEnd` (always advances — clearing a
+  wave never wins; arms auto-start) · `endRun` (defeat only; records
+  `META.bestWave`, the persisted best-wave record); income = per-kill BOUNTIES
+  (`enemy.bounty` from balance.json `enemyTypes`, paid in `applyDamage`; leaks
+  pay nothing) + flat `earnPerWave`; auto-start rounds (`AUTOSTART_OPTIONS`,
+  `META.autoStart`, countdown in `update`'s prep branch — armed only by a wave
+  resolving, never on run start or restore); meta in `META`/`SHOP`/`loadMeta`;
+  particles as pure data via `spawn*`/`updateParticles`. (The early-call bonus
+  was removed in the economy overhaul.)
 - **`src/engine.js` — save & continue (checkpoint = wave start, Issue #83):**
   `serializeRun` builds the minimal snapshot (`SAVE_KEY`/`SAVE_VERSION`: mapId,
   waveIndex, currency, lives, towers as `{typeId,x,y,upgradePath,upgradeTier,
@@ -121,8 +127,8 @@ The backlog is GitHub Issues — the single roadmap. Don't create a parallel one
   call (`startNextWave`) — so a tab closed mid-wave already has its wave-start
   save. `restoreRun` → `loadMap` + reset + `rebuildTowerFromSave` (real
   `tryBuild`/upgrade paths, cost bypassed, no RNG — the `restoring` flag suppresses
-  mid-rebuild writes), parks `prepElapsed` past `earlyCallWindow` (no double early
-  bonus). `endRun` calls `clearSave`; `readSave`/`hasSave` validate + discard a
+  mid-rebuild writes), and disarms auto-start for its first prep (the breather).
+  `endRun` calls `clearSave`; `readSave`/`hasSave` validate + discard a
   version-mismatch/unparseable/unknown-map blob. Behavior test:
   `tools/tests/save.test.mjs`.
 - **`src/engine.js` — free placement (no fixed slots, no tower cap):**
@@ -163,9 +169,9 @@ The backlog is GitHub Issues — the single roadmap. Don't create a parallel one
   green/red by `canPlace` + affordability). Scene surfaces (floor/belt/kitchen/
   chute) read the active map's `THEME`, so a reskin is JSON-only; the hub
   `MAP_BTN` map picker (drawMenu) cycles `MAPS`. Pause menu `drawPausedOverlay` +
-  `pauseMenuRects` (Resume / Save & Quit, board-space, shared draw+hit geometry);
-  hub `RESUME_RUN_BTN` "Continue — Wave N" (drawMenu, shown when `hasSave()`,
-  Issue #83).
+  `pauseMenuRects` (auto-start segmented row / Resume / Save & Quit, board-space,
+  shared draw+hit geometry); hub `RESUME_RUN_BTN` "Continue — Wave N" (drawMenu,
+  shown when `hasSave()`, Issue #83).
 - **`src/main.js`:** boot · `setupInput` · `startGameLoop` (fixed timestep) ·
   the FX wiring. Pause-menu + hub-Continue hit-testing route to `restoreRun`; the
   `pagehide`/`visibilitychange→hidden` listeners auto-pause on mobile (Issue #83 —

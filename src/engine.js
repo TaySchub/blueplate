@@ -13,7 +13,7 @@
    src/main.js points them at the real audio object + UI. */
 const FX = {
   shoot(typeId, path) {}, hit() {}, kill() {}, leak() {}, upgrade() {}, build() {},
-  deny() {}, waveStart() {}, buy() {}, win() {}, lose() {}, calledEarly(bonus) {},
+  deny() {}, waveStart() {}, buy() {}, win() {}, lose() {},
   // Signature + economy hooks added by the audio pass (Issue #64). No-op by
   // default and side-effect-only — the headless sim runs them as no-ops, so the
   // difficulty gauge can't move; src/main.js wires them to real sounds.
@@ -30,7 +30,10 @@ function freshMeta() {
   // gameplay mechanic), shown on the run summary + hub. loadMeta's assign-onto-
   // fresh merge defaults it to 0 for older saves and drops any stale fields
   // (e.g. a mode flag from the retired finite/endless toggle) harmlessly.
-  return { essence: 0, unlocked: ["arrow", "cannon", "frost", "zap"], boughtCurrency: false, boughtLives: false, mapId: null, bestWave: 0 };
+  // autoStart: the pause-menu "Auto-start next wave" setting — "off", or the
+  // number of seconds after a wave resolves before the next one calls itself
+  // (0 = instant). Persisted like every other META field.
+  return { essence: 0, unlocked: ["arrow", "cannon", "frost", "zap"], boughtCurrency: false, boughtLives: false, mapId: null, bestWave: 0, autoStart: "off" };
 }
 function loadMeta() {
   try {
@@ -155,9 +158,10 @@ function restoreRun() {
   game.towers = []; game.enemies = []; game.projectiles = []; game.particles = [];
   game.spawnQueue = []; game.killed = 0; game.coreHurtFlash = 0;
   game.score = 0; game.lastRun = null; game.selectedTower = null;
-  // Anti-exploit: park prep past the early-call window so the wave's early-call
-  // bonus can't be earned a second time on the same wave after a restore.
-  game.prepElapsed = RULES.earlyCallWindow + 1;
+  game.prepElapsed = 0;
+  // The first prep after a resume never auto-calls — the player gets a breather
+  // to re-read the board before auto-start (if enabled) re-arms on the next wave.
+  game.autoStartArmed = false;
   const deck = deckTypes();
   game.selectedType = deck.length ? deck[0].id : "arrow";
   for (const ts of save.towers) rebuildTowerFromSave(ts);
@@ -275,14 +279,18 @@ function canPlace(x, y) {
 // agree on every wave. n is 0-indexed.
 const WG = BAL.waveGen;
 
+// Per-type spawn weights for wave n, DATA-DRIVEN from waveGen.typeWeights
+// (each type: base + perWave·n, floored at min, zero until typeUnlock[type]).
+// Moved out of hardcoded coefficients when the Python mirror retired, so the
+// economy pass can tune the wave ramp in balance.json like everything else.
 function waveTypeWeights(n) {
-  const u = WG.typeUnlock;
-  return {
-    mote:   Math.max(0.15, 1.0 - 0.05 * n),
-    runner: n >= u.runner ? 0.7 : 0,
-    swarm:  n >= u.swarm ? 0.4 + 0.02 * n : 0,
-    brute:  n >= u.brute ? 0.2 + 0.03 * n : 0,
-  };
+  const u = WG.typeUnlock, tw = WG.typeWeights;
+  const w = {};
+  for (const k of Object.keys(tw)) {
+    const c = tw[k];
+    w[k] = n >= (u[k] || 0) ? Math.max(c.min || 0, c.base + (c.perWave || 0) * n) : 0;
+  }
+  return w;
 }
 
 function makeWave(n) {
@@ -324,6 +332,7 @@ const game = {
   towers: [], enemies: [], projectiles: [], particles: [],
   spawnQueue: [], spawnTimer: 0, waveHp: 0, waveSpeed: 0, waveInterval: 1,
   killed: 0, coreHurtFlash: 0, shake: 0, elapsed: 0, fps: 0, prepElapsed: 0,
+  autoStartArmed: false,   // true only in a prep entered by a wave RESOLVING (never run start / restore)
   score: 0,
   pointer: { x: -1, y: -1 },
   message: "", messageTimer: 0,
@@ -341,6 +350,7 @@ function startRun() {
   game.towers = []; game.enemies = []; game.projectiles = []; game.particles = [];
   game.spawnQueue = []; game.killed = 0; game.coreHurtFlash = 0;
   game.prepElapsed = 0;
+  game.autoStartArmed = false;   // the run's FIRST prep is always manual — set up in peace
   game.selectedTower = null;
   game.score = 0;
   game.lastRun = null;
@@ -486,33 +496,26 @@ function sellTower(t) {
   checkpointPrep();   // a prep sell updates the wave-start snapshot (no-op mid-wave)
 }
 
-// The currency you'd earn right now for calling the wave early — full value the
-// instant prep begins, decaying linearly to 0 over earlyCallWindow seconds.
-function earlyCallBonusNow() {
-  if (RULES.earlyCallBonus <= 0) return 0;
-  const remaining = 1 - game.prepElapsed / RULES.earlyCallWindow;
-  return Math.max(0, Math.round(RULES.earlyCallBonus * remaining));
-}
+// The pause menu's "Auto-start next wave" options — value ("off" or seconds of
+// prep before the next wave calls itself; 0 = instant) + display label. Lives
+// here like TARGETING_MODES so render + input share one list; the engine only
+// ever reads META.autoStart.
+const AUTOSTART_OPTIONS = [
+  ["off", "Off"], [0, "Instant"], [1, "1s"], [2, "2s"], [3, "3s"],
+];
 
 function startNextWave() {
   if (game.phase !== "prep") return;
-  const bonus = earlyCallBonusNow();
   const w = getWave(game.waveIndex);
   game.phase = "wave";
   game.spawnQueue = buildSpawnQueue(w);
   game.spawnTimer = 0;
   game.waveHp = w.hp; game.waveSpeed = w.speed; game.waveInterval = w.interval;
-  if (bonus > 0) {
-    game.currency += bonus;
-    setMessage("Called early — +" + bonus + " tip!  Wave " + (game.waveIndex + 1) + " incoming!");
-    FX.calledEarly(bonus);
-  } else {
-    setMessage("Wave " + (game.waveIndex + 1) + " incoming!");
-  }
+  setMessage("Wave " + (game.waveIndex + 1) + " incoming!");
   FX.waveStart();
-  // Freeze the wave-start snapshot (currency now includes any early-call bonus).
-  // This is the LAST write until the next prep — during the wave the stored save
-  // stays this wave-start board, so a tab closed mid-wave resumes here.
+  // Freeze the wave-start snapshot. This is the LAST write until the next prep —
+  // during the wave the stored save stays this wave-start board, so a tab closed
+  // mid-wave resumes here.
   saveCheckpoint();
 }
 
@@ -526,7 +529,14 @@ function update(step) {
   if (game.shake > 0) game.shake = Math.max(0, game.shake - step * 24);
   if (game.messageTimer > 0) game.messageTimer -= step;
   if (game.phase === "menu") { updateParticles(step); return; }
-  if (game.phase === "prep") game.prepElapsed += step;
+  if (game.phase === "prep") {
+    game.prepElapsed += step;
+    // Auto-start (META.autoStart, set in the pause menu): a prep entered by a
+    // wave RESOLVING calls the next wave itself after the configured seconds.
+    // Never armed for a run's first prep or the prep right after a restore.
+    // Pausing halts update() at the shell, so the countdown suspends with it.
+    if (game.autoStartArmed && META.autoStart !== "off" && game.prepElapsed >= META.autoStart) startNextWave();
+  }
 
   updateTowers(step);
   moveProjectiles(step);
@@ -547,7 +557,7 @@ function spawnWaveEnemies(step) {
     const typeId = game.spawnQueue.shift();
     const et = ENEMY_TYPES[typeId];
     const hp = Math.round(game.waveHp * et.hpMul);
-    game.enemies.push({ typeId, dist: 0, speed: game.waveSpeed * et.speedMul, hp, maxHp: hp, radius: et.radius, reward: et.reward, hurtFlash: 0, slowTimer: 0, slowFactor: 1, freezeTimer: 0 });
+    game.enemies.push({ typeId, dist: 0, speed: game.waveSpeed * et.speedMul, hp, maxHp: hp, radius: et.radius, bounty: et.bounty, hurtFlash: 0, slowTimer: 0, slowFactor: 1, freezeTimer: 0 });
   }
 }
 
@@ -765,10 +775,15 @@ function applyDamage(enemy, dmg) {
   if (enemy.hp <= 0 && !enemy.reachedCore) {
     game.enemies = game.enemies.filter((e) => e !== enemy);
     game.killed++;
-    game.currency += enemy.reward;
-    game.score += enemy.reward;
     spawnKillBurst(enemy.x, enemy.y, ENEMY_TYPES[enemy.typeId].color);
-    spawnFloatText(enemy.x, enemy.y - 14, "+$" + enemy.reward + " tip", COLOR.gold);
+    // The BOUNTY: each dish pays its balance.json Tips on the kill — the
+    // per-kill half of the economy. A leaked dish pays nothing (moveEnemies
+    // just removes it), and a zero-bounty dish kills silently (no popup).
+    if (enemy.bounty > 0) {
+      game.currency += enemy.bounty;
+      game.score += enemy.bounty;
+      spawnFloatText(enemy.x, enemy.y - 14, "+$" + enemy.bounty + " tip", COLOR.gold);
+    }
     FX.kill();
   } else {
     spawnHitSpark(enemy.x, enemy.y);
@@ -784,6 +799,7 @@ function checkWaveEnd() {
     // generates waves past the authored table). A run never "wins" — it ends
     // only in defeat, and the score is waves survived (Issue #75).
     game.waveIndex++; game.phase = "prep"; game.prepElapsed = 0;
+    game.autoStartArmed = true;   // a RESOLVED wave arms auto-start for this prep (if enabled)
     setMessage("Wave cleared!  +" + RULES.earnPerWave + " Tips — seat more customers, then Send Out the food", 4);
     saveCheckpoint();   // entering prep for the next wave — the new wave-start snapshot
   }
