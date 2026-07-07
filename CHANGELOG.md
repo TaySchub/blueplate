@@ -6,6 +6,19 @@ Format is deliberately simple and plain-language.
 ## [Unreleased]
 
 ### Changed
+- **Tower Rework stage 3 — the closing rebalance** (Issue #103; balance.json
+  numbers only, diff-provable). Thirteen leaves tuned so every reworked kit
+  earns its seat: pit sibling parity via a more-premium The Stall t1 (500)
+  with a gentler ambient aura (1.4s cadence, 55 radius) and an earlier Whole
+  Hog dual lock (450); syrup parity via a much faster Quick Pour (0.45) with
+  a bigger, longer-lived Trail puddle (r34/8s) against a shorter shared glue
+  clock (2.5s) and a +50 Big Bottle damper (650); the Sample Lady's aura
+  deepened to be felt (haste 0.85 base / 0.75 stacked, +15% damage tier,
+  value tags every 4s at 20 Tips). The frozen design counts (dual-lock 2,
+  trail 3, multi-glob 3), syrup's zero damage, and frost's slowDur 3.0 never
+  moved. Gate: 55.0/57.0/55.0% at seeds 1/1000/5000 ×200 and 56.6% at seed 1
+  ×1000 — in-band, byte-identical to main (the frozen reference contains no
+  reworked tower). Slurper fence strict: eater unfed 41.67 < Slurper 43.75.
 - **Tower Rework stage 2 — five newcomer kits rebuilt on the new systems**
   (Issue #103). The Pitmaster keeps his lock-on ramping smoke and gains two
   real poles: The Stall (t1 much faster + deeper stacking, t2 an AMBIENT
