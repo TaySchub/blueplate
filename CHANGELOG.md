@@ -5,6 +5,28 @@ Format is deliberately simple and plain-language.
 
 ## [Unreleased]
 
+### Changed
+- **Deep rebalance: every one of the 10 towers now earns its seat** (Issue
+  #92, stage 2; Designer hat). Numbers only — 42 values in
+  `data/balance.json`, no engine change. The five Roster Growth newcomers
+  were shelf-priced and probe-dead (a one-of-everything board read 0%
+  survival while the all-originals reference read 57%); each is now
+  measurably best at its role-map claim: the Pitmaster deals the most damage
+  into a crossing Tough Steak (Tank Melter, reach 150), the Ranch Fountain
+  out-brakes every seat across a crowd, the Competitive Eater out-kills
+  everything on a fed lane once ramped, the Short-Order Cook out-streams the
+  mid band (now 350), and the Sample Lady's two paths both pull their
+  weight. The over-curve Slurper swap-in (+24 over reference) was reined in
+  (500 Tips, cd 0.16, reach 135 — tier ranges no longer rebuild it), Big
+  Appetite's decayed bite got its burst back (100), and the all-signature
+  stack premium came down +20 → +11 mostly via two +50 signature-tier cost
+  dampers (identities untouched; the crumb splash is the one trimmed
+  magnitude). Gate: 55.0% at the CI config (55.6/58.8/54.2 across seed
+  bases at 500 sims; 56.6% at 1000) — new smoke baselines quoted in the PR.
+  Income model unchanged by design and now written down as policy
+  (`docs/BALANCE_PHILOSOPHY.md`): dual stream, size-scaled bounties, flat
+  recovery floor, no decay brackets, no eco tower, no interest.
+
 ### Added
 - **Balance philosophy + roster probe visibility** (Issue #92, stage 1;
   Designer + Researcher hats). New `docs/BALANCE_PHILOSOPHY.md` — the tuning

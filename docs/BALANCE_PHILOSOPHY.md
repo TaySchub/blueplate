@@ -93,7 +93,7 @@ looks like variety. Deckbound's version: **each tower has ONE named role, ONE
 measurable best-at claim, and a probe that checks it.** Two towers may
 overlap in what they *can* do, never in what they're *best* at.
 
-Bands (rubric §3): cheap **150** · mid **250–300** · premium **400–450**.
+Bands (rubric §3): cheap **150** · mid **250–350** · premium **400–500**.
 
 | Tower | Role | Band | When you buy it | Measurably best at (the probe) |
 |---|---|---|---|---|
@@ -101,12 +101,12 @@ Bands (rubric §3): cheap **150** · mid **250–300** · premium **400–450**.
 | **Sample Lady** (`sample`) | **The Force Multiplier** — amp support | 150 | You have hitters; make them all hit harder | Marginal survival added per 100 Tips when joining an established board (slot-9 marginal, Δ/100 Tips) |
 | **The Regular** (`arrow`) | **The Workhorse** — reliable single-target | 250 | Always reasonable; the yardstick every specialist is priced against | Self-sufficiency: the only mid-band tower whose mono-board holds the full gate (solo fingerprint survival@30) |
 | **Photographer** (`frost`) | **The Stopper** — single-target hard CC | 300 | A priority dish MUST NOT reach the return slot | Irreplaceability on the reference: swapping its seats to any same-band tower reads lower (frost-slots replacement probe) |
-| **Short-Order Cook** (`cook`) | **The Line Cook** — sustained multi-target | 300 | Mixed pairs keep arriving; you need steady spread damage | Mid-band sustained multi throughput: best solo median among ≤300 seats (solo fingerprint), best kill-stream rate per Tip in band (micro) |
-| **Pitmaster** (`pit`) | **The Tank Melter** — ramping anti-heavy DOT | 300 | Steaks and future heavies shrug off pecks | Cheapest steak: best time-to-kill × cost against a heavy target in the roster (TTK micro on a brute) |
+| **Short-Order Cook** (`cook`) | **The Line Cook** — sustained multi-target | 350 | Mixed pairs keep arriving; you need steady spread damage | Mid-band sustained multi throughput: out-streams every ≤350 seat on the kill-stream micro |
+| **Pitmaster** (`pit`) | **The Tank Melter** — ramping anti-heavy DOT | 300 | Steaks and future heavies shrug off pecks | The heavy that rides past dies anyway: most damage into a crossing wave-15 steak, absolute AND per Tip (crossing micro); the roster's longest reach (150) |
 | **Ranch Fountain** (`ranch`) | **The Crowd Brake** — wide stacking slow | 300 | The belt is a conga line; buy the whole crowd time | Crowd time bought: most slow-seconds applied across a pack per Tip (slow-integral micro on 8 dishes) |
 | **Big Appetite** (`cannon`) | **The Burst Anchor** — huge single bites | 400 | Spaced mid/heavy dishes; delete one per chomp | The biggest single hit in the game (data), and best burst-per-Tip on a fresh mid dish (TTK micro, one-bite thresholds quoted) |
 | **Competitive Eater** (`eater`) | **The Closer** — kill-fed ramping devourer | 450 | A fed lane late-game; rewards greedy placement | Peak throughput when fed: best steady-state kill-stream rate in the roster once ramped (kill-stream micro at combo cap) |
-| **Milkshake Slurper** (`sniper`) | **The Finisher** — premium always-on drain | 450 (Essence-gated) | The no-conditions carry seat | Highest *unconditional* sustained single-target DPS + longest reach (data + solo fingerprint; the Eater beats it only while combo-fed) |
+| **Milkshake Slurper** (`sniper`) | **The Finisher** — premium always-on drain | 500 (Essence-gated) | The no-conditions carry seat | Highest *unconditional* sustained single-target DPS (data + solo fingerprint; the Eater beats it only while combo-fed, and the Pitmaster only given ramp time on a heavy) |
 
 **Niche fences (the overlaps we police):**
 - `eater` vs `sniper`: conditional peak vs unconditional steadiness. If the
@@ -132,8 +132,8 @@ reads and the specialist winning its own claim by a real margin.
 ## 3. Pricing + bounty rubric v2 (supersedes #87's)
 
 **Bands.** cheap ≈ **150** (openers/support: low ceiling, high per-Tip early
-value) · mid ≈ **250–300** (the workhorse + the specialists) · premium ≈
-**400–450** (burst anchors, ramp carries, Essence-gated premium sustained).
+value) · mid ≈ **250–350** (the workhorse + the specialists) · premium ≈
+**400–500** (burst anchors, ramp carries, Essence-gated premium sustained).
 A tower's band comes from its ROLE (when-you-buy story), then its exact price
 from probe parity within the band.
 
