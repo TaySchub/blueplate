@@ -6,6 +6,30 @@ Format is deliberately simple and plain-language.
 ## [Unreleased]
 
 ### Changed
+- **The succession: the working model is now written for the post-Fable era**
+  (Issue #101; docs + agent files ONLY — zero game-file changes, gate and
+  smokes untouched by construction). The governing docs were rewritten from
+  the complete #59–#97 paper trail so the proven method survives the model
+  transition: `CLAUDE.md` now documents the real three-seat model (planner /
+  builder / reviewer chats, all Opus 4.8, developer as the only merge gate),
+  replacing the never-used Sonnet-orchestrator/escalation-ladder framing, with
+  the repo map + code landmarks brought current (10 towers, status layer,
+  save & continue, menu system). New: `docs/CHECKPOINT.md` (the review recipe
+  reverse-engineered from the nine checkpoint verdicts + the when-required
+  policy table, incl. `/code-review ultra` as the sanctioned top-tier
+  depth-boost), `docs/PLAYBOOK.md` (the portable game-agnostic methodology +
+  the evidence-based new-game bootstrap sequence), and `docs/kickoffs/`
+  (seven files: fill-in templates for the six proven PR shapes + the
+  parallel-run file contract). `.claude/agents/` consolidated six stale role
+  files into three seat briefs. `AUTONOMY.md` rewritten to match the five
+  overnights that actually ran (one chat, one ratified kickoff, park-don't-
+  grind); `PROJECT.md` process-law edits (developer-authorized this run,
+  each listed in the PR). Owed riders paid: the #93 checkpoint ruling folded
+  into `BALANCE_PHILOSOPHY` §4 (the cross-roster ≤12 swap-in bar is RETIRED
+  as position-confounded; sibling ≤8 + role benches + no-domination stand),
+  the §3 cliff list (frost `slowDur` 3.0, the birthday/fork integer cliffs),
+  and the ≥52%-at-CI-config bar written into §4.
+
 - **The game is now Blue-Plate Special, with a real main menu** (Issue #96;
   Implementer + Art hats; display + shell only — zero gameplay changes, the
   difficulty gauge and both smokes byte-identical to main, the only sim-output

@@ -1,10 +1,12 @@
 # AGENTS.md — read this first, every session
 
 This is the orientation file for any agent working on Blue-Plate Special (the game formerly known as Deckbound). **Before doing
-anything, read, in this order:** this file → `GAME_BRIEF.md` → `PROJECT.md` →
-the open **GitHub Issues** → the latest **GitHub Actions** run. Then state which
-role you're in and your plan, and confirm before anything non-trivial (this
-mirrors `PROJECT.md` §9).
+anything, read, in this order:** this file → `CLAUDE.md` (the working model +
+repo map) → `GAME_BRIEF.md` → `PROJECT.md` → the open **GitHub Issues** → the
+latest **GitHub Actions** run (+ `AUTONOMY.md` if unattended, + the domain
+docs your kickoff names). Then state which seat you're in (planner / builder /
+reviewer — and a builder's hats) and your plan, and confirm before anything
+non-trivial unless a ratified kickoff governs the session (`PROJECT.md` §9).
 
 ## Five things that will confuse you if you skip them
 
@@ -15,7 +17,7 @@ mirrors `PROJECT.md` §9).
    canvas, or audio access — the headless sim runs that file in Node.
 2. **`/docs/ideas-parked.md` is a graveyard of intentionally-excluded ideas.**
    Never pick work from it. It exists so stray ideas have somewhere to go
-   *instead of* getting built. Only the Designer appends to it.
+   *instead of* getting built. Append to it; don't build from it.
 3. **`GAME_BRIEF.md` and `PROJECT.md` are law, not editable build targets.**
    `GAME_BRIEF.md` is the frozen spec; ideation is closed. Don't edit either
    without the developer's explicit say-so.

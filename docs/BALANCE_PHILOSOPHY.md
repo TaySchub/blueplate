@@ -170,18 +170,39 @@ multiples of 5. The gauge lives on damage cliffs (±2 damage has swung the
 gate 15–20 pts) — map a cliff before committing to it, and confirm any
 edge-value across three seed bases (1/1000/5000), never one.
 
+**The cliff list (constants carrying institutional weight — never move
+casually; PR #93 + its checkpoint):** frost base `slowDur` is pinned at
+exactly **3.0** (±anything scatters the three seed bases across ~14 pts —
+probed and restored); Birthday Party t2 damage sits on an integer cliff
+(4→3 swung the all-signature read −12.5); Fork Frenzy t2 damage quantizes
+on pierce breakpoints (20→19 read −8.5). When a lever like these is the
+"obvious" knob, the cost damper is usually the cliff-free alternative
+(the #93 all-signature fix shipped on two +50 cost dampers for this reason).
+
 ## 4. Probe conventions (so every pass measures the same thing)
 
 Reference build (FROZEN, the gauge): `arrow,cannon,frost,arrow,zap,cannon,
 frost,arrow,zap,cannon` at the tuned map's simAnchors, stat paths
-(`SIM_PATHS`). CI config: seed 1, 200 sims. Confirm reads at seeds
+(`SIM_PATHS`). CI config: seed 1, 200 sims — and a tuning PR must land the
+exact CI config **≥52%** (2 pts inside the floor; the #78 floor-margin
+incident, made a standing bar in #86/#87). Confirm reads at seeds
 1/1000/5000 ×200 and seed 1 ×1000.
 
 - **Path matrix (20 paths):** towers in the reference measure by *type-wide
   path swap* (`--paths t=sig`, the #78 convention); towers outside it measure
   by *slot-9 swap-in* (replace the 10th build entry — the marginal seat,
-  anchor (620,258)) on each path. Within-tower sibling |Δ| ≤ 8 pts;
-  cross-roster spread of all 20 reads ≤ 12 pts.
+  anchor (620,258)) on each path. Within-tower sibling |Δ| ≤ 8 pts.
+
+  **RETIRED (the #93 checkpoint ruling): the cross-roster ≤12 spread bar on
+  single-slot swap-ins.** The medium is position-confounded — the same tower
+  read 32.4% or 87.6% depending on WHICH slot it swapped into, and a
+  deliberately role-differentiated roster will always spread wide on a
+  "generalist value in one board position" ruler. Meeting it would have meant
+  flattening the roles the rest of #93 sharpened; both documented follow-up
+  options (nerfing the reference's CC / making specialists better
+  generalists) were DECLINED. The standing cross-roster parity instruments
+  are: sibling |Δ| ≤ 8, the role-claim benches + no-domination rule (§2), and
+  the band bar on slot-9 marginal Δ/100 Tips (§3's power-budget line).
 - **Solo fingerprint:** `--build X×10` on the designated path. Fingerprints
   must stay *differentiated* (support reads near 0 by design; a workhorse
   holds the gate) — a flat row of 55s would mean the roster collapsed into
