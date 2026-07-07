@@ -117,9 +117,9 @@
     "runner": { "name": "The Slider",     "hpMul": 0.6,  "speedMul": 1.7, "bounty": 10 },
     "brute":  { "name": "Tough Steak",    "hpMul": 2.6,  "speedMul": 0.7, "bounty": 35 },
     "swarm":  { "name": "Fry Swarm",      "hpMul": 0.28, "speedMul": 1.2, "bounty": 5 },
-    "egg":    { "name": "Sunny-Side Up",  "hpMul": 0.4,  "speedMul": 2.3, "bounty": 5 },
-    "stack":  { "name": "Short Stack",    "hpMul": 1.7,  "speedMul": 0.9, "bounty": 25 },
-    "roast":  { "name": "The Roast Turkey", "hpMul": 3.5, "speedMul": 0.6, "bounty": 55 }
+    "egg":    { "name": "Sunny-Side Up",  "hpMul": 0.5,  "speedMul": 2.5, "bounty": 5 },
+    "stack":  { "name": "Short Stack",    "hpMul": 1.55, "speedMul": 0.9, "bounty": 25 },
+    "roast":  { "name": "The Roast Turkey", "hpMul": 3.1, "speedMul": 0.6, "bounty": 45 }
   },
   "towers": {
     "arrow": {

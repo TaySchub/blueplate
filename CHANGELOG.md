@@ -11,13 +11,13 @@ Format is deliberately simple and plain-language.
   from four dishes to seven so waves stay fresh through the endless climb, each a
   stat-and-art variant filling an archetype the original four didn't cover:
   - **Sunny-Side Up** (`egg`) — the glass-cannon SPRINTER: the fastest, frailest
-    dish in the game (speed 2.3, HP 0.4, r8). A glossy fried egg with a domed
-    yolk and speed lines; it slips past slow guns and forces leak-saves.
+    dish in the game (speed 2.5, HP 0.5, r8). A glossy fried egg with a domed
+    yolk and speed lines; the pace-breaker that soaks board DPS.
   - **Short Stack** (`stack`) — the mid-tank BRUISER: chunky HP at an awkward
-    middling pace (HP 1.6, speed 0.9, r14) that syncs with neither the sprinters
+    middling pace (HP 1.55, speed 0.9, r14) that syncs with neither the sprinters
     nor the slow steaks. A buttered, syrup-drizzled stack of pancakes.
   - **The Roast Turkey** (`roast`) — the premium PLATE: rare, high-HP, pays a fat
-    tip (HP 3.25, speed 0.6, bounty 50, r19). A glazed bird with two frilled
+    tip (HP 3.1, speed 0.6, bounty 45, r19). A glazed bird with two frilled
     drumsticks — the dish you decide whether to swing the board around and kill.
   They unlock at waves 7 / 9 / 13 so the early ramp stays learnable. Each is
   drawn in `src/art.js` with the shared bite-state + hurt-flash idiom, a distinct
@@ -26,6 +26,25 @@ Format is deliberately simple and plain-language.
   all seven.
 
 ### Changed
+- **Menu Expansion — the arc's final pricing pass** (Issue #98, stage 2;
+  balance.json enemy numbers only, diff-provable). New dishes in the waves
+  legitimately move the gate, so the three newcomers are priced TOGETHER with the
+  #103-reworked kits against the new pressure. From the stage-1 provisional
+  stats: the two tanks are trimmed to hold the band — **Short Stack** HP 1.7→1.55,
+  **The Roast Turkey** HP 3.5→3.1 (bounty 55→45, tracking the 15×hpMul rubric) —
+  and the **Sunny-Side Up** sprinter is beefed a touch (HP 0.4→0.5, speed
+  2.3→2.5) so it soaks more board DPS and adds real pressure instead of reading as
+  free food. Nothing else moved: no existing tower and no existing dish (Hot Dog /
+  Slider / Steak / Fries), no waveGen scalar (hpGrowth / counts / weights /
+  unlocks), and every #103 FROZEN LEVER (Pitmaster dual-lock, Syrup Trail +
+  multi-glob, the Syrup Slinger's zero damage) and frost slowDur 3.0 are
+  byte-untouched — the Slurper fence is unaffected (no Competitive Eater number
+  touched). Gate: 54.0 / 52.0 / 54.5% at seeds 1/1000/5000 ×200 and 56.7% at
+  seed 1 ×1000 — in-band, ≥52 at the CI config. Each newcomer earns its slot:
+  removing the roast reads +40 pts (94.0%), the stack +27.5 (81.5%); the egg is
+  the fastest dish in the game (no frail dish leaks the dense reference — even the
+  Slider doesn't — so a glass cannon's leak-save threat is a real-play property
+  the fixed gauge can't show, a documented near-miss).
 - **Tower Rework stage 3 — the closing rebalance** (Issue #103; balance.json
   numbers only, diff-provable). Thirteen leaves tuned so every reworked kit
   earns its seat: pit sibling parity via a more-premium The Stall t1 (500)

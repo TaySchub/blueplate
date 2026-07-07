@@ -451,21 +451,21 @@ window.BALANCE = {
     },
     "egg": {
       "name": "Sunny-Side Up",
-      "hpMul": 0.4,
-      "speedMul": 2.3,
+      "hpMul": 0.5,
+      "speedMul": 2.5,
       "bounty": 5
     },
     "stack": {
       "name": "Short Stack",
-      "hpMul": 1.7,
+      "hpMul": 1.55,
       "speedMul": 0.9,
       "bounty": 25
     },
     "roast": {
       "name": "The Roast Turkey",
-      "hpMul": 3.5,
+      "hpMul": 3.1,
       "speedMul": 0.6,
-      "bounty": 55
+      "bounty": 45
     }
   },
   "towers": {
