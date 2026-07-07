@@ -5,7 +5,42 @@ Format is deliberately simple and plain-language.
 
 ## [Unreleased]
 
+### Changed
+- **Deep rebalance: every one of the 10 towers now earns its seat** (Issue
+  #92, stage 2; Designer hat). Numbers only — 42 values in
+  `data/balance.json`, no engine change. The five Roster Growth newcomers
+  were shelf-priced and probe-dead (a one-of-everything board read 0%
+  survival while the all-originals reference read 57%); each is now
+  measurably best at its role-map claim: the Pitmaster deals the most damage
+  into a crossing Tough Steak (Tank Melter, reach 150), the Ranch Fountain
+  out-brakes every seat across a crowd, the Competitive Eater out-kills
+  everything on a fed lane once ramped, the Short-Order Cook out-streams the
+  mid band (now 350), and the Sample Lady's two paths both pull their
+  weight. The over-curve Slurper swap-in (+24 over reference) was reined in
+  (500 Tips, cd 0.16, reach 135 — tier ranges no longer rebuild it), Big
+  Appetite's decayed bite got its burst back (100), and the all-signature
+  stack premium came down +20 → +11 mostly via two +50 signature-tier cost
+  dampers (identities untouched; the crumb splash is the one trimmed
+  magnitude). Gate: 55.0% at the CI config (55.6/58.8/54.2 across seed
+  bases at 500 sims; 56.6% at 1000) — new smoke baselines quoted in the PR.
+  Income model unchanged by design and now written down as policy
+  (`docs/BALANCE_PHILOSOPHY.md`): dual stream, size-scaled bounties, flat
+  recovery floor, no decay brackets, no eco tower, no interest.
+
 ### Added
+- **Balance philosophy + roster probe visibility** (Issue #92, stage 1;
+  Designer + Researcher hats). New `docs/BALANCE_PHILOSOPHY.md` — the tuning
+  north star: a researched income-model comparison (BTD6's dual stream,
+  Kingdom Rush's leak-pay, Defense Grid's interest cautionary, Dungeon
+  Warfare's copy-pricing) and what Deckbound adopts against its own
+  constraints; a ROLE MAP giving each of the 10 towers a named role, a cost
+  band, and ONE measurable best-at claim with its probe; and pricing/bounty
+  rubric v2 (supersedes #87's). CLAUDE.md's doc map points at it.
+  `tools/sim.mjs --check` now also prints three data-defined REPORT-ONLY
+  roster boards (`modern-mix`, `support-stack`, `dot-board`) after the gate
+  blocks — newcomer compositions visible in every CI log, zero effect on the
+  gate or exit code (gate output verified byte-identical, 57.0% blueplate /
+  34.5% retired diner).
 - **Roster Growth 2 — three status towers: the Pitmaster, the Ranch Fountain,
   and the Sample Lady** (stage 2; Implementer + Designer + Art hats). All three
   ride the stage-1 status layer, ship INSTANTLY available (the unlocked-set

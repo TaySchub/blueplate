@@ -88,6 +88,9 @@ no bundler — `file://` double-click still works):**
   (overnight policy).
 - Canon & taste: `docs/FRANCHISE_BACKBONE.md` (cast/tone) · `docs/ART_STYLE.md`
   (art rules + decision log) · `docs/art-refs/` (developer's visual refs).
+- Balance policy: `docs/BALANCE_PHILOSOPHY.md` (income model + the 10-tower
+  role map + pricing/bounty rubric + probe conventions — the north star every
+  tuning PR measures against; Issue #92).
 - `docs/ideas-parked.md` — graveyard; never build from it.
 - `docs/archive/` — superseded historical docs, kept for the record only.
 - `CHANGELOG.md` — one entry per merged change (required) · `README.md` +

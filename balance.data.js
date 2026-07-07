@@ -470,7 +470,7 @@ window.BALANCE = {
             {
               "cost": 500,
               "pierce": true,
-              "damage": 18,
+              "damage": 20,
               "range": 14
             }
           ]
@@ -497,7 +497,7 @@ window.BALANCE = {
       "blurb": "Grabs one dish and takes a huge, slow bite (single-target)",
       "cost": 400,
       "range": 104,
-      "damage": 90,
+      "damage": 100,
       "cooldown": 2.8,
       "behavior": "single",
       "upgrades": {
@@ -511,8 +511,8 @@ window.BALANCE = {
             {
               "cost": 700,
               "cooldownMul": 0.7,
-              "crumbRadius": 50,
-              "crumbDamage": 58
+              "crumbRadius": 44,
+              "crumbDamage": 48
             }
           ]
         },
@@ -574,8 +574,8 @@ window.BALANCE = {
               "range": 20
             },
             {
-              "cost": 550,
-              "range": 12,
+              "cost": 600,
+              "range": 10,
               "freezeTargets": 2
             }
           ]
@@ -585,10 +585,10 @@ window.BALANCE = {
     "sniper": {
       "name": "The Milkshake Slurper",
       "blurb": "Slurps a dish super-fast for tiny bites \u2014 watch its HP drain (small-med range)",
-      "cost": 450,
-      "range": 150,
+      "cost": 500,
+      "range": 135,
       "damage": 7,
-      "cooldown": 0.14,
+      "cooldown": 0.16,
       "behavior": "single",
       "upgrades": {
         "extraSlurp": {
@@ -597,12 +597,12 @@ window.BALANCE = {
             {
               "cost": 300,
               "damage": 5,
-              "range": 15
+              "range": 8
             },
             {
               "cost": 550,
               "damage": 4,
-              "range": 15
+              "range": 8
             }
           ]
         },
@@ -611,11 +611,10 @@ window.BALANCE = {
           "tiers": [
             {
               "cost": 300,
-              "range": 20
+              "range": 5
             },
             {
               "cost": 550,
-              "range": 10,
               "drainTargets": 2,
               "damage": 2
             }
@@ -641,10 +640,10 @@ window.BALANCE = {
               "cooldownMul": 0.78
             },
             {
-              "cost": 250,
+              "cost": 300,
               "cooldownMul": 0.85,
               "maxTargetsAdd": 1,
-              "damage": 5
+              "damage": 4
             }
           ]
         },
@@ -668,9 +667,9 @@ window.BALANCE = {
     "cook": {
       "name": "The Short-Order Cook",
       "blurb": "Sears the 2 nearest dishes on a hot griddle \u2014 fast multi-hits (mid range)",
-      "cost": 300,
+      "cost": 350,
       "range": 110,
-      "damage": 14,
+      "damage": 15,
       "cooldown": 0.6,
       "behavior": "multi",
       "maxTargets": 2,
@@ -685,7 +684,7 @@ window.BALANCE = {
             {
               "cost": 550,
               "maxTargetsAdd": 1,
-              "damage": 6
+              "damage": 5
             }
           ]
         },
@@ -694,14 +693,14 @@ window.BALANCE = {
           "tiers": [
             {
               "cost": 250,
-              "damage": 10
+              "damage": 8
             },
             {
               "cost": 500,
-              "damage": 8,
-              "knockbackBase": 70,
+              "damage": 6,
+              "knockbackBase": 55,
               "knockbackSizeRef": 12,
-              "knockbackChance": 0.5
+              "knockbackChance": 0.3
             }
           ]
         }
@@ -711,19 +710,19 @@ window.BALANCE = {
       "name": "The Competitive Eater",
       "blurb": "Locks one dish and devours it \u2014 consecutive kills ramp bite speed (combo)",
       "cost": 450,
-      "range": 120,
-      "damage": 12,
-      "cooldown": 0.4,
+      "range": 130,
+      "damage": 15,
+      "cooldown": 0.36,
       "behavior": "single",
       "comboCap": 4,
-      "comboRamp": 0.18,
+      "comboRamp": 0.25,
       "upgrades": {
         "waterDunk": {
           "name": "Water Dunk",
           "tiers": [
             {
               "cost": 300,
-              "cooldownMul": 0.78
+              "cooldownMul": 0.95
             },
             {
               "cost": 550,
@@ -737,12 +736,13 @@ window.BALANCE = {
           "tiers": [
             {
               "cost": 300,
-              "comboCapAdd": 3
+              "comboCapAdd": 3,
+              "cooldownMul": 0.78
             },
             {
               "cost": 550,
               "comboCapAdd": 2,
-              "mustardBonus": 25
+              "mustardBonus": 45
             }
           ]
         }
@@ -752,11 +752,11 @@ window.BALANCE = {
       "name": "The Pitmaster",
       "blurb": "Locks one dish in low-and-slow smoke \u2014 a stacking burn that ramps (long range)",
       "cost": 300,
-      "range": 140,
+      "range": 150,
       "damage": 0,
       "cooldown": 0.9,
       "behavior": "single",
-      "smokeDps": 6,
+      "smokeDps": 10,
       "smokeDuration": 4,
       "smokeStacks": 5,
       "upgrades": {
@@ -765,7 +765,7 @@ window.BALANCE = {
           "tiers": [
             {
               "cost": 250,
-              "cooldownMul": 0.7
+              "cooldownMul": 0.6
             },
             {
               "cost": 550,
@@ -778,7 +778,8 @@ window.BALANCE = {
           "tiers": [
             {
               "cost": 250,
-              "smokeStacksAdd": 2
+              "smokeStacksAdd": 2,
+              "cooldownMul": 0.8
             },
             {
               "cost": 550,
@@ -796,11 +797,11 @@ window.BALANCE = {
       "damage": 0,
       "cooldown": 0.8,
       "behavior": "single",
-      "coneHalfDeg": 28,
-      "ranchDps": 3,
+      "coneHalfDeg": 45,
+      "ranchDps": 4,
       "ranchDuration": 3,
       "ranchStacks": 5,
-      "slowPerStack": 0.08,
+      "slowPerStack": 0.1,
       "slowFloor": 0.45,
       "upgrades": {
         "extraDressing": {
@@ -812,7 +813,7 @@ window.BALANCE = {
             },
             {
               "cost": 550,
-              "dpsPerStackAdd": 2
+              "dpsPerStackAdd": 1
             }
           ]
         },
@@ -822,11 +823,11 @@ window.BALANCE = {
             {
               "cost": 250,
               "coneHalfAdd": 12,
-              "range": 15
+              "range": 25
             },
             {
               "cost": 600,
-              "kegPeriod": 5
+              "kegPeriod": 4
             }
           ]
         }
@@ -849,11 +850,12 @@ window.BALANCE = {
           "tiers": [
             {
               "cost": 150,
-              "cooldownMul": 0.75
+              "cooldownMul": 0.5
             },
             {
               "cost": 250,
-              "lossLeader": 10
+              "cooldownMul": 0.8,
+              "lossLeader": 15
             }
           ]
         },
@@ -862,7 +864,7 @@ window.BALANCE = {
           "tiers": [
             {
               "cost": 150,
-              "ampMulAdd": 0.15
+              "ampMulAdd": 0.12
             },
             {
               "cost": 300,

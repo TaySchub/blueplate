@@ -64,7 +64,38 @@ const SIM_PATHS = { arrow: "carvingStation", cannon: "oneBigBite", frost: "longE
 const PATH_OVERRIDE = Object.fromEntries(
   (opt("paths", "") || "").split(",").map((s) => s.trim()).filter(Boolean).map((kv) => kv.split("=").map((x) => x.trim()))
 );
-const pathFor = (typeId) => PATH_OVERRIDE[typeId] || SIM_PATHS[typeId];
+// The active path map: CLI override merged over SIM_PATHS for normal runs; a
+// report board (below) swaps in its own pinned map for the length of its run.
+let ACTIVE_PATHS = { ...SIM_PATHS, ...PATH_OVERRIDE };
+const pathFor = (typeId) => ACTIVE_PATHS[typeId];
+
+// --- REPORT-ONLY roster boards (Issue #92) -----------------------------------
+// Named full-roster compositions, DATA-DRIVEN: --check runs each on the default
+// map AFTER the tuned-map gates and prints a compact block, so every future
+// --check log shows how newcomer boards read. They NEVER gate — the exit code
+// comes from the tuned maps alone. Each board pins its own path commitments
+// (the newcomers have no SIM_PATHS entry: the frozen reference predates them).
+// Build order is cheap-first so the wave-1 float seats a real opening.
+const REPORT_BOARDS = [
+  {
+    name: "modern-mix",   // one of everything: the full 10-tower roster on one board
+    build: ["sample", "zap", "arrow", "cook", "pit", "ranch", "frost", "cannon", "eater", "sniper"],
+    paths: { arrow: "carvingStation", cannon: "oneBigBite", frost: "longExposure", sniper: "extraSlurp", zap: "teenageTable",
+             cook: "slingingHash", eater: "waterDunk", pit: "theStall", ranch: "extraDressing", sample: "costcoSaturday" },
+  },
+  {
+    name: "support-stack", // the amp question: three Sample Ladies multiplying a DPS core
+    build: ["sample", "sample", "sample", "zap", "arrow", "cook", "cannon", "eater", "sniper", "arrow"],
+    paths: { arrow: "carvingStation", cannon: "oneBigBite", sniper: "extraSlurp", zap: "teenageTable",
+             cook: "slingingHash", eater: "waterDunk", sample: "hardSell" },
+  },
+  {
+    name: "dot-board",     // the status layer carrying a run: smoke + ranch + amp, light direct backup
+    build: ["sample", "zap", "pit", "ranch", "pit", "ranch", "pit", "ranch", "frost", "cannon"],
+    paths: { cannon: "oneBigBite", frost: "longExposure", zap: "teenageTable",
+             pit: "competitionRub", ranch: "extraDressing", sample: "hardSell" },
+  },
+];
 
 // --- load the real engine ---------------------------------------------------
 // The game files are classic browser scripts sharing one global lexical scope,
@@ -226,6 +257,28 @@ function runOnMap(map) {
   return inBand;
 }
 
+// --- report-board runner ------------------------------------------------------
+// Plays one REPORT_BOARDS entry on the default map with its pinned paths and
+// prints a compact one-line read. Never touches the gate: separate printer,
+// ACTIVE_PATHS restored afterward, and the result carries no exit-code weight.
+function runReportBoard(board, map) {
+  const saved = ACTIVE_PATHS;
+  ACTIVE_PATHS = { ...SIM_PATHS, ...board.paths };
+  const results = [];
+  for (let i = 0; i < SIMS; i++) results.push(playGame(SEED + i, board.build, map));
+  ACTIVE_PATHS = saved;
+  const N = results.length;
+  const surv30 = results.filter((r) => r.reached >= WIN_WAVE).length / N;
+  const reach20 = results.filter((r) => r.reached >= 20).length / N;
+  const reach40 = results.filter((r) => r.reached >= 40).length / N;
+  const med = median(results.map((r) => r.reached));
+  console.log(
+    `  ${board.name.padEnd(13)}: survival@30 ${(surv30 * 100).toFixed(1).padStart(5)}%   ` +
+    `median ${String(med).padStart(2)}   P(20/40) ${(reach20 * 100).toFixed(1)}/${(reach40 * 100).toFixed(1)}   ` +
+    `(${board.build.join(",")})`
+  );
+}
+
 // --- run ---------------------------------------------------------------------
 // --check gates EVERY tuned map (untuned maps report only); a normal run plays
 // just the selected/default map. Per-map headers appear only when there's more
@@ -237,6 +290,12 @@ if (has("check")) {
     const inBand = runOnMap(m);
     if (m.tuned && !inBand) failed = true;
   });
+  // Roster boards LAST (append-only output: the gate blocks above stay
+  // byte-comparable across runs) — visibility for newcomer compositions,
+  // zero influence on the exit code.
+  console.log("");
+  console.log(`=== roster boards (${resolveMap(null).id}) — report only, never gate ===`);
+  for (const b of REPORT_BOARDS) runReportBoard(b, resolveMap(null));
   process.exit(failed ? 1 : 0);
 } else {
   runOnMap(resolveMap(MAP_ARG));
