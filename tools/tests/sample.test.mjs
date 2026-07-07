@@ -1,68 +1,91 @@
-// The Sample Lady (Roster Growth 2): a brief plain stun + the AMP mark that
-// makes EVERY tower hit harder; Loss Leader pays bonus Tips when a marked dish
-// dies; Bulk Buy marks several dishes at once. Behavior only.
+// The Sample Lady (Tower Rework: PURE SUPPORT — no attack). Her aura is the
+// tower-proximity system: nearby customers attack faster and their upgrades
+// cost less, radius = her RANGE stat (so the stock ghost ring shows it). On
+// the House t1 periodically VALUE-TAGS a dish (worth more on death) on a
+// deterministic cadence. Behavior only — every expected value is read from
+// towers the REAL tryBuild/tryUpgrade built.
 import { loadEngine, assert, done, makeEnemy } from "./_engine.mjs";
 
 const E = loadEngine();
 const { game } = E;
 const STEP = 1 / 60;
 const ticks = (n) => { for (let i = 0; i < n; i++) E.updateTowers(STEP); };
+const anchors = E.MAPS[0].simAnchors;
 
-const buildSample = (paths = []) => {
-  E.reset();
-  game.towers = [];
+const build = (typeId, anchor, paths = []) => {
   game.currency = 100000;
-  game.selectedType = "sample";
-  const a = E.MAPS[0].simAnchors[0];
-  E.tryBuild(a.x, a.y);
+  game.selectedType = typeId;
+  E.tryBuild(anchor.x, anchor.y);
   const t = game.towers[game.towers.length - 1];
   for (const p of paths) E.tryUpgrade(t, p);
   return t;
 };
 
-// ---- A sample = tiny nibble + brief PLAIN stun + the amp mark ----
-let t = buildSample();
-const tasting = makeEnemy({ x: t.x + 40, y: t.y, dist: 50, hp: 1e6 });
-game.enemies.push(tasting);
-ticks(1);
-assert(tasting.ampMul === t.ampMul, "the mark lands with the tower's LOADED multiplier (" + t.ampMul + "x)");
-assert(tasting.freezeTimer > 0 && tasting.freezePlain === true,
-  "the dish stops for a bite — a PLAIN stun (no Photographer brackets)");
-assert(1e6 - tasting.hp === t.damage * 1, "the nibble itself is the tower's small loaded damage");
+// ---- Pure support: she has NO attack and deals no damage ----
+E.reset(); game.towers = [];
+let lady = build("sample", anchors[0]);
+assert(E.TOWER_BY_ID.sample.behavior === "support" && lady.damage === 0, "the Sample Lady is pure support (no damage stat)");
+const dish = makeEnemy({ x: lady.x + 30, y: lady.y, dist: 50, hp: 1e6 });
+game.enemies.push(dish);
+ticks(60);
+assert(dish.hp === 1e6 && dish.freezeTimer === 0, "she never attacks, nibbles, or stuns a dish");
 
-// ---- The mark makes ANOTHER tower's hit land harder ----
-const hpBefore = tasting.hp;
-E.applyDamage(tasting, 100);   // any other source
-assert(Math.abs((hpBefore - tasting.hp) - 100 * t.ampMul) < 1e-9,
-  "another tower's 100 damage lands as " + 100 * t.ampMul + " on the marked dish");
-
-// ---- A Photographer snapshot AFTER a sample stun regains its brackets ----
-tasting.freezePlain = true;
-E.fireProjectile(Object.assign({ typeId: "frost", upgradePath: null }, { x: t.x, y: t.y, damage: 1, freezeDur: 1, slowDur: 1, slowFactor: 0.6, splash: 0 }), tasting);
-E.moveProjectiles(1);   // let the flash orb land
-assert(tasting.freezePlain === false, "a real snapshot clears the plain-stun flag (brackets return)");
-
-// ---- Loss Leader t2: a marked death pays bonus Tips ----
-t = buildSample(["costcoSaturday", "costcoSaturday"]);
-assert(t.lossLeader > 0, "Loss Leader sets the bonus (" + t.lossLeader + " Tips)");
-const buyer = makeEnemy({ x: t.x + 40, y: t.y, dist: 50, hp: 1e6, bounty: 9 });
-game.enemies.push(buyer);
-ticks(1);   // mark it
+// ---- The aura: haste + upgrade discount for towers in her RANGE ----
+E.reset(); game.towers = [];
+lady = build("sample", anchors[0]);
+// anchors[0] (455,210) -> anchors[8] (415,250) is ~56px, inside her aura (100);
+// anchors[5] (705,210) is 250px out — well outside.
+const nearArrow = build("arrow", anchors[8]);
+const farArrow = build("arrow", anchors[5]);
+assert(nearArrow.buffHasteMul === lady.supportHaste && nearArrow.buffHasteMul < 1,
+  "a customer inside the aura attacks faster (the tower's LOADED supportHaste)");
+assert(nearArrow.buffDiscount === lady.supportDiscount && nearArrow.buffDiscount > 0,
+  "…and gets her LOADED upgrade discount");
+assert(farArrow.buffHasteMul === 1 && farArrow.buffDiscount === 0, "a customer outside her range gets nothing");
+// The discount is REAL and SHOWN: tierCostFor (the sheet's number) is what tryUpgrade charges.
+const path = E.towerPaths("arrow")[0];
+const tier = E.nextTier(nearArrow, path.id);
+const shown = E.tierCostFor(nearArrow, tier);
+assert(shown < tier.cost, "the sheet's displayed price is really discounted inside the aura");
 const cash = game.currency;
-E.applyDamage(buyer, 1e9);
-assert(game.currency === cash + 9 + t.lossLeader, "a marked death pays bounty + the Loss Leader bonus");
+E.tryUpgrade(nearArrow, path.id);
+assert(cash - game.currency === shown, "the discounted price is exactly what the upgrade charges");
 
-// ---- Bulk Buy t2: marks up to bulkTargets dishes in a small radius ----
-t = buildSample(["hardSell", "hardSell"]);
-assert(t.bulkTargets > 1 && t.bulkRadius > 0, "Bulk Buy arms multi-marking (" + t.bulkTargets + " in r" + t.bulkRadius + ")");
-const c1 = makeEnemy({ x: t.x + 50, y: t.y, dist: 90, hp: 1e6 });        // the sampled dish
-const c2 = makeEnemy({ x: t.x + 50 + t.bulkRadius * 0.5, y: t.y, dist: 60, hp: 1e6 });   // clustered
-const c3 = makeEnemy({ x: t.x + 50, y: t.y + t.bulkRadius * 0.5, dist: 40, hp: 1e6 });   // clustered
-const far = makeEnemy({ x: t.x + 50 + t.bulkRadius * 3, y: t.y, dist: 10, hp: 1e6 });    // outside the radius
-game.enemies.push(c1, c2, c3, far);
-ticks(1);
-assert(c1.ampMul > 1 && c2.ampMul > 1 && c3.ampMul > 1, "the cluster around the sampled dish is all marked");
-assert(far.ampMul === 1, "a dish outside the bulk radius is not marked");
-assert(t.ampMul > E.TOWER_BY_ID.sample.ampMul, "Hard Sell t1 strengthened the mark over the base value");
+// ---- Happy Hour: t1 widens the aura (range = the aura), t2 adds damage ----
+E.reset(); game.towers = [];
+lady = build("sample", anchors[0], ["happyHour"]);
+assert(lady.range > E.TOWER_BY_ID.sample.range, "Happy Hour t1 widens the aura via the RANGE stat (the stock ring shows it)");
+E.tryUpgrade(lady, "happyHour");
+assert(lady.supportDamage > 1, "Happy Hour t2 arms the aura's damage buff");
+const buffed = build("arrow", anchors[8]);
+assert(buffed.buffDamageMul === lady.supportDamage, "a customer in the aura receives the damage buff");
+assert(E.towerDamage(buffed) > buffed.damage, "…and its effective damage really rises");
+
+// ---- On the House t1: value tags on a deterministic cadence ----
+E.reset(); game.towers = []; game.phase = "wave";
+lady = build("sample", anchors[0], ["onTheHouse"]);
+assert(lady.tagPeriod > 0 && lady.tagBonus > 0, "On the House arms the value tag (period " + lady.tagPeriod + "s)");
+const tagged = makeEnemy({ x: lady.x + 30, y: lady.y, dist: 80, hp: 1e6, bounty: 10 });
+const second = makeEnemy({ x: lady.x - 30, y: lady.y, dist: 40, hp: 1e6, bounty: 10 });
+game.enemies.push(tagged, second);
+ticks(1);   // the first tag lands immediately, then the cadence gates the rest
+assert(tagged.ampBonus === lady.tagBonus && tagged.ampMul === 1,
+  "the frontmost dish gets flagged worth-more-on-death — with NO damage amp (the old amp is gone)");
+assert(second.ampBonus === 0, "one tag per cadence — the second dish waits");
+ticks(Math.ceil((lady.tagPeriod * 0.5) / STEP));
+assert(second.ampBonus === 0, "…and is still waiting halfway through the cadence");
+ticks(Math.ceil((lady.tagPeriod * 0.6) / STEP));
+assert(second.ampBonus === lady.tagBonus, "the NEXT cadence tags the next unflagged dish (deterministic every-Nth, no RNG)");
+const cash2 = game.currency;
+E.applyDamage(tagged, 1e9);
+assert(game.currency === cash2 + 10 + lady.tagBonus, "a flagged death pays bounty + the tag bonus");
+
+// ---- On the House t2: the aura haste stacks further ----
+E.reset(); game.towers = [];
+lady = build("sample", anchors[0], ["onTheHouse", "onTheHouse"]);
+assert(lady.supportHaste < E.TOWER_BY_ID.sample.supportHaste,
+  "On the House t2 strengthens her haste beyond the base aura");
+const hasted = build("arrow", anchors[8]);
+assert(hasted.buffHasteMul === lady.supportHaste, "…and towers in the aura receive the stronger haste");
 
 done("sample");

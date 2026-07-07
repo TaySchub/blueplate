@@ -164,39 +164,39 @@
       "cost": 350, "range": 110, "damage": 15, "cooldown": 0.6, "behavior": "multi", "maxTargets": 2,
       "upgrades": {
         "slingingHash":    { "name": "Slinging Hash",    "tiers": [ { "cost": 250, "cooldownMul": 0.8, "desc": "Faster flips between sears" }, { "cost": 550, "maxTargetsAdd": 1, "damage": 5, "desc": "Rush ticket — sears a third dish at once" } ] },
-        "seasonedGriddle": { "name": "Seasoned Griddle", "tiers": [ { "cost": 250, "damage": 8, "desc": "A hotter griddle — each sear hits harder" }, { "cost": 500, "damage": 6, "knockbackBase": 55, "knockbackSizeRef": 12, "knockbackChance": 0.3, "desc": "Sears may spatula-fling a dish back down the belt" } ] }
+        "seasonedGriddle": { "name": "Seasoned Griddle", "tiers": [ { "cost": 250, "damage": 8, "desc": "A hotter griddle — each sear hits harder" }, { "cost": 500, "damage": 14, "desc": "Stove on high — every sear hits much harder" } ] }
       }
     },
     "eater": {
       "name": "The Competitive Eater", "blurb": "Locks one dish and devours it — consecutive kills ramp bite speed (combo)",
-      "cost": 450, "range": 130, "damage": 15, "cooldown": 0.36, "behavior": "single", "comboCap": 4, "comboRamp": 0.25,
+      "cost": 450, "range": 130, "damage": 15, "cooldown": 0.36, "behavior": "single", "comboCap": 4, "comboRamp": 0.25, "biteFloor": 0.12,
       "upgrades": {
-        "waterDunk":  { "name": "Water Dunk",  "tiers": [ { "cost": 300, "cooldownMul": 0.95, "desc": "Dunks buns to bite a little faster" }, { "cost": 550, "solomonSplit": true, "damage": 6, "desc": "Splits each dish and eats it as two bites" } ] },
-        "recordPace": { "name": "Record Pace", "tiers": [ { "cost": 300, "comboCapAdd": 3, "cooldownMul": 0.78, "desc": "A higher combo ceiling and faster bites" }, { "cost": 550, "comboCapAdd": 2, "mustardBonus": 45, "desc": "At max combo, kills pay bonus Tips" } ] }
+        "waterDunk": { "name": "Water Dunk",  "tiers": [ { "cost": 300, "cooldownMul": 0.9, "desc": "Dunks the buns — bites come a little faster" }, { "cost": 550, "cooldownMul": 0.72, "desc": "The full gulp — bites come much faster (nobody chews past the limit)" } ] },
+        "tipJar":    { "name": "The Tip Jar", "tiers": [ { "cost": 300, "damage": 4, "desc": "Bigger bites — more damage per chomp" }, { "cost": 600, "jackpotEvery": 5, "jackpotTips": 50, "desc": "Every fifth dish he clears, the whole table tips big" } ] }
       }
     },
     "pit": {
       "name": "The Pitmaster", "blurb": "Locks one dish in low-and-slow smoke — a stacking burn that ramps (long range)",
       "cost": 300, "range": 150, "damage": 0, "cooldown": 0.9, "behavior": "single", "smokeDps": 10, "smokeDuration": 4, "smokeStacks": 5,
       "upgrades": {
-        "theStall":       { "name": "The Stall",       "tiers": [ { "cost": 250, "cooldownMul": 0.6, "desc": "Stokes the smoke faster — stacks build quicker" }, { "cost": 550, "burntEnds": 3, "desc": "Smoke stacks carry to the next dish it locks" } ] },
-        "competitionRub": { "name": "Competition Rub", "tiers": [ { "cost": 250, "smokeStacksAdd": 2, "cooldownMul": 0.8, "desc": "Deeper smoke — more stacks, applied faster" }, { "cost": 550, "probeThreshold": 0.15, "desc": "At full smoke, finishes off a badly-hurt dish" } ] }
+        "theStall": { "name": "The Stall", "tiers": [ { "cost": 500, "cooldownMul": 0.6, "smokeStacksAdd": 3, "desc": "Stokes the fire — smoke builds much faster and stacks far deeper" }, { "cost": 550, "auraPeriod": 1.4, "auraRadius": 55, "auraSrc": "smoke", "desc": "The whole smoker billows — dishes passing near it pick up smoke" } ] },
+        "wholeHog": { "name": "Whole Hog", "tiers": [ { "cost": 250, "range": 30, "desc": "A bigger pit — a much longer reach" }, { "cost": 450, "smokeTargetsAdd": 1, "desc": "Two racks — smokes a second dish at the same time" } ] }
       }
     },
     "ranch": {
-      "name": "The Ranch Fountain", "blurb": "Cascading ranch coats every dish in a cone — stacking slow + a light drizzle of damage",
-      "cost": 300, "range": 120, "damage": 0, "cooldown": 0.8, "behavior": "single", "coneHalfDeg": 45, "ranchDps": 4, "ranchDuration": 3, "ranchStacks": 5, "slowPerStack": 0.10, "slowFloor": 0.45,
+      "name": "The Syrup Slinger", "blurb": "Slings maple-syrup globs that glue dishes to the belt — a long, sticky drag (no damage)",
+      "cost": 300, "range": 120, "damage": 0, "cooldown": 1.6, "behavior": "single", "glueFactor": 0.25, "glueDur": 2.5,
       "upgrades": {
-        "extraDressing": { "name": "Extra Dressing", "tiers": [ { "cost": 250, "slowPerStackAdd": 0.04, "desc": "Thicker ranch — each coat slows more" }, { "cost": 550, "dpsPerStackAdd": 1, "desc": "The drizzle bites harder the more it coats" } ] },
-        "widerNozzle":   { "name": "Wider Nozzle",   "tiers": [ { "cost": 250, "coneHalfAdd": 12, "range": 25, "desc": "A wider spray cone with longer reach" }, { "cost": 600, "kegPeriod": 4, "desc": "Every few seconds a keg-burst coats to max" } ] }
+        "quickPour": { "name": "Quick Pour",     "tiers": [ { "cost": 250, "cooldownMul": 0.45, "desc": "Warms the bottle — globs pour much faster" }, { "cost": 550, "trailRadius": 34, "trailLife": 8, "trailCap": 3, "desc": "Syrup Trail — a glued dish that's eaten leaves a puddle that glues passers-by" } ] },
+        "bigBottle": { "name": "The Big Bottle", "tiers": [ { "cost": 250, "range": 30, "desc": "A longer pour — more reach" }, { "cost": 650, "glueTargetsAdd": 2, "desc": "One big squeeze — globs three dishes at once" } ] }
       }
     },
     "sample": {
-      "name": "The Sample Lady", "blurb": "Offers a free sample: a brief stop + a mark that makes EVERY customer hit harder",
-      "cost": 150, "range": 100, "damage": 4, "cooldown": 1.4, "behavior": "single", "stunDur": 0.35, "ampMul": 1.25, "ampDur": 4,
+      "name": "The Sample Lady", "blurb": "Pure support: nearby customers attack faster and their upgrades cost less",
+      "cost": 150, "range": 100, "damage": 0, "cooldown": 1.4, "behavior": "support", "supportHaste": 0.85, "supportDiscount": 0.10,
       "upgrades": {
-        "costcoSaturday": { "name": "Costco Saturday", "tiers": [ { "cost": 150, "cooldownMul": 0.5, "desc": "Hands out free samples much faster" }, { "cost": 250, "cooldownMul": 0.8, "lossLeader": 15, "desc": "Marked dishes tip extra when eaten" } ] },
-        "hardSell":       { "name": "Hard Sell",       "tiers": [ { "cost": 150, "ampMulAdd": 0.12, "desc": "A stronger mark — marked dishes take more damage" }, { "cost": 300, "bulkTargets": 3, "bulkRadius": 60, "desc": "Marks a whole cluster of nearby dishes at once" } ] }
+        "happyHour":  { "name": "Happy Hour",   "tiers": [ { "cost": 150, "range": 30, "desc": "Word spreads — the friendly aura reaches further" }, { "cost": 300, "supportDamage": 1.15, "desc": "Everyone's in a good mood — customers in the aura bite harder" } ] },
+        "onTheHouse": { "name": "On the House", "tiers": [ { "cost": 150, "tagPeriod": 4, "tagBonus": 20, "tagDur": 6, "desc": "Every few seconds, flags a dish — it tips extra when eaten" }, { "cost": 300, "supportHaste": 0.75, "desc": "Fresh coffee all round — the aura speed-up gets stronger" } ] }
       }
     }
   },

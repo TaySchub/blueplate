@@ -129,6 +129,7 @@ function render() {
   drawObstacles(ctx);
   drawTowerRanges(ctx);
   drawCore(ctx);
+  drawZones(ctx);        // syrup puddles sit ON the belt, under the dishes
   drawEnemies(ctx);
   drawProjectiles(ctx);
   drawSlurpStraws(ctx);
@@ -638,6 +639,23 @@ function drawDishReturn(ctx) {
   ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
 }
 
+// Belt puddles (zone applicators): a syrup puddle is a maple-amber blob lying
+// flat on the belt — same minimal state-language tier as the slow ring. Fades
+// out over its last half-second so expiry never pops.
+function drawZones(ctx) {
+  for (const z of game.zones || []) {
+    const fade = Math.min(1, (z.life || 0) / 0.5);
+    ctx.save();
+    ctx.globalAlpha = 0.75 * fade;
+    ctx.fillStyle = "#d98a2e"; ctx.strokeStyle = "#0b0e14"; ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.ellipse(z.x, z.y + 2, z.radius, z.radius * 0.62, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    // A lighter sheen streak so it reads glossy-sticky, not flat.
+    ctx.globalAlpha = 0.35 * fade; ctx.fillStyle = "#f2c063";
+    ctx.beginPath(); ctx.ellipse(z.x - z.radius * 0.25, z.y - z.radius * 0.08, z.radius * 0.45, z.radius * 0.2, -0.3, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+}
+
 function drawEnemies(ctx) {
   for (const e of game.enemies) {
     const et = ENEMY_TYPES[e.typeId];
@@ -645,13 +663,14 @@ function drawEnemies(ctx) {
     // Eaten-down bites: one past 3/4 HP, two past 1/2 HP.
     const frac = e.hp / e.maxHp, bites = frac <= 0.5 ? 2 : frac <= 0.75 ? 1 : 0;
     drawFood(ctx, e.typeId, e.x, e.y, e.radius, et.color, et.edge, e.hurtFlash > 0, bites);
-    // Status cues (Roster Growth 2): smoke curls / ranch drips / the amp flag.
-    if ((e.dots && e.dots.length) || e.ampMul > 1) drawStatusCues(ctx, e, game.elapsed);
+    // Status cues: smoke curls / syrup coat / the value-tag flag (a flag shows
+    // for a real amp OR a worth-more-on-death tag — both are ampTimer-driven).
+    if ((e.dots && e.dots.length) || e.ampMul > 1 || (e.ampTimer > 0 && e.ampBonus > 0)) drawStatusCues(ctx, e, game.elapsed);
     // Posing for the photo: a slight overexposed tint + camera-viewfinder corner
-    // brackets framing the held-still dish (no ice — it's a snapshot, not a freeze).
-    // A PLAIN stun (the Sample Lady's freezePlain) pauses the dish with no
-    // brackets/tint — the snapshot language stays the Photographer's alone.
-    if (e.freezeTimer > 0 && !e.freezePlain) {
+    // brackets framing the held-still dish (no ice — it's a snapshot, not a
+    // freeze). The freeze is the Photographer's alone since the Tower Rework
+    // removed the Sample Lady's plain stun (and its freezePlain flag with it).
+    if (e.freezeTimer > 0) {
       ctx.save();
       ctx.globalAlpha = 0.22; ctx.fillStyle = "#ffffff";
       ctx.beginPath(); ctx.arc(e.x, e.y, e.radius + 2, 0, Math.PI * 2); ctx.fill();
@@ -744,10 +763,34 @@ function drawEaterBites(ctx) {
 }
 
 // The Pitmaster's on-belt read: a wavering smoke stream from the smoker to its
-// locked dish (the slurp-straw pattern — same lock fields, smokier line).
+// locked dish(es) (the slurp-straw pattern — same lock fields, smokier line).
+// A smoker with the AMBIENT AURA (The Stall t2) also shows a faint hazy ring at
+// the aura's radius with a couple of drifting curls — the same minimal cue tier
+// as the status curls, elapsed-driven (no RNG), so the zone is never invisible.
 function drawSmokeStreams(ctx) {
   for (const t of game.towers) {
-    if (t.typeId !== "pit" || !(t.slurpShow > 0)) continue;
+    if (t.typeId !== "pit") continue;
+    if (t.auraPeriod > 0 && t.auraRadius > 0) {
+      ctx.save();
+      ctx.strokeStyle = "#9aa2ad"; ctx.globalAlpha = 0.22; ctx.lineWidth = 2;
+      ctx.setLineDash([7, 9]); ctx.lineDashOffset = -game.elapsed * 10;
+      ctx.beginPath(); ctx.arc(t.x, t.y, t.auraRadius, 0, Math.PI * 2); ctx.stroke();
+      ctx.setLineDash([]);
+      // Two lazy curls drifting around the ring's inside edge.
+      ctx.globalAlpha = 0.3; ctx.lineWidth = 1.6; ctx.lineCap = "round"; ctx.strokeStyle = "#c3c9d2";
+      for (let i = 0; i < 2; i++) {
+        const a = game.elapsed * 0.5 + i * Math.PI;
+        const cx = t.x + Math.cos(a) * t.auraRadius * 0.8;
+        const cy = t.y + Math.sin(a) * t.auraRadius * 0.8 - ((game.elapsed * 6 + i * 4) % 8);
+        ctx.beginPath();
+        ctx.moveTo(cx - 2, cy + 3);
+        ctx.quadraticCurveTo(cx + 3, cy + 1, cx - 1, cy - 2);
+        ctx.quadraticCurveTo(cx - 4, cy - 4, cx + 1, cy - 6);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+    if (!(t.slurpShow > 0)) continue;
     for (const tgt of (t.slurpTargets || [])) {
       if (!game.enemies.includes(tgt)) continue;
       const x0 = t.x, y0 = t.y - 10, x1 = tgt.x, y1 = tgt.y;
@@ -780,18 +823,18 @@ function drawTowers(ctx) {
     }
     ctx.globalAlpha = Math.min(0.6, glowStrength); ctx.fillStyle = def.glow;
     ctx.beginPath(); ctx.arc(t.x + ox, t.y + oy, radius + 10, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
-    const justFired = t.cdTimer > t.cooldown - 0.14;
+    const justFired = t.cdTimer > towerCooldown(t) - 0.14;
     // Big Appetite's mouth snaps shut around the peak of the lunge.
     let bite = 0;
     if (t.typeId === "cannon" && t.lungeTimer > 0) { const pr = 1 - t.lungeTimer / LUNGE_DUR; bite = Math.max(0, 1 - Math.abs(pr - 0.55) / 0.3); }
     // Art escalates with tiers bought (bib at tier 1, sparkle at tier 2); the
     // committed path drives per-tower art (e.g. the Regular's Carving Station fork).
-    drawCustomer(ctx, t.typeId, t.x + ox, t.y + oy, radius, def.color, { level: t.upgradeTier + 1, path: t.upgradePath, tier: t.upgradeTier, firing: justFired, bite });
+    drawCustomer(ctx, t.typeId, t.x + ox, t.y + oy, radius, def.color, { level: t.upgradeTier + 1, path: t.upgradePath, tier: t.upgradeTier, firing: justFired, bite, idle: game.elapsed });
     // Two tier pips: filled = tiers bought on this tower's committed path.
     for (let i = 0; i < MAX_TIER; i++) { ctx.beginPath(); ctx.arc(t.x - 4 + i * 8, t.y - radius - 16, 3, 0, Math.PI * 2); ctx.fillStyle = i < t.upgradeTier ? COLOR.upgradeSpark : "#39404f"; ctx.fill(); }
     if (distance(boardPtr(), t) <= 18 && t.upgradeTier < MAX_TIER) {
       let cheapest = Infinity;
-      for (const pp of towerPaths(t.typeId)) { const nt = nextTier(t, pp.id); if (nt && nt.cost < cheapest) cheapest = nt.cost; }
+      for (const pp of towerPaths(t.typeId)) { const nt = nextTier(t, pp.id); if (nt && tierCostFor(t, nt) < cheapest) cheapest = tierCostFor(t, nt); }
       if (cheapest < Infinity) {
         ctx.fillStyle = COLOR.ink; ctx.font = "bold 10px system-ui, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
         ctx.fillText("upgrade", t.x, t.y - radius - 26);
@@ -1005,7 +1048,8 @@ function drawTowerSheet(ctx) {
     const lockedOut = t.upgradePath !== null && !committed;
     const maxed = committed && t.upgradeTier >= MAX_TIER;
     const tier = nextTier(t, pb.id);                       // null if maxed or locked out
-    const afford = tier && game.currency >= tier.cost;
+    const price = tier ? tierCostFor(t, tier) : 0;         // the REAL price (support discount applied)
+    const afford = tier && game.currency >= price;
     const hov = inRect(game.pointer, r) && !lockedOut && !maxed;
     let bg, border;
     if (lockedOut) { bg = "#161a22"; border = "#242a36"; }
@@ -1025,7 +1069,7 @@ function drawTowerSheet(ctx) {
     } else if (maxed) {
       ctx.fillStyle = COLOR.good; ctx.textAlign = "right"; ctx.fillText("MAX", r.x + r.w - 10, r.y + 19);
     } else {
-      drawCostChip(ctx, r.x + r.w - 10, r.y + 14, tier.cost, afford, 16, "right");
+      drawCostChip(ctx, r.x + r.w - 10, r.y + 14, price, afford, 16, "right");
     }
     // Description — what buying NEXT does; a maxed committed path shows its current
     // effect; a locked-out path shows what it would have done (dimmed by the row).

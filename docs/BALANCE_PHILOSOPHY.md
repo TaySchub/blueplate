@@ -98,14 +98,14 @@ Bands (rubric §3): cheap **150** · mid **250–350** · premium **400–500**.
 | Tower | Role | Band | When you buy it | Measurably best at (the probe) |
 |---|---|---|---|---|
 | **Kids' Table** (`zap`) | **The Opener** — cheap multi-grab wall | 150 | Wave 1, and any time a lane needs *bodies now* | Board-holding per Tip in the opening: best equal-spend solo median waves of the roster (equal-spend fingerprint) |
-| **Sample Lady** (`sample`) | **The Force Multiplier** — amp support | 150 | You have hitters; make them all hit harder | Marginal survival added per 100 Tips when joining an established board (slot-9 marginal, Δ/100 Tips) |
+| **Sample Lady** (`sample`) | **The Force Multiplier** — PURE support aura (Tower Rework: no attack; haste + upgrade discount + t2 damage for towers in range) | 150 | You have hitters; make the whole table faster and cheaper to grow | Marginal survival added per 100 Tips when joining an established board (slot-9 marginal, Δ/100 Tips) |
 | **The Regular** (`arrow`) | **The Workhorse** — reliable single-target | 250 | Always reasonable; the yardstick every specialist is priced against | Self-sufficiency: the only mid-band tower whose mono-board holds the full gate (solo fingerprint survival@30) |
 | **Photographer** (`frost`) | **The Stopper** — single-target hard CC | 300 | A priority dish MUST NOT reach the return slot | Irreplaceability on the reference: swapping its seats to any same-band tower reads lower (frost-slots replacement probe) |
 | **Short-Order Cook** (`cook`) | **The Line Cook** — sustained multi-target | 350 | Mixed pairs keep arriving; you need steady spread damage | Mid-band sustained multi throughput: out-streams every ≤350 seat on the kill-stream micro |
 | **Pitmaster** (`pit`) | **The Tank Melter** — ramping anti-heavy DOT | 300 | Steaks and future heavies shrug off pecks | The heavy that rides past dies anyway: most damage into a crossing wave-15 steak, absolute AND per Tip (crossing micro); the roster's longest reach (150) |
-| **Ranch Fountain** (`ranch`) | **The Crowd Brake** — wide stacking slow | 300 | The belt is a conga line; buy the whole crowd time | Crowd time bought: most slow-seconds applied across a pack per Tip (slow-integral micro on 8 dishes) |
+| **The Syrup Slinger** (`ranch`) | **The Crowd Brake** — PURE CONTROL glue (Tower Rework: zero damage — the kit, not a tunable) | 300 | Dishes must be bought TIME; every Tip goes to drag, none to damage | Crowd time bought: most slow-seconds applied per Tip (slow-integral micro; the glue's refresh + the Trail puddle carry the pack case) |
 | **Big Appetite** (`cannon`) | **The Burst Anchor** — huge single bites | 400 | Spaced mid/heavy dishes; delete one per chomp | The biggest single hit in the game (data), and best burst-per-Tip on a fresh mid dish (TTK micro, one-bite thresholds quoted) |
-| **Competitive Eater** (`eater`) | **The Closer** — kill-fed ramping devourer | 450 | A fed lane late-game; rewards greedy placement | Peak throughput when fed: best steady-state kill-stream rate in the roster once ramped (kill-stream micro at combo cap) |
+| **Competitive Eater** (`eater`) | **The Closer** — kill-fed ramping devourer, and the roster's ECONOMY closer (Tower Rework: the Tip Jar's every-Nth-kill jackpot rides a fed lane) | 450 | A fed lane late-game; rewards greedy placement and pays for it | Peak throughput when fed: best steady-state kill-stream rate in the roster once ramped (kill-stream micro at combo cap) |
 | **Milkshake Slurper** (`sniper`) | **The Finisher** — premium always-on drain | 500 (Essence-gated) | The no-conditions carry seat | Highest *unconditional* sustained single-target DPS (data + solo fingerprint; the Eater beats it only while combo-fed, and the Pitmaster only given ramp time on a heavy) |
 
 **Niche fences (the overlaps we police):**
@@ -115,14 +115,16 @@ Bands (rubric §3): cheap **150** · mid **250–350** · premium **400–500**.
 - `cook` vs `zap`: the Cook is not "a better Kids' Table"; zap wins the
   opening per Tip (more seats per Tip = more coverage), cook wins sustained
   mid-band throughput. Equal-spend probes, not vibes.
-- `ranch` vs `frost`: wide-and-soft vs single-and-hard. Frost's freeze is the
-  only hard stop; ranch must never fully stop anything (slow floor stays > 0),
-  and frost must never out-slow ranch across a *crowd*.
+- `ranch` vs `frost`: the long DRAG vs the hard STOP. Frost's freeze is the
+  only hard stop; syrup must never fully stop anything (the glue factor stays
+  > 0), and frost must never out-slow syrup across a *crowd*.
 - `pit` vs `cannon`: the ramp vs the burst. Cannon right-sizes a dish NOW;
   pit is cheaper damage into big HP *given time*. If pit ever wins the
   fresh-dish burst probe something is mispriced.
-- `sample` amp is the only ALL-damage multiplier; it stays multiplicative-once
-  (non-stacking, strongest-wins — engine rule, frozen).
+- `sample` support is the only tower-side multiplier; it stays
+  multiplicative-once (non-stacking, strongest single provider wins per
+  effect — engine rule, frozen; the old enemy-side amp retired with the
+  Tower Rework, the shape of the rule did not).
 
 **Domination rule:** no tower may read ≥ a same-band peer on EVERY quoted
 probe (matrix, solo, marginal, and its peer's best-at probe). Ties break

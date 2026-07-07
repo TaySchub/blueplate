@@ -248,6 +248,23 @@ Render `tools/dev/harness.html?mode=sheet` and check:
   never stale). The prep **tutorial hint** gained a backing pill and sits below the
   HUD bar so it never collides with the HUD chips. Display-only: no mascot art, no
   numbers, no mechanics changed.
+- **2026-07-07** (Tower Rework, Issue #103) — **The syrup is AMBER, and zones
+  get minimal state language.** The Ranch Fountain became **The Syrup Slinger**
+  (mechanics PR; display rename, id `ranch` frozen): its signature color moved
+  from buttermilk cream `#f2e8cf` to **maple amber `#d98a2e`** — the cascading
+  liquid IS the identity, and cream "syrup" read as a lie. Amber sits between
+  pit's hickory brown and zap's pale gold; checked apart on the contact sheet;
+  the fountain silhouette + superfan are unchanged. New state cues, same tier
+  as the smoke curls: the **syrup coat** re-uses the coating-arc-and-drips cue
+  in amber (the old ranch cream cue retired with the kit); a **syrup puddle**
+  is a flat amber ellipse with a sheen streak, fading out at end-of-life; the
+  **ambient smoke aura** is a faint slow-dashed gray ring + two drifting curls
+  at the aura's radius. The gold toothpick flag now also marks a VALUE TAG
+  (worth-more-on-death) — a tag and a damage amp share the flag. The Sample
+  Lady attacks nothing (pure support): her held-out sample bobs gently
+  (elapsed-driven) so the sampling survives as pure flavor. The juice layer
+  stayed VETOED — no bespoke rings, no new chrome; every cue above is the
+  existing status-cue idiom recolored or minimally extended.
 - **2026-07-07** (Menu + rename, Issue #96) — **The wordmark is an enamel diner
   sign and the menu speaks its palette.** `drawWordmark` (art.js) is the one
   source for the Blue-Plate Special mark: cream enamel board, navy rim, teal

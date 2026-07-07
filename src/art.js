@@ -779,7 +779,7 @@ function drawCompetitiveEater(ctx, cx, cy, r, color, opts) {
 function drawPitmaster(ctx, cx, cy, r, color, opts) {
   const level = opts.level || 1;
   const stallTier = opts.path === "theStall" ? (opts.tier || 0) : 0;
-  const rubTier = opts.path === "competitionRub" ? (opts.tier || 0) : 0;
+  const hogTier = opts.path === "wholeHog" ? (opts.tier || 0) : 0;
   const shirt = color, headR = r * 0.44, hy = cy - r * 0.72, shoulderY = cy - r * 0.2;
   // Torso — hickory shirt, sleeves rolled.
   ctx.fillStyle = shirt; ctx.strokeStyle = MDARK; ctx.lineWidth = 2;
@@ -835,8 +835,8 @@ function drawPitmaster(ctx, cx, cy, r, color, opts) {
     ctx.quadraticCurveTo(px + r * 0.14, py, px - r * 0.04, py - r * 0.1); ctx.stroke();
   }
   ctx.globalAlpha = 1;
-  // Competition Rub: a spice shaker sitting on the lid.
-  if (rubTier >= 1) {
+  // Whole Hog: a spice shaker sitting on the lid (the bigger-pit path's prop).
+  if (hogTier >= 1) {
     ctx.fillStyle = "#ffcf4a"; ctx.strokeStyle = MDARK; ctx.lineWidth = 1.3;
     roundRect(ctx, cx + r * 0.42, sY - r * 0.24, r * 0.2, r * 0.26, r * 0.05); ctx.fill(); ctx.stroke();
   }
@@ -846,15 +846,16 @@ function drawPitmaster(ctx, cx, cy, r, color, opts) {
   if (level >= 3) { ctx.fillStyle = "#fff2b0"; drawSpark4(ctx, cx - r * 1.0, hy - r * 0.5, r * 0.4); }
 }
 
-// The Ranch Fountain (#ranch) — a TALL prop with a tiny person: a three-tier
-// fountain cascading buttermilk ranch (signature cream), tended by a small
-// superfan. Small footprint, tall silhouette. Extra Dressing thickens the
-// cascade; Wider Nozzle t2 mounts the keg on top.
+// The Syrup Slinger (internal id `ranch`, frozen) — a TALL prop with a tiny
+// person: a three-tier fountain cascading MAPLE SYRUP (signature amber, the
+// Tower Rework recolor), tended by a small superfan. Small footprint, tall
+// silhouette. Quick Pour thickens the cascade; The Big Bottle t2 mounts the
+// jug on top.
 function drawRanchFountain(ctx, cx, cy, r, color, opts) {
   const level = opts.level || 1;
-  const dressTier = opts.path === "extraDressing" ? (opts.tier || 0) : 0;
-  const nozzleTier = opts.path === "widerNozzle" ? (opts.tier || 0) : 0;
-  const cream = color, basin = "#c9d2de", fx = cx - r * 0.2;   // fountain sits left-of-center; the fan stands right
+  const pourTier = opts.path === "quickPour" ? (opts.tier || 0) : 0;
+  const bottleTier = opts.path === "bigBottle" ? (opts.tier || 0) : 0;
+  const syrup = color, basin = "#c9d2de", fx = cx - r * 0.2;   // fountain sits left-of-center; the fan stands right
   // Basin (bottom) + two upper tiers, narrowing.
   ctx.strokeStyle = MDARK; ctx.lineWidth = 2;
   const tiers = [
@@ -865,36 +866,36 @@ function drawRanchFountain(ctx, cx, cy, r, color, opts) {
   for (const tr of tiers) {
     ctx.fillStyle = basin;
     ctx.beginPath(); ctx.ellipse(fx, tr.y, tr.w, tr.h, 0, 0, 7); ctx.fill(); ctx.stroke();
-    ctx.fillStyle = cream;   // pooled ranch on each tier
+    ctx.fillStyle = syrup;   // pooled syrup on each tier
     ctx.beginPath(); ctx.ellipse(fx, tr.y - tr.h * 0.28, tr.w * 0.82, tr.h * 0.62, 0, 0, 7); ctx.fill(); ctx.stroke();
   }
   // Pedestal columns between tiers + the cascade (thicker on Extra Dressing).
   ctx.fillStyle = basin;
   roundRect(ctx, fx - r * 0.09, cy - r * 0.5, r * 0.18, r * 0.5, r * 0.05); ctx.fill(); ctx.stroke();
   roundRect(ctx, fx - r * 0.11, cy + r * 0.1, r * 0.22, r * 0.5, r * 0.05); ctx.fill(); ctx.stroke();
-  const flow = Math.max(1.6, r * (0.1 + dressTier * 0.05));
-  ctx.strokeStyle = cream; ctx.lineWidth = flow; ctx.lineCap = "round";
+  const flow = Math.max(1.6, r * (0.1 + pourTier * 0.05));
+  ctx.strokeStyle = syrup; ctx.lineWidth = flow; ctx.lineCap = "round";
   for (const [x0, y0, y1] of [[fx - r * 0.3, cy - r * 0.44, cy + r * 0.0], [fx + r * 0.3, cy - r * 0.44, cy + r * 0.0], [fx - r * 0.5, cy + r * 0.14, cy + r * 0.6], [fx + r * 0.5, cy + r * 0.14, cy + r * 0.6]]) {
     ctx.beginPath(); ctx.moveTo(x0, y0); ctx.quadraticCurveTo(x0 * 1.01, (y0 + y1) / 2, x0, y1); ctx.stroke();
   }
   ctx.strokeStyle = MDARK;
-  // Top spout: a nozzle jet — or the KEG at Wider Nozzle t2.
-  if (nozzleTier >= 2) {
+  // Top spout: a nozzle jet — or the big syrup JUG at The Big Bottle t2.
+  if (bottleTier >= 2) {
     ctx.fillStyle = "#8f99ab"; ctx.lineWidth = 1.8;
     roundRect(ctx, fx - r * 0.24, cy - r * 1.04, r * 0.48, r * 0.4, r * 0.1); ctx.fill(); ctx.stroke();
     ctx.strokeStyle = "rgba(0,0,0,0.25)"; ctx.lineWidth = 1;   // keg hoops
     ctx.beginPath(); ctx.moveTo(fx - r * 0.24, cy - r * 0.94); ctx.lineTo(fx + r * 0.24, cy - r * 0.94); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(fx - r * 0.24, cy - r * 0.74); ctx.lineTo(fx + r * 0.24, cy - r * 0.74); ctx.stroke();
   } else {
-    ctx.fillStyle = cream; ctx.lineWidth = 1.6;
-    ctx.beginPath(); ctx.ellipse(fx, cy - r * 0.78, r * (0.1 + nozzleTier * 0.05), r * 0.16, 0, 0, 7); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = syrup; ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.ellipse(fx, cy - r * 0.78, r * (0.1 + bottleTier * 0.05), r * 0.16, 0, 0, 7); ctx.fill(); ctx.stroke();
   }
-  // The superfan: a small figure at the basin's right, arms up in awe — cream
+  // The superfan: a small figure at the basin's right, arms up in awe — the
   // tee ties them to the signature color.
   const fnx = cx + r * 0.66, fny = cy + r * 0.42, fheadR = r * 0.22;
-  drawLimb(ctx, fnx - r * 0.14, fny + r * 0.1, fnx - r * 0.34, fny - r * 0.16, r * 0.14, cream);
-  drawLimb(ctx, fnx + r * 0.14, fny + r * 0.1, fnx + r * 0.34, fny - r * 0.16, r * 0.14, cream);
-  ctx.fillStyle = cream; ctx.strokeStyle = MDARK; ctx.lineWidth = 1.8;
+  drawLimb(ctx, fnx - r * 0.14, fny + r * 0.1, fnx - r * 0.34, fny - r * 0.16, r * 0.14, syrup);
+  drawLimb(ctx, fnx + r * 0.14, fny + r * 0.1, fnx + r * 0.34, fny - r * 0.16, r * 0.14, syrup);
+  ctx.fillStyle = syrup; ctx.strokeStyle = MDARK; ctx.lineWidth = 1.8;
   roundRect(ctx, fnx - r * 0.2, fny, r * 0.4, r * 0.5, r * 0.12); ctx.fill(); ctx.stroke();
   fillCircle(ctx, fnx, fny - fheadR * 0.6, fheadR, SKIN, 1.8);
   drawFace(ctx, fnx, fny - fheadR * 0.6, fheadR, { grin: true, cheeks: true });
@@ -908,12 +909,14 @@ function drawRanchFountain(ctx, cx, cy, r, color, opts) {
 
 // The Sample Lady (#sample) — a DEMO CART with a person: hairnet + pink vest
 // (signature color), one toothpick sample held out, a tray of flagged samples
-// on the cart. Costco Saturday stacks a second tray; Hard Sell raises a bigger
-// flag on the offered toothpick.
+// on the cart. Happy Hour stacks a second tray (samples for everyone); On the
+// House raises a bigger flag on the offered toothpick (the value-tag path).
+// She never attacks (pure support) — the held-out sample bobs gently on
+// opts.idle so the sampling stays alive as pure flavor.
 function drawSampleLady(ctx, cx, cy, r, color, opts) {
   const level = opts.level || 1;
-  const costcoTier = opts.path === "costcoSaturday" ? (opts.tier || 0) : 0;
-  const sellTier = opts.path === "hardSell" ? (opts.tier || 0) : 0;
+  const trayTier = opts.path === "happyHour" ? (opts.tier || 0) : 0;
+  const flagTier = opts.path === "onTheHouse" ? (opts.tier || 0) : 0;
   const vest = color, blouse = "#f4f7fb", headR = r * 0.44, hy = cy - r * 0.7, shoulderY = cy - r * 0.18;
   // Torso: white blouse under the pink demo vest.
   ctx.fillStyle = blouse; ctx.strokeStyle = MDARK; ctx.lineWidth = 2;
@@ -943,14 +946,15 @@ function drawSampleLady(ctx, cx, cy, r, color, opts) {
   fillCircle(ctx, cx, hy - headR * 1.06, headR * 0.3, "#8b8f98", 1.4);
   ctx.strokeStyle = "rgba(255,255,255,0.35)"; ctx.lineWidth = 0.8;   // net cross-hatch
   for (const dx of [-headR * 0.5, 0, headR * 0.5]) { ctx.beginPath(); ctx.moveTo(cx + dx, hy - headR * 0.9); ctx.lineTo(cx + dx * 0.6, hy - headR * 0.3); ctx.stroke(); }
-  // The offered toothpick — held out front, flag bigger on Hard Sell.
-  const ohx = cx + r * 0.78, ohy = cy - r * 0.32;
+  // The offered toothpick — held out front with a gentle welcoming bob (pure
+  // flavor: deterministic, elapsed-driven), flag bigger on On the House.
+  const ohx = cx + r * 0.78, ohy = cy - r * 0.32 + Math.sin((opts.idle || 0) * 2.4) * r * 0.06;
   drawLimb(ctx, cx + r * 0.44, shoulderY + r * 0.12, ohx, ohy, r * 0.2, blouse);
   fillCircle(ctx, ohx, ohy, r * 0.14, SKIN);
   ctx.strokeStyle = MDARK; ctx.lineWidth = Math.max(1.2, r * 0.07); ctx.lineCap = "round";
   ctx.beginPath(); ctx.moveTo(ohx, ohy); ctx.lineTo(ohx + r * 0.12, ohy - r * 0.42); ctx.stroke();
   fillCircle(ctx, ohx + r * 0.1, ohy - r * 0.34, r * 0.09, "#c98a45", 1.2);   // the sample cube
-  const flagW = r * (0.24 + sellTier * 0.1);
+  const flagW = r * (0.24 + flagTier * 0.1);
   ctx.fillStyle = "#ffcf4a"; ctx.strokeStyle = MDARK; ctx.lineWidth = 1;
   ctx.beginPath(); ctx.moveTo(ohx + r * 0.12, ohy - r * 0.42); ctx.lineTo(ohx + r * 0.12 + flagW, ohy - r * 0.36); ctx.lineTo(ohx + r * 0.12, ohy - r * 0.28); ctx.closePath(); ctx.fill(); ctx.stroke();
   // ---- The demo cart in FRONT ----
@@ -960,7 +964,7 @@ function drawSampleLady(ctx, cx, cy, r, color, opts) {
   ctx.fillStyle = vest;   // vest-pink skirt band on the cart
   roundRect(ctx, cx - cartHalf, cartY + cartH * 0.55, cartHalf * 2, cartH * 0.45, r * 0.06); ctx.fill(); ctx.stroke();
   // Sample tray(s) on the cart: little cubes + toothpick flags (a second stack on Costco Saturday).
-  const trays = 1 + Math.min(1, costcoTier);
+  const trays = 1 + Math.min(1, trayTier);
   for (let tIdx = 0; tIdx < trays; tIdx++) {
     const txc = cx - r * 0.34 + tIdx * r * 0.62, tyc = cartY - r * 0.08 - tIdx * r * 0.04;
     ctx.fillStyle = "#c9d2de"; ctx.strokeStyle = MDARK; ctx.lineWidth = 1.3;
@@ -1399,9 +1403,10 @@ function drawWordmark(ctx, cx, cy, w) {
 // (elapsed-driven wobble, no RNG) and drawn over the food so a glance answers
 // "what's on that dish":
 //   smoke dot → little gray curls rising off it (more stacks = more curls);
-//   ranch dot → a creamy coating arc + drips sliding down (NOT the cyan slow
-//               ring — that stays the Photographer's after-slow);
-//   amp mark  → a gold toothpick sample-flag planted on top.
+//   syrup dot → a maple-amber coating arc + drips sliding down (NOT the cyan
+//               slow ring — that stays the Photographer's after-slow);
+//   tag/amp   → a gold toothpick sample-flag planted on top (a value tag and
+//               a damage amp share the flag — both are ampTimer-driven).
 function drawStatusCues(ctx, e, elapsed) {
   const r = e.radius || 10;
   ctx.save();
@@ -1420,11 +1425,11 @@ function drawStatusCues(ctx, e, elapsed) {
         ctx.stroke();
       }
       ctx.globalAlpha = 1;
-    } else if (d.src === "ranch") {
-      ctx.strokeStyle = "#f2ead9"; ctx.lineWidth = 2.4; ctx.lineCap = "round"; ctx.globalAlpha = 0.9;
+    } else if (d.src === "syrup") {
+      ctx.strokeStyle = "#d98a2e"; ctx.lineWidth = 2.4; ctx.lineCap = "round"; ctx.globalAlpha = 0.9;
       ctx.beginPath(); ctx.arc(e.x, e.y, r + 1, Math.PI * 1.15, Math.PI * 1.85); ctx.stroke();
-      const drips = Math.min(3, d.stacks);
-      ctx.fillStyle = "#f2ead9";
+      const drips = 2;
+      ctx.fillStyle = "#d98a2e";
       for (let i = 0; i < drips; i++) {
         const a = Math.PI * (1.25 + i * 0.25);
         const dx = e.x + Math.cos(a) * (r + 1), dy = e.y + Math.sin(a) * (r + 1);
@@ -1434,7 +1439,7 @@ function drawStatusCues(ctx, e, elapsed) {
       ctx.globalAlpha = 1;
     }
   }
-  if (e.ampMul > 1) {
+  if (e.ampMul > 1 || (e.ampBonus > 0 && e.ampTimer > 0)) {
     // The sample flag: a toothpick with a little gold pennant, planted on top.
     const fx = e.x + r * 0.35, fy = e.y - r - 2;
     ctx.strokeStyle = MDARK; ctx.lineWidth = 1.2;

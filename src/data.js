@@ -102,11 +102,13 @@ const TOWER_ART = {
   cook:   { color: "#e8574e", glow: "#a83228" },
   eater:  { color: "#8cc152", glow: "#4e7a24" },
   // Roster Growth 2 (status towers): three more, still clear of everything
-  // above — pit a hickory-smoke brown, ranch a buttermilk cream (flagged in the
-  // PR: it sits near the Blue-Plate floor cream, but cards live on the dark
-  // rail where it reads), sample a toothpick-flag pink.
+  // above — pit a hickory-smoke brown, sample a toothpick-flag pink. The old
+  // ranch buttermilk cream became MAPLE AMBER with the Syrup Slinger rework
+  // (Issue #103, flagged in the PR): the liquid is the identity, and cream
+  // syrup was a visual lie. Amber sits between pit's dark brown and zap's pale
+  // gold — checked apart on the contact sheet.
   pit:    { color: "#a06a3a", glow: "#6e4522" },
-  ranch:  { color: "#f2e8cf", glow: "#b3a06a" },
+  ranch:  { color: "#d98a2e", glow: "#8f5a1a" },
   sample: { color: "#ff8fb5", glow: "#b5486e" },
 };
 // Fixed display order for the deck/toolbar.

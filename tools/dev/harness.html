@@ -255,7 +255,7 @@
     const ckY = 1820;
     title("THE SHORT-ORDER COOK — upgrade paths (bigger spatula on Slinging Hash; hotter griddle on Seasoned Griddle)", ckY);
     const ckCols = [130, 290, 450, 600, 730];
-    const ckHead = ["base", "Slinging Hash 1", "Rush Ticket 2", "Seasoned Griddle 1", "Order Up 2"];
+    const ckHead = ["base", "Slinging Hash 1", "Rush Ticket 2", "Seasoned Griddle 1", "Stove on High 2"];
     ckCols.forEach((x, i) => label(ckHead[i], x, ckY + 22));
     const ckStates = [
       { level: 1 },
@@ -267,68 +267,68 @@
     ckStates.forEach((st, i) => drawCustomer(ctx, "cook", ckCols[i], ckY + 92, 17, TOWER_BY_ID.cook.color, st));
 
     // --- The Competitive Eater (Roster Growth 1) — Slurper-derived table dressing ---
-    // Water Dunk grows the water cup (Solomon Method splits each bite); Record Pace
-    // raises the combo ceiling (Mustard Belt = a champion's buckle + bounty bonus).
+    // Water Dunk grows the water cup (t2 = the full-gulp speed tier); The Tip Jar
+    // keeps the champion's buckle (t2 = the every-fifth-kill tip jackpot).
     const ceY = 1960;
-    title("THE COMPETITIVE EATER — upgrade paths (bigger cup on Water Dunk; belt buckle on Record Pace)", ceY);
+    title("THE COMPETITIVE EATER — upgrade paths (bigger cup on Water Dunk; belt buckle on The Tip Jar)", ceY);
     const ceCols = [130, 290, 450, 600, 730];
-    const ceHead = ["base", "Water Dunk 1", "Solomon 2", "Record Pace 1", "Mustard Belt 2"];
+    const ceHead = ["base", "Water Dunk 1", "Full Gulp 2", "Tip Jar 1", "Tip Jackpot 2"];
     ceCols.forEach((x, i) => label(ceHead[i], x, ceY + 22));
     const ceStates = [
       { level: 1 },
       { level: 2, path: "waterDunk", tier: 1 },
       { level: 3, path: "waterDunk", tier: 2 },
-      { level: 2, path: "recordPace", tier: 1 },
-      { level: 3, path: "recordPace", tier: 2 },
+      { level: 2, path: "tipJar", tier: 1 },
+      { level: 3, path: "tipJar", tier: 2 },
     ];
     ceStates.forEach((st, i) => drawCustomer(ctx, "eater", ceCols[i], ceY + 92, 17, TOWER_BY_ID.eater.color, st));
 
     // --- The Pitmaster (Roster Growth 2) — a lone obsessive behind an offset smoker ---
-    // The Stall thickens the chimney smoke (Burnt Ends carryover); Competition Rub
-    // adds the rub shaker (Probe Tender execute).
+    // The Stall thickens the chimney smoke (t2 = the ambient smoke aura); Whole
+    // Hog adds the rub shaker (t2 = the two-rack dual lock).
     const ptY = 2100;
-    title("THE PITMASTER — upgrade paths (thicker smoke on The Stall; rub shaker on Competition Rub)", ptY);
+    title("THE PITMASTER — upgrade paths (thicker smoke on The Stall; rub shaker on Whole Hog)", ptY);
     const ptCols = [130, 290, 450, 600, 730];
-    const ptHead = ["base", "The Stall 1", "Burnt Ends 2", "Competition Rub 1", "Probe Tender 2"];
+    const ptHead = ["base", "The Stall 1", "Smoke Aura 2", "Whole Hog 1", "Two Racks 2"];
     ptCols.forEach((x, i) => label(ptHead[i], x, ptY + 22));
     const ptStates = [
       { level: 1 },
       { level: 2, path: "theStall", tier: 1 },
       { level: 3, path: "theStall", tier: 2 },
-      { level: 2, path: "competitionRub", tier: 1 },
-      { level: 3, path: "competitionRub", tier: 2 },
+      { level: 2, path: "wholeHog", tier: 1 },
+      { level: 3, path: "wholeHog", tier: 2 },
     ];
     ptStates.forEach((st, i) => drawCustomer(ctx, "pit", ptCols[i], ptY + 92, 17, TOWER_BY_ID.pit.color, st));
 
-    // --- The Ranch Fountain (Roster Growth 2) — a tall fountain + tiny superfan ---
-    // Extra Dressing thickens the cascade; Wider Nozzle mounts the keg at t2.
+    // --- The Syrup Slinger (id `ranch`, Tower Rework) — a tall fountain + tiny superfan ---
+    // Quick Pour thickens the cascade; The Big Bottle mounts the jug at t2.
     const rnY = 2240;
-    title("THE RANCH FOUNTAIN — upgrade paths (thicker cascade on Extra Dressing; keg on Wider Nozzle)", rnY);
+    title("THE SYRUP SLINGER — upgrade paths (thicker cascade on Quick Pour; jug on The Big Bottle)", rnY);
     const rnCols = [130, 290, 450, 600, 730];
-    const rnHead = ["base", "Extra Dressing 1", "Ranch on Everything 2", "Wider Nozzle 1", "Ranch Keg 2"];
+    const rnHead = ["base", "Quick Pour 1", "Syrup Trail 2", "Big Bottle 1", "Triple Glob 2"];
     rnCols.forEach((x, i) => label(rnHead[i], x, rnY + 22));
     const rnStates = [
       { level: 1 },
-      { level: 2, path: "extraDressing", tier: 1 },
-      { level: 3, path: "extraDressing", tier: 2 },
-      { level: 2, path: "widerNozzle", tier: 1 },
-      { level: 3, path: "widerNozzle", tier: 2 },
+      { level: 2, path: "quickPour", tier: 1 },
+      { level: 3, path: "quickPour", tier: 2 },
+      { level: 2, path: "bigBottle", tier: 1 },
+      { level: 3, path: "bigBottle", tier: 2 },
     ];
     rnStates.forEach((st, i) => drawCustomer(ctx, "ranch", rnCols[i], rnY + 92, 17, TOWER_BY_ID.ranch.color, st));
 
-    // --- The Sample Lady (Roster Growth 2) — a demo cart with toothpick trays ---
-    // Costco Saturday stacks a second tray; Hard Sell raises a bigger flag.
+    // --- The Sample Lady (Tower Rework: pure support) — a demo cart with toothpick trays ---
+    // Happy Hour stacks a second tray; On the House raises a bigger flag.
     const smY = 2380;
-    title("THE SAMPLE LADY — upgrade paths (second tray on Costco Saturday; bigger flag on Hard Sell)", smY);
+    title("THE SAMPLE LADY — upgrade paths (second tray on Happy Hour; bigger flag on On the House)", smY);
     const smCols = [130, 290, 450, 600, 730];
-    const smHead = ["base", "Costco Saturday 1", "Loss Leader 2", "Hard Sell 1", "Bulk Buy 2"];
+    const smHead = ["base", "Happy Hour 1", "Good Mood 2", "On the House 1", "Fresh Coffee 2"];
     smCols.forEach((x, i) => label(smHead[i], x, smY + 22));
     const smStates = [
       { level: 1 },
-      { level: 2, path: "costcoSaturday", tier: 1 },
-      { level: 3, path: "costcoSaturday", tier: 2 },
-      { level: 2, path: "hardSell", tier: 1 },
-      { level: 3, path: "hardSell", tier: 2 },
+      { level: 2, path: "happyHour", tier: 1 },
+      { level: 3, path: "happyHour", tier: 2 },
+      { level: 2, path: "onTheHouse", tier: 1 },
+      { level: 3, path: "onTheHouse", tier: 2 },
     ];
     smStates.forEach((st, i) => drawCustomer(ctx, "sample", smCols[i], smY + 92, 17, TOWER_BY_ID.sample.color, st));
 

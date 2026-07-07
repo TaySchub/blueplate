@@ -23,6 +23,9 @@ const FX = {
   // src/main.js wires apply to the closest existing sound and leaves tick silent
   // (the tick's damage already plays the normal hit through applyDamage → FX.hit).
   statusApply(kind) {}, statusTick(kind) {},
+  // Zone-applicator hook (Tower Rework): a belt puddle spawning. No-op by
+  // default; Audio Pass 2 (#64) wires it — leave it silent here.
+  zoneSpawn(kind) {},
 };
 
 /* =========================================================================
@@ -85,7 +88,27 @@ let META = freshMeta();
    ========================================================================= */
 
 const SAVE_KEY = "deckbound.save.v1";
-const SAVE_VERSION = 1;
+// v1 = the #83 original (no per-tower spent). v2 (Tower Rework) serializes each
+// tower's `spent` so any FUTURE path deletion can refund exactly what was paid
+// without a legacy price table. readSave accepts both; new writes are v2.
+const SAVE_VERSION = 2;
+const SAVE_VERSIONS_READABLE = [1, 2];
+
+// A PLAYER'S SAVE MUST NEVER BREAK (developer-ratified, Issue #103): the Tower
+// Rework deleted/renamed upgrade paths that live inside #83 checkpoints. On
+// restore we MIGRATE rather than discard: a tower whose committed path id no
+// longer exists is kept un-upgraded and the orphaned tiers' spend is REFUNDED
+// into the run at FULL value (not the sell fraction — the change is ours, not
+// the player's). v1 saves don't carry `spent`, so the retired paths' tier
+// prices are FROZEN here at their pre-rework balance.json values.
+const LEGACY_TIER_COSTS = {
+  competitionRub: [250, 550],   // pit — replaced by Whole Hog
+  extraDressing:  [250, 550],   // ranch — the cone/coat kit retired
+  widerNozzle:    [250, 600],   // ranch — the cone/coat kit retired
+  costcoSaturday: [150, 250],   // sample — path retired (content guardrail)
+  hardSell:       [150, 300],   // sample — the amp kit retired
+  recordPace:     [300, 550],   // eater — replaced by The Tip Jar
+};
 // True only while restoreRun is rebuilding the board: it drives tryBuild through
 // the real path with a bypassed cost, whose checkpointPrep would otherwise write a
 // half-built board (and a temporary Infinity currency) to disk. restoreRun writes
@@ -103,6 +126,7 @@ function serializeRun() {
     towers: game.towers.map((t) => ({
       typeId: t.typeId, x: t.x, y: t.y,
       upgradePath: t.upgradePath, upgradeTier: t.upgradeTier, targeting: t.targeting,
+      spent: t.spent,   // v2: the actual Tips sunk in (discounts included) — exact refunds forever after
     })),
   };
 }
@@ -118,14 +142,15 @@ function saveCheckpoint() {
 function checkpointPrep() { if (game.phase === "prep") saveCheckpoint(); }
 // Discard the checkpoint (on defeat; a fresh run overwrites it instead).
 function clearSave() { try { localStorage.removeItem(SAVE_KEY); } catch (e) {} }
-// Read + validate the checkpoint. Unparseable JSON, a version mismatch, a missing
-// tower list, or an unknown map → null (discard silently, never crash).
+// Read + validate the checkpoint. Unparseable JSON, an unknown version, a
+// missing tower list, or an unknown map → null (discard silently, never crash).
+// v1 saves stay readable — restoreRun migrates them (the never-lose-a-run rule).
 function readSave() {
   try {
     const raw = localStorage.getItem(SAVE_KEY);
     if (!raw) return null;
     const save = JSON.parse(raw);
-    if (!save || save.version !== SAVE_VERSION || !Array.isArray(save.towers)) return null;
+    if (!save || !SAVE_VERSIONS_READABLE.includes(save.version) || !Array.isArray(save.towers)) return null;
     if (!MAPS.some((m) => m.id === save.mapId)) return null;
     return save;
   } catch (e) { return null; }
@@ -139,7 +164,16 @@ function hasSave() { return readSave(); }
 // (currency is already the saved wave-start value). ZERO Math.random: placement
 // is tryBuild (RNG-free) and tiers re-apply via tryUpgrade's exact state
 // mutations MINUS the cosmetic spawnUpgradeSparkles (which would consume RNG).
+//
+// MIGRATION (Tower Rework): returns the Tips to REFUND for tiers that no
+// longer exist — a committed path id the current balance.json doesn't know is
+// an ORPHAN: the tower is kept un-upgraded and the orphaned tiers' spend comes
+// back at FULL value (v2 saves carry the exact `spent`; v1 saves price the
+// retired paths from LEGACY_TIER_COSTS). An unknown tower TYPE is skipped
+// whole (ids are frozen forever, so this is a corrupted-save guard, not a
+// migration path — the boot backstop still keeps the run alive).
 function rebuildTowerFromSave(ts) {
+  if (!ts || !TOWER_BY_ID[ts.typeId]) return 0;
   const savedType = game.selectedType, savedCurrency = game.currency;
   game.selectedType = ts.typeId;
   game.currency = Infinity;               // bypass the affordability check in tryBuild
@@ -147,48 +181,83 @@ function rebuildTowerFromSave(ts) {
   game.selectedType = savedType;
   game.currency = savedCurrency;
   const t = game.towers[game.towers.length - 1];
-  if (!t || t.x !== ts.x || t.y !== ts.y) return;   // placement rejected — shouldn't happen for a valid save
+  if (!t || t.x !== ts.x || t.y !== ts.y) return 0;   // placement rejected — shouldn't happen for a valid save
   t.targeting = ts.targeting || "first";
   const upgrades = TOWER_BY_ID[ts.typeId].upgrades;
-  for (let i = 0; i < (ts.upgradeTier || 0); i++) {
+  const savedTier = ts.upgradeTier || 0;
+  if (savedTier > 0 && ts.upgradePath && !upgrades[ts.upgradePath]) {
+    // The committed path was deleted/renamed by a rework — keep the seat,
+    // refund the tiers. Prefer the save's own record of what was paid (v2);
+    // fall back to the frozen legacy prices for v1.
+    if (ts.spent != null) return Math.max(0, ts.spent - TOWER_BY_ID[ts.typeId].cost);
+    const legacy = LEGACY_TIER_COSTS[ts.upgradePath] || [];
+    let refund = 0;
+    for (let i = 0; i < savedTier; i++) refund += legacy[i] || 0;
+    return refund;
+  }
+  for (let i = 0; i < savedTier; i++) {
     if (!ts.upgradePath || !upgrades[ts.upgradePath]) break;
     const tier = upgrades[ts.upgradePath].tiers[t.upgradeTier];
     if (!tier) break;
     t.spent += tier.cost;                 // same spend bookkeeping tryUpgrade does
     t.upgradePath = ts.upgradePath;       // commit → the other path locks out
     t.upgradeTier++;
-    applyUpgradeDeltas(t, tier);          // rebuilds pierce/crumb/knockback/maxTargets/… flags
+    applyUpgradeDeltas(t, tier);          // rebuilds pierce/crumb/…/aura/support flags
   }
+  // v2 saves know the EXACT Tips paid (support discounts included) — restore
+  // it so sell refunds keep matching reality after a discounted purchase.
+  if (ts.spent != null) t.spent = ts.spent;
+  return 0;
 }
 // Resume the saved run: land in PREP of the saved wave with the board rebuilt.
 // Returns true on success, false if there's no valid save.
+//
+// THE LAST-RESORT BACKSTOP: the whole rebuild runs inside try/catch — if a
+// malformed/unknown save throws ANYWHERE, the checkpoint is discarded and we
+// report false, so the caller lands in the hub with META intact. Bad
+// localStorage must never be able to brick boot or the Continue button.
 function restoreRun() {
   const save = readSave();
   if (!save) return false;
-  restoring = true;                       // suppress checkpoint writes until the board is whole
-  loadMap(save.mapId);                    // rebind the map (consumes no RNG)
-  // startRun-equivalent reset, but keep the SAVED currency/lives/waveIndex and
-  // don't overwrite the checkpoint we're restoring from.
-  game.phase = "prep";
-  game.mapId = MAP.id;
-  game.maxLives = RULES.startLives + (META.boughtLives ? 3 : 0);
-  game.lives = Math.min(save.lives, game.maxLives);
-  game.currency = save.currency;
-  game.waveIndex = save.waveIndex;
-  game.towers = []; game.enemies = []; game.projectiles = []; game.particles = [];
-  game.spawnQueue = []; game.killed = 0; game.coreHurtFlash = 0;
-  game.score = 0; game.lastRun = null; game.selectedTower = null;
-  game.prepElapsed = 0;
-  // The first prep after a resume never auto-calls — the player gets a breather
-  // to re-read the board before auto-start (if enabled) re-arms on the next wave.
-  game.autoStartArmed = false;
-  const deck = deckTypes();
-  game.selectedType = deck.length ? deck[0].id : "arrow";
-  for (const ts of save.towers) rebuildTowerFromSave(ts);
-  restoring = false;
-  saveCheckpoint();   // one clean checkpoint reflecting the fully-rebuilt wave-start board
-  setMessage("Resumed at Wave " + (game.waveIndex + 1) + " — seat more customers, then Send Out the food", 4);
-  return true;
+  try {
+    restoring = true;                       // suppress checkpoint writes until the board is whole
+    loadMap(save.mapId);                    // rebind the map (consumes no RNG)
+    // startRun-equivalent reset, but keep the SAVED currency/lives/waveIndex and
+    // don't overwrite the checkpoint we're restoring from.
+    game.phase = "prep";
+    game.mapId = MAP.id;
+    game.maxLives = RULES.startLives + (META.boughtLives ? 3 : 0);
+    game.lives = Math.min(save.lives, game.maxLives);
+    game.currency = save.currency;
+    game.waveIndex = save.waveIndex;
+    game.towers = []; game.enemies = []; game.projectiles = []; game.particles = [];
+    game.zones = [];
+    game.spawnQueue = []; game.killed = 0; game.coreHurtFlash = 0;
+    game.score = 0; game.lastRun = null; game.selectedTower = null;
+    game.prepElapsed = 0;
+    // The first prep after a resume never auto-calls — the player gets a breather
+    // to re-read the board before auto-start (if enabled) re-arms on the next wave.
+    game.autoStartArmed = false;
+    const deck = deckTypes();
+    game.selectedType = deck.length ? deck[0].id : "arrow";
+    // Rebuild the board; tiers orphaned by a rework refund at FULL value into
+    // the run, so it resumes with the same total value it had (never-lose-a-run).
+    let refund = 0;
+    for (const ts of save.towers) refund += rebuildTowerFromSave(ts);
+    if (refund > 0) game.currency += refund;
+    recomputeSupport();   // the manual tier re-apply above bypasses tryUpgrade's recompute
+    restoring = false;
+    saveCheckpoint();   // one clean v2 checkpoint reflecting the fully-rebuilt wave-start board
+    setMessage(refund > 0
+      ? "Resumed at Wave " + (game.waveIndex + 1) + " — the menu changed, so " + refund + " Tips from retired upgrades are back in your pocket"
+      : "Resumed at Wave " + (game.waveIndex + 1) + " — seat more customers, then Send Out the food", 5);
+    return true;
+  } catch (e) {
+    restoring = false;
+    clearSave();          // the blob is unusable — discard it; META was never touched
+    game.phase = "menu";  // land safely in the hub
+    return false;
+  }
 }
 
 // The Essence shop shown on the hub screen.
@@ -350,6 +419,7 @@ const game = {
   selectedType: "arrow",
   selectedTower: null, // the placed tower whose targeting/upgrade panel is open
   towers: [], enemies: [], projectiles: [], particles: [],
+  zones: [],   // belt puddles (zone applicators, Tower Rework) — wave-scoped, never serialized
   spawnQueue: [], spawnTimer: 0, waveHp: 0, waveSpeed: 0, waveInterval: 1,
   killed: 0, coreHurtFlash: 0, shake: 0, elapsed: 0, fps: 0, prepElapsed: 0,
   autoStartArmed: false,   // true only in a prep entered by a wave RESOLVING (never run start / restore)
@@ -368,6 +438,7 @@ function startRun() {
   game.lives = game.maxLives;
   game.waveIndex = 0;
   game.towers = []; game.enemies = []; game.projectiles = []; game.particles = [];
+  game.zones = [];
   game.spawnQueue = []; game.killed = 0; game.coreHurtFlash = 0;
   game.prepElapsed = 0;
   game.autoStartArmed = false;   // the run's FIRST prep is always manual — set up in peace
@@ -417,24 +488,34 @@ function tryBuild(x, y) {
     cdTimer: 0, upgradeFlash: 0, targeting: "first",
     lungeTimer: 0, lungeAngle: 0,   // brief lunge-toward-target on attack (drawTowers)
     slurpTargets: [], slurpShow: 0, slurpSoundTimer: 0,   // Milkshake Slurper's / Competitive Eater's locked dish(es)
-    // Roster Growth 1 signature/state fields (unset until a path is bought / the
-    // tower type uses them; inert for every existing tower).
-    knockbackChance: 0,   // Short-Order Cook "Order Up" t2: chance a sear flings a dish backward
+    // Roster Growth 1 state (the Competitive Eater's kill combo — tower state
+    // only, no enemy-side status; base-only since the Tower Rework).
     combo: 0, comboCap: def.comboCap || 0, comboRamp: def.comboRamp || 0,   // Competitive Eater combo (bite-speed ramp)
-    solomonSplit: false,  // Competitive Eater "Solomon Method" t2: a bite lands as two half-hits
-    mustardBonus: 0,      // Competitive Eater "Mustard Belt" t2: bounty bonus while at max combo
+    biteFloor: def.biteFloor || 0,   // Eater cooldown floor — haste can never ramp bites below this (Tower Rework guard)
+    jackpotEvery: def.jackpotEvery || 0, jackpotTips: def.jackpotTips || 0, killCount: 0,   // Tip Jar t2: every-Nth-kill bonus (deterministic cadence)
     // Roster Growth 2 status-tower stats (balance.json values; 0/neutral for
-    // every other tower — these are what the pit/ranch/sample branches read).
+    // every other tower — the pit branch + the smoke aura read these).
     smokeDps: def.smokeDps || 0, smokeDuration: def.smokeDuration || 0, smokeStacks: def.smokeStacks || 0,
-    burntEnds: 0, probeThreshold: 0, carryStacks: 0,   // Pitmaster t2 signatures + Burnt Ends bank
-    ranchDps: def.ranchDps || 0, dpsPerStack: 0, ranchDuration: def.ranchDuration || 0, ranchStacks: def.ranchStacks || 0,
-    slowPerStack: def.slowPerStack || 0, slowFloor: def.slowFloor != null ? def.slowFloor : 1,
-    coneHalfDeg: def.coneHalfDeg || 0, kegPeriod: 0, kegTimer: 0,   // Ranch Fountain cone + Keg burst
-    stunDur: def.stunDur || 0, ampMul: def.ampMul || 0, ampDur: def.ampDur || 0,
-    lossLeader: 0, bulkTargets: def.bulkTargets || 1, bulkRadius: 0,   // Sample Lady mark + t2 signatures
+    smokeTargets: def.smokeTargets || 1,   // Whole Hog t2 (pit): dishes smoked at once (dual lock)
+    // Sample Lady value tags (On the House t1): every tagPeriod seconds, flag
+    // a dish to pay tagBonus extra Tips if it's eaten within tagDur.
+    tagPeriod: def.tagPeriod || 0, tagBonus: def.tagBonus || 0, tagDur: def.tagDur || 0, tagTimer: 0,
+    // Tower Rework shared systems (all neutral/zero until a kit sets them):
+    // ambient zone aura — a tower-centered zone applicator ticking on a cadence;
+    auraPeriod: def.auraPeriod || 0, auraRadius: def.auraRadius || 0, auraSrc: def.auraSrc || null, auraTimer: 0,
+    // the glue-slow (maple syrup) — a single-stack refreshable full slow;
+    glueFactor: def.glueFactor != null ? def.glueFactor : 1, glueDur: def.glueDur || 0, glueTargets: def.glueTargets || 1,
+    trailRadius: 0, trailLife: 0, trailCap: 0,   // Syrup Trail t2: puddle params (0 = no trail)
+    // tower-proximity support PROVIDER stats (what this tower grants in range);
+    supportHaste: def.supportHaste != null ? def.supportHaste : 1,
+    supportDamage: def.supportDamage != null ? def.supportDamage : 1,
+    supportDiscount: def.supportDiscount || 0,
+    // …and the RECEIVED buffs (recomputed by recomputeSupport on board changes).
+    buffHasteMul: 1, buffDamageMul: 1, buffDiscount: 0,
   });
   spawnRing(x, y, def.color, 34, 0.4);
   FX.place();
+  recomputeSupport();   // a new seat may grant or receive proximity buffs
   checkpointPrep();   // a prep build updates the wave-start snapshot (no-op mid-wave)
 }
 
@@ -483,23 +564,18 @@ function applyUpgradeDeltas(t, d) {
   if (d.freezeTargets) t.freezeTargets = d.freezeTargets;   // Paparazzi t2: flash freezes 2 at once
   if (d.drainTargets) t.drainTargets = d.drainTargets;      // Silly Straw t2: 2 straws drain at once
   if (d.maxTargetsAdd) t.maxTargets += d.maxTargetsAdd;     // Birthday Party t2: a 4th kid (the multi branch spreads/piles across maxTargets)
-  // Roster Growth 1 tier-2 signatures.
-  if (d.knockbackChance) t.knockbackChance = d.knockbackChance;   // Order Up t2 (cook): each sear MAY fling a dish backward
-  if (d.comboCapAdd) t.comboCap += d.comboCapAdd;                 // Record Pace (eater): a higher combo ceiling
-  if (d.solomonSplit) t.solomonSplit = true;                     // Solomon Method t2 (eater): a bite lands as two half-hits
-  if (d.mustardBonus) t.mustardBonus = d.mustardBonus;           // Mustard Belt t2 (eater): bounty bonus at max combo
-  // Roster Growth 2 tier signatures (the status towers).
-  if (d.smokeStacksAdd) t.smokeStacks += d.smokeStacksAdd;       // Competition Rub t1 (pit): higher smoke-stack cap
-  if (d.burntEnds) t.burntEnds = d.burntEnds;                    // The Stall t2 (pit): stacks carry to the next locked dish
-  if (d.probeThreshold) t.probeThreshold = d.probeThreshold;     // Competition Rub t2 (pit): execute below this HP fraction at full stacks
-  if (d.slowPerStackAdd) t.slowPerStack += d.slowPerStackAdd;    // Extra Dressing t1 (ranch): stronger slow per coat
-  if (d.dpsPerStackAdd) t.dpsPerStack += d.dpsPerStackAdd;       // Ranch on Everything t2 (ranch): the drizzle ramps with coats
-  if (d.coneHalfAdd) t.coneHalfDeg += d.coneHalfAdd;             // Wider Nozzle t1 (ranch): a wider cone
-  if (d.kegPeriod) t.kegPeriod = d.kegPeriod;                    // Ranch Keg t2 (ranch): periodic instant-max drench
-  if (d.ampMulAdd) t.ampMul += d.ampMulAdd;                      // Hard Sell t1 (sample): a stronger mark
-  if (d.lossLeader) t.lossLeader = d.lossLeader;                 // Loss Leader t2 (sample): marked dishes pay bonus Tips on death
-  if (d.bulkTargets) t.bulkTargets = d.bulkTargets;              // Bulk Buy t2 (sample): mark several dishes at once…
-  if (d.bulkRadius) t.bulkRadius = d.bulkRadius;                 // …within this radius of the sampled one
+  // Roster Growth 2 tier signature (kept by the rework).
+  if (d.smokeStacksAdd) t.smokeStacks += d.smokeStacksAdd;       // The Stall t1 (pit): a deeper smoke-stack cap
+  // Tower Rework tier vocabulary (Issue #103 — the reworked kits).
+  if (d.smokeTargetsAdd) t.smokeTargets += d.smokeTargetsAdd;    // Whole Hog t2 (pit): smokes another dish at once (dual lock)
+  if (d.auraPeriod) { t.auraPeriod = d.auraPeriod; if (d.auraRadius) t.auraRadius = d.auraRadius; if (d.auraSrc) t.auraSrc = d.auraSrc; }   // The Stall t2 (pit): the ambient smoke aura
+  if (d.glueTargetsAdd) t.glueTargets += d.glueTargetsAdd;       // Big Bottle t2 (syrup): globs several dishes at once
+  if (d.trailCap) { t.trailCap = d.trailCap; t.trailRadius = d.trailRadius || 0; t.trailLife = d.trailLife || 0; }   // Quick Pour t2 (syrup): the Syrup Trail puddle
+  if (d.supportHaste) t.supportHaste = d.supportHaste;           // sample aura tiers SET the haste (absolute — reads clean in the JSON)
+  if (d.supportDamage) t.supportDamage = d.supportDamage;        // Happy Hour t2 (sample): the aura also adds damage
+  if (d.supportDiscount) t.supportDiscount = d.supportDiscount;  // (reserved: a deeper-discount tier)
+  if (d.tagPeriod) { t.tagPeriod = d.tagPeriod; t.tagBonus = d.tagBonus || 0; t.tagDur = d.tagDur || 0; }   // On the House t1 (sample): value tags
+  if (d.jackpotEvery) { t.jackpotEvery = d.jackpotEvery; t.jackpotTips = d.jackpotTips || 0; }   // Tip Jar t2 (eater): every-Nth-kill bonus
 }
 
 // Buy the next tier of pathId for placed tower t. The first purchase commits the
@@ -510,15 +586,19 @@ function tryUpgrade(t, pathId) {
   if (t.upgradePath && t.upgradePath !== pathId) { FX.deny(); setMessage("Locked into " + upgrades[t.upgradePath].name); return; }
   const tier = nextTier(t, pathId);
   if (!tier) { FX.deny(); return; }
-  if (game.currency < tier.cost) { FX.deny(); setMessage("Not enough Tips for " + upgrades[pathId].name + " (need " + tier.cost + ")"); return; }
-  game.currency -= tier.cost;
-  t.spent += tier.cost;
+  // The REAL price: the proximity support discount applies here AND in the
+  // upgrade sheet's displayed chip (same helper), so the sheet self-teaches.
+  const price = tierCostFor(t, tier);
+  if (game.currency < price) { FX.deny(); setMessage("Not enough Tips for " + upgrades[pathId].name + " (need " + price + ")"); return; }
+  game.currency -= price;
+  t.spent += price;
   t.upgradePath = pathId;   // commit → the other path is now locked out
   t.upgradeTier++;
   applyUpgradeDeltas(t, tier);
   t.upgradeFlash = 0.6;
   spawnUpgradeSparkles(t);
   FX.upgrade();
+  recomputeSupport();   // a tier can widen/strengthen a support aura
   checkpointPrep();   // a prep upgrade updates the wave-start snapshot (no-op mid-wave)
 }
 
@@ -545,6 +625,7 @@ function sellTower(t) {
   spawnRing(t.x, t.y, COLOR.gold, 34, 0.4);
   spawnFloatText(t.x, t.y - 14, "+$" + refund + " refund", COLOR.gold);
   FX.sell();
+  recomputeSupport();   // a sold seat may have been granting (or receiving) buffs
   checkpointPrep();   // a prep sell updates the wave-start snapshot (no-op mid-wave)
 }
 
@@ -595,6 +676,7 @@ function update(step) {
   updateParticles(step);
   if (game.phase === "wave") {
     spawnWaveEnemies(step);
+    updateZones(step);      // belt puddles catch passers BEFORE status ticks, so a fresh coat ticks this frame
     updateStatuses(step);   // dot ticks + amp expiry BEFORE movement: a tick kill this frame prevents this frame's leak
     moveEnemies(step);
     checkWaveEnd();
@@ -677,6 +759,10 @@ function applyDot(e, src, opts) {
   d.dpsPerStack = Math.max(d.dpsPerStack, opts.dpsPerStack || 0);
   d.slowPerStack = Math.max(d.slowPerStack, opts.slowPerStack || 0);
   d.slowFloor = Math.min(d.slowFloor, opts.slowFloor != null ? opts.slowFloor : 1);
+  // Zone payload (Tower Rework): a dot can carry belt-puddle params — a dish
+  // that DIES with this dot active leaves the puddle (see applyDamage). The
+  // latest trail-carrying applier wins the puddle's shape.
+  if (opts.trail) d.trail = opts.trail;
   FX.statusApply(src);
   return d;
 }
@@ -742,6 +828,128 @@ function updateStatuses(step) {
   }
 }
 
+/* =========================================================================
+   ZONE APPLICATORS (Tower Rework) — one system, two shapes. A zone is a region
+   that applies a STATUS to dishes inside it through the existing status layer
+   (applyDot — bounty/kill credit/FX all compose, the #91 rule):
+
+     ambient aura  — tower-centered, ticks on the tower's own cadence
+                     (auraPeriod/auraRadius/auraSrc fields; see updateTowers);
+     belt puddle   — a point zone with a LIFETIME and a CAPACITY: it applies
+                     its status once to each of the first `cap` dishes that
+                     touch it, then it's spent (game.zones, updateZones).
+
+   ZERO Math.random anywhere here — spawning, ticking, and expiry are all
+   deterministic, so the seeded sim stays byte-stable. FX hooks are no-op by
+   default. Zones are wave-scoped: never serialized, cleared when the wave
+   resolves (the belt gets wiped between rounds).
+   ========================================================================= */
+
+// The status payload a tower's zone (aura or puddle) applies, per source kind.
+// It reads the SAME per-tower stats the tower's direct attack uses, so a tier
+// that deepens the attack deepens the tower's zones with it.
+function towerStatusOpts(t, src) {
+  if (src === "smoke") return { dpsPerStack: t.smokeDps, duration: t.smokeDuration, maxStacks: t.smokeStacks };
+  if (src === "syrup") return glueOpts(t);
+  return null;
+}
+
+// Drop a belt puddle. `victims` tracks which dishes it has already caught so
+// capacity means "distinct passers", not re-applications.
+function spawnZone(z) {
+  game.zones.push({ victims: [], ...z });
+  FX.zoneSpawn(z.kind);
+}
+
+// Advance every belt puddle: catch dishes that touch it (up to its capacity),
+// expire it by lifetime or once spent. Runs before status ticks in update().
+function updateZones(step) {
+  if (game.zones.length === 0) return;
+  for (const z of game.zones) {
+    z.life -= step;
+    if (z.life <= 0) { z.dead = true; continue; }
+    for (const e of game.enemies) {
+      if (z.victims.length >= z.cap) break;
+      if (z.victims.includes(e)) continue;
+      if (distance(z, e) <= z.radius + e.radius) {
+        applyDot(e, z.src, z.opts);
+        z.victims.push(e);
+      }
+    }
+    if (z.victims.length >= z.cap) z.dead = true;   // spent — every seat at the puddle is taken
+  }
+  game.zones = game.zones.filter((z) => !z.dead);
+}
+
+/* -------------------------------------------------------------------------
+   THE GLUE-SLOW (maple syrup) — a strong, duration-based, REFRESHABLE full
+   slow, deliberately DISTINCT from the Photographer's freeze→slow chain in
+   moveEnemies: it rides the status layer as a single-stack dot (src "syrup")
+   whose slow floor IS its strength, so statusSlowFactor composes it with
+   everything else (strongest single source wins, never a full stop — the
+   role fence: the Photographer owns the hard STOP, syrup owns the long DRAG).
+   Reapplying restarts the duration (applyDot's refresh path) — that is the
+   "refreshable" contract the behavior test pins.
+   ------------------------------------------------------------------------- */
+
+// The syrup dot payload for a glue-slinging tower. glueFactor is the speed
+// multiplier while stuck (1 = no slow — the neutral default); glueDur the
+// clock; trail* (when set by the Syrup Trail tier) makes a stuck death leave
+// a belt puddle carrying THIS SAME payload (minus the trail, so puddles
+// never chain into more puddles).
+function glueOpts(t) {
+  const o = {
+    duration: t.glueDur, maxStacks: 1,
+    slowPerStack: 1 - t.glueFactor, slowFloor: t.glueFactor,
+  };
+  if (t.trailCap > 0) {
+    o.trail = { radius: t.trailRadius, life: t.trailLife, cap: t.trailCap,
+                opts: { duration: t.glueDur, maxStacks: 1, slowPerStack: 1 - t.glueFactor, slowFloor: t.glueFactor } };
+  }
+  return o;
+}
+
+/* =========================================================================
+   TOWER-PROXIMITY SUPPORT EFFECTS (Tower Rework) — ONE radius check from a
+   support tower to the towers in its range → an effect set: attack-haste,
+   +damage, and an upgrade DISCOUNT. The provider's aura radius IS its range
+   stat, so the stock placement ghost / hover ring shows the aura for free.
+
+   Received buffs are plain fields (buffHasteMul/buffDamageMul/buffDiscount),
+   recomputed on every BOARD change (build / upgrade / sell / restore) — never
+   per-frame, and towers don't move, so that's complete. Overlapping providers
+   do NOT stack: the strongest single provider wins per effect (the amp rule's
+   shape — support multiplies a board once, it doesn't compound). Zero RNG.
+   ========================================================================= */
+
+function recomputeSupport() {
+  for (const t of game.towers) { t.buffHasteMul = 1; t.buffDamageMul = 1; t.buffDiscount = 0; }
+  for (const s of game.towers) {
+    const gives = s.supportHaste < 1 || s.supportDamage > 1 || s.supportDiscount > 0;
+    if (!gives) continue;
+    for (const t of game.towers) {
+      if (t === s || distance(s, t) > s.range) continue;
+      if (s.supportHaste < 1) t.buffHasteMul = Math.min(t.buffHasteMul, s.supportHaste);
+      if (s.supportDamage > 1) t.buffDamageMul = Math.max(t.buffDamageMul, s.supportDamage);
+      if (s.supportDiscount > 0) t.buffDiscount = Math.max(t.buffDiscount, s.supportDiscount);
+    }
+  }
+}
+
+// Effective attack numbers under proximity buffs. Unbuffed towers multiply by
+// exactly 1 — bit-identical to the pre-rework math, which is what keeps the
+// frozen reference build (and so the CI gate) byte-stable.
+function towerCooldown(t) { return t.cooldown * (t.buffHasteMul || 1); }
+function towerDamage(t) { return t.damage * (t.buffDamageMul || 1); }
+
+// The REAL price of the next tier for THIS placed tower: the support discount
+// applies here, and the upgrade sheet displays the same number (self-teaching).
+// Rounded to whole Tips; an undiscounted tower pays tier.cost exactly.
+function tierCostFor(t, tier) {
+  const d = t.buffDiscount || 0;
+  return d > 0 ? Math.max(1, Math.round(tier.cost * (1 - d))) : tier.cost;
+}
+
 // The four targeting modes a player can set per tower. "first" (furthest along
 // the path) is the default and matches the balance sim's frontmost behavior.
 const TARGETING_MODES = [
@@ -765,23 +973,14 @@ function pickTarget(t) {
 }
 
 // The Competitive Eater's effective bite cooldown: consecutive kills (combo)
-// ramp the bite RATE toward a cap. More combo → shorter cooldown → faster bites;
-// Record Pace raises comboCap (the ceiling), so it also raises the speed cap.
-// Pure (no RNG, no side effects) so the behavior test can assert the ramp.
+// ramp the bite RATE toward a cap. More combo → shorter cooldown → faster
+// bites — but never past biteFloor, the COOLDOWN-FLOOR GUARD: the Water Dunk
+// speed tiers multiply the base cooldown, and without the floor their haste
+// could compound with combo stacking into a runaway. Pure (no RNG, no side
+// effects) so the behavior test can assert both the ramp and the floor.
 function eaterBiteCooldown(t) {
   const stacks = Math.min(t.combo, t.comboCap);
-  return t.cooldown / (1 + stacks * t.comboRamp);
-}
-
-// THE cone check (Roster Growth 2) — the one place cone-targeting math lives.
-// A dish is in the cone when it's within `range` of the origin AND within
-// `halfRad` radians either side of the aim angle. Pure; no RNG.
-function inCone(origin, aimAngle, halfRad, range, e) {
-  if (distance(origin, e) > range) return false;
-  let da = Math.atan2(e.y - origin.y, e.x - origin.x) - aimAngle;
-  while (da > Math.PI) da -= Math.PI * 2;
-  while (da < -Math.PI) da += Math.PI * 2;
-  return Math.abs(da) <= halfRad;
+  return Math.max(t.biteFloor || 0, towerCooldown(t) / (1 + stacks * t.comboRamp));
 }
 
 function updateTowers(step) {
@@ -790,8 +989,23 @@ function updateTowers(step) {
     if (t.lungeTimer > 0) t.lungeTimer -= step;
     if (t.slurpShow > 0) t.slurpShow -= step;
     if (t.slurpSoundTimer > 0) t.slurpSoundTimer -= step;
-    if (t.kegTimer > 0) t.kegTimer -= step;   // Ranch Keg burst clock (ranch only; 0 elsewhere)
     t.cdTimer -= step;
+    // Ambient zone aura (the tower-centered shape of the zone-applicator
+    // system): on its own cadence, apply this tower's status to every dish
+    // near the tower — through the normal status layer, zero RNG. Inert for
+    // every tower without an auraPeriod (the whole roster until a kit sets one).
+    if (t.auraPeriod > 0 && game.phase === "wave") {
+      t.auraTimer -= step;
+      if (t.auraTimer <= 0) {
+        t.auraTimer += t.auraPeriod;
+        const opts = towerStatusOpts(t, t.auraSrc);
+        if (opts) {
+          for (const e of game.enemies) {
+            if (distance(t, e) <= t.auraRadius + e.radius) applyDot(e, t.auraSrc, opts);
+          }
+        }
+      }
+    }
     // The Milkshake Slurper latches a straw onto a dish and keeps sipping fast
     // until it dies or leaves range, then re-targets. Silly Straw t2 runs up to
     // `drainTargets` straws at once — each keeps its own dish independently.
@@ -805,7 +1019,7 @@ function updateTowers(step) {
       if (t.slurpTargets.length) {
         t.slurpShow = 0.12;   // keep the straw(s) drawn between sips
         if (t.cdTimer <= 0) {
-          for (const e of t.slurpTargets) fireProjectile(t, e); t.cdTimer = t.cooldown;
+          for (const e of t.slurpTargets) fireProjectile(t, e); t.cdTimer = towerCooldown(t);
           if (t.slurpSoundTimer <= 0) { FX.shoot("sniper", t.upgradePath); t.slurpSoundTimer = 0.32; }   // ONE shared sip sound, not per-straw
         }
       }
@@ -825,125 +1039,101 @@ function updateTowers(step) {
       t.slurpShow = 0.12;   // keep the "devouring this dish" marker drawn between bites
       if (t.cdTimer <= 0) {
         const target = t.slurpTargets[0];
-        // Solomon Method t2: the bite lands as TWO half-hits (visibly splits the
-        // dish) totalling one bite's damage. If the first half kills, the second is
-        // a no-op (target already gone) — same as any over-damage.
-        if (t.solomonSplit) {
-          applyDamage(target, t.damage / 2);
-          if (game.enemies.includes(target)) applyDamage(target, t.damage / 2);
-        } else {
-          applyDamage(target, t.damage);
-        }
+        applyDamage(target, towerDamage(t));
         if (!game.enemies.includes(target)) {   // the bite KILLED it
-          // Mustard Belt t2: while ALREADY at max combo, a kill pays a bounty BONUS
-          // (rides the per-kill Tips hook — extra Tips on top of the dish's bounty).
-          if (t.mustardBonus > 0 && t.combo >= t.comboCap) {
-            game.currency += t.mustardBonus; game.score += t.mustardBonus;
-            spawnFloatText(target.x, target.y - 24, "+$" + t.mustardBonus + " belt", COLOR.essence);
-          }
           t.combo = Math.min(t.combo + 1, t.comboCap);   // consecutive kill → ramp toward the cap
           t.slurpTargets = [];                            // freed; re-locks next tick if a dish is in range
+          // The Tip Jar t2: EVERY jackpotEvery-th dish this eater clears pays a
+          // flat Tips bonus — a deterministic every-Nth counter, never a chance
+          // roll (zero Math.random keeps the seeded sim byte-stable).
+          if (t.jackpotEvery > 0) {
+            t.killCount++;
+            if (t.killCount % t.jackpotEvery === 0) {
+              game.currency += t.jackpotTips; game.score += t.jackpotTips;
+              spawnFloatText(target.x, target.y - 24, "+$" + t.jackpotTips + " big tip", COLOR.essence);
+            }
+          }
         }
         t.cdTimer = eaterBiteCooldown(t);
         if (t.slurpSoundTimer <= 0) { FX.shoot("eater", t.upgradePath); t.slurpSoundTimer = 0.3; }
       }
       continue;
     }
-    // The Pitmaster locks ONE dish (the Slurper's lock-on machinery) and keeps
+    // The Pitmaster locks a dish (the Slurper's lock-on machinery) and keeps
     // basting it: each application lands a smoke-stack (the stacking DOT — dps
-    // rides the stack count). Burnt Ends t2 banks stacks when the smoked dish
-    // DIES (not leaks) and pre-stacks the next lock; Probe Tender t2 finishes a
-    // fully-stacked dish below its HP threshold (an execute — a normal death).
+    // rides the stack count). Whole Hog t2 raises smokeTargets so he racks TWO
+    // dishes at once (the multi-straw pattern; the count is FROZEN design).
+    // His ambient smoke aura (The Stall t2) is the generic aura block above.
     if (t.typeId === "pit") {
-      // Burnt Ends: the locked dish left the belt — bank carryover only if it
-      // DIED (a leaked dish sets reachedCore) and was actually smoked.
-      if (t.burntEnds > 0 && t.slurpTargets.length) {
-        const old = t.slurpTargets[0];
-        if (!game.enemies.includes(old) && !old.reachedCore && old.dots && old.dots.some((d) => d.src === "smoke")) {
-          t.carryStacks = t.burntEnds;
-        }
-      }
+      const maxRacks = t.smokeTargets || 1;
       t.slurpTargets = t.slurpTargets.filter((e) => game.enemies.includes(e) && distance(t, e) <= t.range);
-      if (t.slurpTargets.length === 0) {
-        const free = game.enemies.filter((e) => distance(t, e) <= t.range).sort((a, b) => b.dist - a.dist);
-        if (free.length) {
-          t.slurpTargets.push(free[0]);
-          if (t.carryStacks > 0) {   // Burnt Ends: the new lock starts pre-smoked
-            const d = applyDot(free[0], "smoke", { dpsPerStack: t.smokeDps, duration: t.smokeDuration, maxStacks: t.smokeStacks });
-            d.stacks = Math.min(d.maxStacks, t.carryStacks);
-            t.carryStacks = 0;
-            spawnSmokePuff(free[0].x, free[0].y, free[0].radius);
-          }
-        }
+      if (t.slurpTargets.length < maxRacks) {
+        const free = game.enemies.filter((e) => distance(t, e) <= t.range && !t.slurpTargets.includes(e)).sort((a, b) => b.dist - a.dist);
+        for (const e of free) { if (t.slurpTargets.length >= maxRacks) break; t.slurpTargets.push(e); }
       }
       if (t.slurpTargets.length === 0) continue;
-      t.slurpShow = 0.12;   // keep the smoke stream drawn between bastes
+      t.slurpShow = 0.12;   // keep the smoke stream(s) drawn between bastes
       if (t.cdTimer <= 0) {
-        const target = t.slurpTargets[0];
-        const d = applyDot(target, "smoke", { dpsPerStack: t.smokeDps, duration: t.smokeDuration, maxStacks: t.smokeStacks });
-        spawnSmokePuff(target.x, target.y, target.radius);
-        // Probe Tender: fully stacked + tender enough → finished on the spot.
-        if (t.probeThreshold > 0 && d.stacks >= d.maxStacks && target.hp <= target.maxHp * t.probeThreshold) {
-          applyDamage(target, target.hp);
+        for (const target of t.slurpTargets) {
+          applyDot(target, "smoke", { dpsPerStack: t.smokeDps, duration: t.smokeDuration, maxStacks: t.smokeStacks });
+          spawnSmokePuff(target.x, target.y, target.radius);
         }
-        t.cdTimer = t.cooldown;
+        t.cdTimer = towerCooldown(t);
         if (t.slurpSoundTimer <= 0) { FX.shoot("pit", t.upgradePath); t.slurpSoundTimer = 0.4; }
       }
       continue;
     }
-    // The Ranch Fountain sprays a CONE toward its priority target, coating every
-    // dish inside it: a stacking slow (per-stack strength, floor-capped) + a
-    // light drizzle DOT. Ranch Keg t2 periodically drenches the cone to max slow.
+    // The Syrup Slinger (internal id `ranch`, frozen forever): slings a maple-
+    // syrup glob at its priority target — an IMMEDIATE full glue-slow, strong,
+    // duration-based, refreshable, and ZERO damage (pure control: the
+    // Photographer owns the hard STOP, syrup owns the long DRAG). The Big
+    // Bottle t2 raises glueTargets so one squeeze globs several dishes (the
+    // paparazzi multi-shot pattern; the count is FROZEN design). Quick Pour t2
+    // arms the Syrup Trail — the puddle rides the glue dot (see glueOpts).
     if (t.typeId === "ranch") {
       if (t.cdTimer > 0) continue;
-      const aimAt = pickTarget(t);
-      if (!aimAt) continue;
-      const aim = Math.atan2(aimAt.y - t.y, aimAt.x - t.x);
-      const half = (t.coneHalfDeg * Math.PI) / 180;
-      const keg = t.kegPeriod > 0 && t.kegTimer <= 0;
-      let coated = 0;
-      for (const e of [...game.enemies]) {
-        if (!inCone(t, aim, half, t.range, e)) continue;
-        applyDot(e, "ranch", {
-          dps: t.ranchDps, dpsPerStack: t.dpsPerStack, duration: t.ranchDuration,
-          maxStacks: t.ranchStacks, slowPerStack: t.slowPerStack, slowFloor: t.slowFloor,
-        });
-        if (keg) maxDotStacks(e, "ranch");   // the burst drenches to instant max slow
-        coated++;
+      const globs = t.glueTargets || 1;
+      const inRange = game.enemies.filter((e) => distance(t, e) <= t.range).sort((a, b) => b.dist - a.dist);
+      if (!inRange.length) continue;
+      // Spread the syrup: globs go to UN-glued dishes first (frontmost first),
+      // topping up with refreshes only when everything in range is already
+      // stuck — a control tower that re-coats the same dish forever is wasted.
+      const unglued = inRange.filter((e) => !e.dots || !e.dots.some((d) => d.src === "syrup" && d.duration > 0));
+      const targets = unglued.concat(inRange.filter((e) => !unglued.includes(e))).slice(0, globs);
+      for (const e of targets) {
+        applyDot(e, "syrup", glueOpts(t));
+        spawnSyrupGlob(e.x, e.y, e.radius);
       }
-      if (coated > 0) {
-        spawnRanchSpray(t.x, t.y, aim, t.range * 0.7, keg);
-        if (keg) t.kegTimer = t.kegPeriod;
-        t.cdTimer = t.cooldown;
-        if (t.slurpSoundTimer <= 0) { FX.shoot("ranch", t.upgradePath); t.slurpSoundTimer = 0.35; }
-      }
+      t.lungeTimer = LUNGE_DUR; t.lungeAngle = Math.atan2(targets[0].y - t.y, targets[0].x - t.x);
+      t.cdTimer = towerCooldown(t);
+      if (t.slurpSoundTimer <= 0) { FX.shoot("ranch", t.upgradePath); t.slurpSoundTimer = 0.35; }
       continue;
     }
-    // The Sample Lady offers a toothpick sample: a tiny nibble of damage, a brief
-    // stop while the dish tries it (freezeTimer reuse — plain stun, no camera
-    // brackets), and the AMP mark so EVERY customer hits it harder. Bulk Buy t2
-    // samples up to bulkTargets dishes within bulkRadius of the first.
-    if (t.typeId === "sample") {
-      if (t.cdTimer > 0) continue;
-      const target = pickTarget(t);
-      if (!target) continue;
-      const marks = t.bulkTargets > 1
-        ? game.enemies
-            .filter((e) => e === target || distance(target, e) <= t.bulkRadius)
-            .sort((a, b) => (a === target ? -1 : b === target ? 1 : distance(target, a) - distance(target, b)))
-            .slice(0, t.bulkTargets)
-        : [target];
-      for (const e of marks) {
-        applyDamage(e, t.damage);
-        if (!game.enemies.includes(e)) continue;   // the nibble finished it
-        e.freezeTimer = Math.max(e.freezeTimer, t.stunDur);
-        e.freezePlain = true;   // a polite pause, not the Photographer's snapshot (no brackets)
-        applyAmp(e, t.ampMul, t.ampDur, t.lossLeader);
-        spawnSampleOffer(e.x, e.y, e.radius);
+    // The Sample Lady is PURE SUPPORT (Tower Rework): she never attacks — her
+    // aura (the tower-proximity system, radius = her range stat) hastes and
+    // discounts nearby customers via recomputeSupport, entirely off-tick. Her
+    // only per-tick verb is On the House t1: every tagPeriod seconds she flags
+    // the frontmost unflagged dish in her aura to pay bonus Tips when eaten —
+    // a deterministic cadence (a timer, never a chance roll). The sampling
+    // animation itself is flavor (render-side), not a mechanic.
+    if (TOWER_BY_ID[t.typeId].behavior === "support") {
+      if (t.tagPeriod > 0 && game.phase === "wave") {
+        t.tagTimer -= step;
+        if (t.tagTimer <= 0) {
+          let best = null, bestKey = -Infinity;
+          for (const e of game.enemies) {
+            if (e.ampBonus > 0 || distance(t, e) > t.range) continue;   // already flagged / out of aura
+            if (e.dist > bestKey) { bestKey = e.dist; best = e; }
+          }
+          if (best) {
+            applyAmp(best, 1, t.tagDur, t.tagBonus);   // a VALUE tag: worth more on death, no damage amp
+            spawnSampleOffer(best.x, best.y, best.radius);
+            t.lungeTimer = LUNGE_DUR; t.lungeAngle = Math.atan2(best.y - t.y, best.x - t.x);
+            t.tagTimer = t.tagPeriod;   // the cadence restarts only when a tag actually lands
+            FX.shoot("sample", t.upgradePath);
+          }
+        }
       }
-      t.lungeTimer = LUNGE_DUR; t.lungeAngle = Math.atan2(target.y - t.y, target.x - t.x);
-      t.cdTimer = t.cooldown;
-      FX.shoot("sample", t.upgradePath);
       continue;
     }
     if (t.cdTimer > 0) continue;
@@ -954,7 +1144,7 @@ function updateTowers(step) {
       const inRange = game.enemies.filter((e) => distance(t, e) <= t.range).sort((a, b) => b.dist - a.dist);
       if (inRange.length) {
         for (let i = 0; i < t.maxTargets; i++) fireProjectile(t, inRange[i % inRange.length]);
-        t.cdTimer = t.cooldown;
+        t.cdTimer = towerCooldown(t);
         if (t.maxTargets > 3) FX.fourthHand();   // Birthday Party's party-horn accent (audio pass)
       }
     } else {
@@ -962,10 +1152,10 @@ function updateTowers(step) {
       if (shots > 1) {
         // Mirror the multi branch: fire at the frontmost `shots` dishes (pile on if fewer).
         const inRange = game.enemies.filter((e) => distance(t, e) <= t.range).sort((a, b) => b.dist - a.dist);
-        if (inRange.length) { for (let i = 0; i < shots; i++) fireProjectile(t, inRange[i % inRange.length]); t.cdTimer = t.cooldown; FX.doubleFreeze(); }
+        if (inRange.length) { for (let i = 0; i < shots; i++) fireProjectile(t, inRange[i % inRange.length]); t.cdTimer = towerCooldown(t); FX.doubleFreeze(); }
       } else {
         const target = pickTarget(t);
-        if (target) { fireProjectile(t, target); t.cdTimer = t.cooldown; }
+        if (target) { fireProjectile(t, target); t.cdTimer = towerCooldown(t); }
       }
     }
   }
@@ -980,7 +1170,7 @@ function fireProjectile(t, target) {
   if (t.typeId === "cannon") {
     const tx = target.x, ty = target.y;
     t.lungeTimer = LUNGE_DUR; t.lungeAngle = Math.atan2(ty - t.y, tx - t.x);   // lunge in; his mouth does the chomp
-    applyDamage(target, t.damage);
+    applyDamage(target, towerDamage(t));
     spawnBite(tx, ty, "#c98a45");   // crumb spray at the dish
     // Speed Eater t2 — crumb splash: the bite scatters damaging crumbs onto OTHER
     // dishes near the bitten one (small AoE). The target already took the full bite.
@@ -1006,33 +1196,27 @@ function fireProjectile(t, target) {
   }
   // The Kids' Table grabs the dish right on the belt — a hand clenches on it.
   if (t.typeId === "zap") {
-    applyDamage(target, t.damage);
+    applyDamage(target, towerDamage(t));
     spawnGrabHand(target.x, target.y, target.radius);
     FX.shoot(t.typeId, t.upgradePath);
     return;
   }
   // The Short-Order Cook sears the dish right on the griddle — instant multi-hit
   // damage, no travel (the multi branch in updateTowers fires this per target).
-  // Order Up t2 gives each sear a CHANCE to spatula-fling a SURVIVING dish backward
-  // (the existing size-scaled knockback, factor clamped 0.5x–2x). The chance RNG
-  // runs ONLY for cook towers — never in the sim's reference build, so the gate
-  // stays byte-identical.
+  // The old Order Up knockback-chance is DELETED (Tower Rework): it was the
+  // roster's only chance-roll signature, and the backward-fling is once again
+  // uniquely Big Appetite's. Stove on High (Seasoned Griddle t2) is now a pure
+  // damage tier — no engine branch needed.
   if (t.typeId === "cook") {
-    applyDamage(target, t.damage);
+    applyDamage(target, towerDamage(t));
     spawnSear(target.x, target.y, target.radius);
-    if (t.knockbackChance > 0 && t.knockbackBase > 0 && Math.random() < t.knockbackChance && game.enemies.includes(target)) {
-      const factor = Math.max(0.5, Math.min(2, (t.knockbackSizeRef || target.radius) / target.radius));
-      target.dist = Math.max(0, target.dist - t.knockbackBase * factor);
-      spawnKnockbackPuff(target.x, target.y);
-      FX.knockback(factor);
-    }
     FX.shoot(t.typeId, t.upgradePath);
     return;
   }
   // The Milkshake Slurper sips instantly up an attached straw (drawn by
   // drawSlurpStraws); the sip sound is throttled in updateTowers.
   if (t.typeId === "sniper") {
-    applyDamage(target, t.damage);
+    applyDamage(target, towerDamage(t));
     return;
   }
   // Fork Frenzy tier 2: the fork stops homing and flies STRAIGHT in the aim
@@ -1043,7 +1227,7 @@ function fireProjectile(t, target) {
     game.projectiles.push({
       x: t.x, y: t.y, x0: t.x, y0: t.y, typeId: "arrow", piercing: true, angle: ang,
       vx: Math.cos(ang) * speed, vy: Math.sin(ang) * speed,
-      damage: t.damage, radius: 4, color: def.color, hits: [], maxHits: 2, life: 1.6,
+      damage: towerDamage(t), radius: 4, color: def.color, hits: [], maxHits: 2, life: 1.6,
     });
     FX.shoot(t.typeId, t.upgradePath);
     return;
@@ -1051,7 +1235,7 @@ function fireProjectile(t, target) {
   game.projectiles.push({
     x: t.x, y: t.y, x0: t.x, y0: t.y, typeId: t.typeId, target,
     speed: 360,   // only arrow + frost reach here; the instant attackers returned above
-    damage: t.damage, radius: t.typeId === "cannon" ? 6 : 4, behavior: def.behavior, color: def.color,
+    damage: towerDamage(t), radius: t.typeId === "cannon" ? 6 : 4, behavior: def.behavior, color: def.color,
     splash: t.splash, slowDur: t.slowDur, slowFactor: t.slowFactor, freezeDur: t.freezeDur,
   });
   FX.shoot(t.typeId, t.upgradePath);
@@ -1095,7 +1279,6 @@ function resolveHit(p) {
     applyDamage(p.target, p.damage);
     if (game.enemies.includes(p.target)) {
       p.target.freezeTimer = Math.max(p.target.freezeTimer, p.freezeDur);
-      p.target.freezePlain = false;   // a real snapshot: the viewfinder brackets belong to THIS freeze (not a Sample stun)
       p.target.slowTimer = Math.max(p.target.slowTimer, p.freezeDur + p.slowDur);
       p.target.slowFactor = Math.min(p.target.slowFactor, p.slowFactor);
       spawnFreeze(hx, hy, p.target.radius);
@@ -1132,6 +1315,14 @@ function applyDamage(enemy, dmg) {
       game.score += enemy.ampBonus;
       spawnFloatText(enemy.x, enemy.y - 24, "+$" + enemy.ampBonus + " sample", COLOR.essence);
     }
+    // Syrup Trail (zone applicator): a dish that dies while STUCK leaves a
+    // belt puddle behind — leaks leave nothing (moveEnemies just removes them).
+    if (enemy.dots) {
+      const sticky = enemy.dots.find((d) => d.trail && d.duration > 0);
+      if (sticky) spawnZone({ kind: "syrup", x: enemy.x, y: enemy.y, src: sticky.src,
+                              radius: sticky.trail.radius, life: sticky.trail.life, cap: sticky.trail.cap,
+                              opts: sticky.trail.opts });
+    }
     FX.kill();
   } else {
     spawnHitSpark(enemy.x, enemy.y);
@@ -1142,6 +1333,7 @@ function applyDamage(enemy, dmg) {
 function checkWaveEnd() {
   if (game.phase !== "wave") return;
   if (game.spawnQueue.length === 0 && game.enemies.length === 0) {
+    game.zones = [];   // the belt is wiped between rounds — puddles never straddle a prep
     game.currency += RULES.earnPerWave;
     // Endless survival: clearing a wave ALWAYS advances to the next (getWave
     // generates waves past the authored table). A run never "wins" — it ends
@@ -1239,14 +1431,14 @@ function spawnSmokePuff(x, y, r) {
     game.particles.push({ type: "spark", x: x + dx, y: y - (r || 10) * 0.6, vx: (Math.random() - 0.5) * 16, vy: -24 - Math.random() * 22, r: 1.8 + Math.random() * 1.8, life: 0.5 + Math.random() * 0.3, maxLife: 0.8, color: i % 2 ? "#9aa2ad" : "#c3c9d2" });
   }
 }
-// The Ranch Fountain's cone spray: creamy droplets fanned toward the aim angle
-// (a burst sprays wider + heavier). Ranch-branch-only RNG, same ruling.
-function spawnRanchSpray(x, y, angle, reach, burst) {
-  const n = burst ? 12 : 6, spread = burst ? 0.7 : 0.45;
-  for (let i = 0; i < n; i++) {
-    const a = angle + (Math.random() - 0.5) * spread * 2;
-    const sp = reach * (0.9 + Math.random() * 0.8);
-    game.particles.push({ type: "spark", x, y: y - 6, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r: 1.6 + Math.random() * 1.8, life: 0.28 + Math.random() * 0.2, maxLife: 0.48, color: i % 3 ? "#f2ead9" : "#ffffff" });
+// The Syrup Slinger's glob landing: a thick amber splat on the dish — a few
+// heavy drops + a slow drip, so "that one is GLUED" reads instantly. Ranch-
+// branch-only RNG, same ruling as the cook sear (never runs in the gate).
+function spawnSyrupGlob(x, y, r) {
+  spawnRing(x, y, "#d98a2e", (r || 10) + 7, 0.22);
+  for (let i = 0; i < 6; i++) {
+    const a = Math.random() * Math.PI * 2, sp = 24 + Math.random() * 46;
+    game.particles.push({ type: "spark", x, y: y - (r || 10) * 0.4, vx: Math.cos(a) * sp, vy: Math.abs(Math.sin(a)) * sp * 0.6 + 14, r: 1.8 + Math.random() * 1.8, life: 0.3 + Math.random() * 0.22, maxLife: 0.52, color: i % 3 ? "#d98a2e" : "#b06a1a" });
   }
 }
 // The Sample Lady's offer: a tiny toothpick sparkle over the sampled dish.

@@ -81,19 +81,19 @@ const REPORT_BOARDS = [
     name: "modern-mix",   // one of everything: the full 10-tower roster on one board
     build: ["sample", "zap", "arrow", "cook", "pit", "ranch", "frost", "cannon", "eater", "sniper"],
     paths: { arrow: "carvingStation", cannon: "oneBigBite", frost: "longExposure", sniper: "extraSlurp", zap: "teenageTable",
-             cook: "slingingHash", eater: "waterDunk", pit: "theStall", ranch: "extraDressing", sample: "costcoSaturday" },
+             cook: "slingingHash", eater: "waterDunk", pit: "theStall", ranch: "quickPour", sample: "happyHour" },
   },
   {
-    name: "support-stack", // the amp question: three Sample Ladies multiplying a DPS core
+    name: "support-stack", // the support question: three Sample Lady auras over a DPS core (strongest-wins, so this reads diversity, not stacking)
     build: ["sample", "sample", "sample", "zap", "arrow", "cook", "cannon", "eater", "sniper", "arrow"],
     paths: { arrow: "carvingStation", cannon: "oneBigBite", sniper: "extraSlurp", zap: "teenageTable",
-             cook: "slingingHash", eater: "waterDunk", sample: "hardSell" },
+             cook: "slingingHash", eater: "waterDunk", sample: "onTheHouse" },
   },
   {
-    name: "dot-board",     // the status layer carrying a run: smoke + ranch + amp, light direct backup
+    name: "dot-board",     // the status layer carrying a run: smoke + syrup control, light direct backup
     build: ["sample", "zap", "pit", "ranch", "pit", "ranch", "pit", "ranch", "frost", "cannon"],
     paths: { cannon: "oneBigBite", frost: "longExposure", zap: "teenageTable",
-             pit: "competitionRub", ranch: "extraDressing", sample: "hardSell" },
+             pit: "wholeHog", ranch: "quickPour", sample: "onTheHouse" },
   },
 ];
 

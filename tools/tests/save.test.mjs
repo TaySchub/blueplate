@@ -33,17 +33,19 @@ const zap = game.towers[game.towers.length - 1];
 E.tryUpgrade(zap, "birthdayParty"); E.tryUpgrade(zap, "birthdayParty");
 E.setTargeting(zap, "last");
 
-// eater — a NEW-type tower (Roster Growth 1) -> Record Pace tier 2 (signature:
-// Mustard Belt bounty bonus), targeting "close". Covers a newcomer in the roundtrip.
+// eater — a NEW-type tower (Roster Growth 1) -> The Tip Jar tier 2 (signature:
+// the every-Nth-kill jackpot), targeting "close". Covers a newcomer in the
+// roundtrip. (Re-pinned by the Tower Rework: this leg used to assert the
+// deleted Mustard Belt flags — same roundtrip claim, current kit.)
 game.selectedType = "eater"; E.tryBuild(a[3].x, a[3].y);
 const eater = game.towers[game.towers.length - 1];
-E.tryUpgrade(eater, "recordPace"); E.tryUpgrade(eater, "recordPace");
+E.tryUpgrade(eater, "tipJar"); E.tryUpgrade(eater, "tipJar");
 E.setTargeting(eater, "close");
 
 assert(game.towers.length === 4, "four towers seated on the prep board (incl. a new-type eater)");
 assert(arrow.pierce === true, "arrow's Fork Frenzy tier-2 pierce flag is set pre-save");
 assert(zap.maxTargets === E.TOWER_BY_ID.zap.maxTargets + 1, "zap's Birthday Party tier-2 added a target pre-save");
-assert(eater.mustardBonus > 0, "eater's Mustard Belt tier-2 bounty bonus is set pre-save");
+assert(eater.jackpotEvery > 0, "eater's Tip Jar tier-2 jackpot cadence is set pre-save");
 
 // Give the snapshot a distinctive, non-default wave/currency/lives, then freeze it.
 game.waveIndex = 3; game.currency = 137; game.lives = 7;
@@ -53,7 +55,7 @@ E.saveCheckpoint();
 // live state so the restore has to come from disk, not memory.
 const preSave = JSON.stringify(E.serializeRun());
 const expArrowSpent = arrow.spent, expZapSpent = zap.spent, expZapMaxTargets = zap.maxTargets;
-const expEaterMustard = eater.mustardBonus, expEaterComboCap = eater.comboCap;
+const expEaterJackpot = eater.jackpotEvery, expEaterTips = eater.jackpotTips;
 game.towers = []; game.waveIndex = 99; game.currency = 1; game.lives = 1; game.phase = "lost";
 
 // ---- Restore ----
@@ -78,10 +80,10 @@ assert(rArrow.spent === expArrowSpent && rZap.spent === expZapSpent,
   "spent reconstructs (base + tiers) through the real code paths");
 assert(rCannon && rCannon.targeting === "strong", "an un-upgraded tower's targeting survives the roundtrip");
 const rEater = game.towers.find((t) => t.typeId === "eater");
-assert(rEater && rEater.upgradePath === "recordPace" && rEater.upgradeTier === 2 && rEater.targeting === "close",
+assert(rEater && rEater.upgradePath === "tipJar" && rEater.upgradeTier === 2 && rEater.targeting === "close",
   "a restored NEW-type tower (eater) keeps its type, committed path, tier, and targeting");
-assert(rEater.mustardBonus === expEaterMustard && rEater.comboCap === expEaterComboCap,
-  "a restored eater's Mustard Belt bonus + combo ceiling are REBUILT through the real upgrade path");
+assert(rEater.jackpotEvery === expEaterJackpot && rEater.jackpotTips === expEaterTips,
+  "a restored eater's Tip Jar jackpot cadence + payout are REBUILT through the real upgrade path");
 
 // ---- Defeat clears the save ----
 game.phase = "wave"; game.lives = 0;

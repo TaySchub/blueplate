@@ -1,7 +1,8 @@
-// The Short-Order Cook (Roster Growth 1): multi-target sears + the Order Up
-// knockback signature. Behavior only — reads maxTargets/deltas from the data, never
-// hardcodes tuned numbers. Uses existing engine vocabulary (multi branch + the
-// size-scaled knockback), so nothing new touches the difficulty gate.
+// The Short-Order Cook (Roster Growth 1, trimmed by the Tower Rework): multi-
+// target griddle sears. The old Order Up knockback-chance is DELETED — Stove on
+// High (Seasoned Griddle t2) is now a pure damage tier, and the backward-fling
+// is uniquely Big Appetite's again. Behavior only — reads maxTargets/deltas
+// from the data, never hardcodes tuned numbers.
 import { loadEngine, assert, done, makeEnemy, makeTower } from "./_engine.mjs";
 
 const E = loadEngine();
@@ -12,7 +13,7 @@ const { game } = E;
 function dish(dist, hp = 1000) { const e = makeEnemy({ x: 40, y: 0, dist, hp, radius: 10 }); e.bounty = 0; return e; }
 function cook(opts) {
   return makeTower("cook", { typeId: "cook", range: 1000, cooldown: 1, damage: 10,
-    maxTargets: E.TOWER_BY_ID.cook.maxTargets, cdTimer: 0, knockbackBase: 0, knockbackChance: 0, ...opts });
+    maxTargets: E.TOWER_BY_ID.cook.maxTargets, cdTimer: 0, ...opts });
 }
 
 // --- a base sear hits the TWO nearest dishes (distinct) ---
@@ -35,17 +36,18 @@ game.enemies = d.slice();
 E.updateTowers(10);
 assert(d.filter((e) => e.hp < 1000).length === 3, "Rush Ticket sears three distinct dishes");
 
-// --- Order Up (Seasoned Griddle t2) flings a surviving dish backward ---
-const orderUp = cook({ damage: 1, maxTargets: 1 });   // damage low so the dish survives to be flung
-E.applyUpgradeDeltas(orderUp, E.TOWER_BY_ID.cook.upgrades.seasonedGriddle.tiers[1]);   // knockbackBase/SizeRef/Chance
-assert(orderUp.knockbackBase > 0, "Order Up grants a knockback");
-orderUp.knockbackChance = 1;   // the fling is a CHANCE in play (RNG); force it for a deterministic test
-game.towers = [orderUp];
-const t = dish(120);
-game.enemies = [t];
-const before = t.dist;
+// --- Stove on High (Seasoned Griddle t2) is a PURE damage tier ---
+const stove = cook({ damage: 10, maxTargets: 1 });
+const t2 = E.TOWER_BY_ID.cook.upgrades.seasonedGriddle.tiers[1];
+assert(t2.damage > 0, "Stove on High carries a damage delta");
+assert(!t2.knockbackBase && !t2.knockbackChance, "…and NO knockback flags (the fling is Big Appetite's alone)");
+E.applyUpgradeDeltas(stove, t2);
+game.towers = [stove];
+const seared = dish(120);
+game.enemies = [seared];
+const before = seared.dist;
 E.updateTowers(10);
-assert(game.enemies.includes(t), "the flung dish survived the sear (so it could be flung, not killed)");
-assert(t.dist < before, "Order Up flings a surviving dish BACKWARD down the belt (dist decreases)");
+assert(1000 - seared.hp === 10 + t2.damage, "the hotter stove sears for base + the tier's full damage add");
+assert(seared.dist === before, "a seared dish NEVER moves backward — the cook has no fling");
 
 done("cook");

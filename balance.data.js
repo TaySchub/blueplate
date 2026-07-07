@@ -720,11 +720,8 @@ window.BALANCE = {
             },
             {
               "cost": 500,
-              "damage": 6,
-              "knockbackBase": 55,
-              "knockbackSizeRef": 12,
-              "knockbackChance": 0.3,
-              "desc": "Sears may spatula-fling a dish back down the belt"
+              "damage": 14,
+              "desc": "Stove on high \u2014 every sear hits much harder"
             }
           ]
         }
@@ -740,37 +737,36 @@ window.BALANCE = {
       "behavior": "single",
       "comboCap": 4,
       "comboRamp": 0.25,
+      "biteFloor": 0.12,
       "upgrades": {
         "waterDunk": {
           "name": "Water Dunk",
           "tiers": [
             {
               "cost": 300,
-              "cooldownMul": 0.95,
-              "desc": "Dunks buns to bite a little faster"
+              "cooldownMul": 0.9,
+              "desc": "Dunks the buns \u2014 bites come a little faster"
             },
             {
               "cost": 550,
-              "solomonSplit": true,
-              "damage": 6,
-              "desc": "Splits each dish and eats it as two bites"
+              "cooldownMul": 0.72,
+              "desc": "The full gulp \u2014 bites come much faster (nobody chews past the limit)"
             }
           ]
         },
-        "recordPace": {
-          "name": "Record Pace",
+        "tipJar": {
+          "name": "The Tip Jar",
           "tiers": [
             {
               "cost": 300,
-              "comboCapAdd": 3,
-              "cooldownMul": 0.78,
-              "desc": "A higher combo ceiling and faster bites"
+              "damage": 4,
+              "desc": "Bigger bites \u2014 more damage per chomp"
             },
             {
-              "cost": 550,
-              "comboCapAdd": 2,
-              "mustardBonus": 45,
-              "desc": "At max combo, kills pay bonus Tips"
+              "cost": 600,
+              "jackpotEvery": 5,
+              "jackpotTips": 50,
+              "desc": "Every fifth dish he clears, the whole table tips big"
             }
           ]
         }
@@ -792,78 +788,77 @@ window.BALANCE = {
           "name": "The Stall",
           "tiers": [
             {
-              "cost": 250,
+              "cost": 500,
               "cooldownMul": 0.6,
-              "desc": "Stokes the smoke faster \u2014 stacks build quicker"
+              "smokeStacksAdd": 3,
+              "desc": "Stokes the fire \u2014 smoke builds much faster and stacks far deeper"
             },
             {
               "cost": 550,
-              "burntEnds": 3,
-              "desc": "Smoke stacks carry to the next dish it locks"
+              "auraPeriod": 1.4,
+              "auraRadius": 55,
+              "auraSrc": "smoke",
+              "desc": "The whole smoker billows \u2014 dishes passing near it pick up smoke"
             }
           ]
         },
-        "competitionRub": {
-          "name": "Competition Rub",
+        "wholeHog": {
+          "name": "Whole Hog",
           "tiers": [
             {
               "cost": 250,
-              "smokeStacksAdd": 2,
-              "cooldownMul": 0.8,
-              "desc": "Deeper smoke \u2014 more stacks, applied faster"
+              "range": 30,
+              "desc": "A bigger pit \u2014 a much longer reach"
             },
             {
-              "cost": 550,
-              "probeThreshold": 0.15,
-              "desc": "At full smoke, finishes off a badly-hurt dish"
+              "cost": 450,
+              "smokeTargetsAdd": 1,
+              "desc": "Two racks \u2014 smokes a second dish at the same time"
             }
           ]
         }
       }
     },
     "ranch": {
-      "name": "The Ranch Fountain",
-      "blurb": "Cascading ranch coats every dish in a cone \u2014 stacking slow + a light drizzle of damage",
+      "name": "The Syrup Slinger",
+      "blurb": "Slings maple-syrup globs that glue dishes to the belt \u2014 a long, sticky drag (no damage)",
       "cost": 300,
       "range": 120,
       "damage": 0,
-      "cooldown": 0.8,
+      "cooldown": 1.6,
       "behavior": "single",
-      "coneHalfDeg": 45,
-      "ranchDps": 4,
-      "ranchDuration": 3,
-      "ranchStacks": 5,
-      "slowPerStack": 0.1,
-      "slowFloor": 0.45,
+      "glueFactor": 0.25,
+      "glueDur": 2.5,
       "upgrades": {
-        "extraDressing": {
-          "name": "Extra Dressing",
+        "quickPour": {
+          "name": "Quick Pour",
           "tiers": [
             {
               "cost": 250,
-              "slowPerStackAdd": 0.04,
-              "desc": "Thicker ranch \u2014 each coat slows more"
+              "cooldownMul": 0.45,
+              "desc": "Warms the bottle \u2014 globs pour much faster"
             },
             {
               "cost": 550,
-              "dpsPerStackAdd": 1,
-              "desc": "The drizzle bites harder the more it coats"
+              "trailRadius": 34,
+              "trailLife": 8,
+              "trailCap": 3,
+              "desc": "Syrup Trail \u2014 a glued dish that's eaten leaves a puddle that glues passers-by"
             }
           ]
         },
-        "widerNozzle": {
-          "name": "Wider Nozzle",
+        "bigBottle": {
+          "name": "The Big Bottle",
           "tiers": [
             {
               "cost": 250,
-              "coneHalfAdd": 12,
-              "range": 25,
-              "desc": "A wider spray cone with longer reach"
+              "range": 30,
+              "desc": "A longer pour \u2014 more reach"
             },
             {
-              "cost": 600,
-              "kegPeriod": 4,
-              "desc": "Every few seconds a keg-burst coats to max"
+              "cost": 650,
+              "glueTargetsAdd": 2,
+              "desc": "One big squeeze \u2014 globs three dishes at once"
             }
           ]
         }
@@ -871,45 +866,44 @@ window.BALANCE = {
     },
     "sample": {
       "name": "The Sample Lady",
-      "blurb": "Offers a free sample: a brief stop + a mark that makes EVERY customer hit harder",
+      "blurb": "Pure support: nearby customers attack faster and their upgrades cost less",
       "cost": 150,
       "range": 100,
-      "damage": 4,
+      "damage": 0,
       "cooldown": 1.4,
-      "behavior": "single",
-      "stunDur": 0.35,
-      "ampMul": 1.25,
-      "ampDur": 4,
+      "behavior": "support",
+      "supportHaste": 0.85,
+      "supportDiscount": 0.1,
       "upgrades": {
-        "costcoSaturday": {
-          "name": "Costco Saturday",
+        "happyHour": {
+          "name": "Happy Hour",
           "tiers": [
             {
               "cost": 150,
-              "cooldownMul": 0.5,
-              "desc": "Hands out free samples much faster"
-            },
-            {
-              "cost": 250,
-              "cooldownMul": 0.8,
-              "lossLeader": 15,
-              "desc": "Marked dishes tip extra when eaten"
-            }
-          ]
-        },
-        "hardSell": {
-          "name": "Hard Sell",
-          "tiers": [
-            {
-              "cost": 150,
-              "ampMulAdd": 0.12,
-              "desc": "A stronger mark \u2014 marked dishes take more damage"
+              "range": 30,
+              "desc": "Word spreads \u2014 the friendly aura reaches further"
             },
             {
               "cost": 300,
-              "bulkTargets": 3,
-              "bulkRadius": 60,
-              "desc": "Marks a whole cluster of nearby dishes at once"
+              "supportDamage": 1.15,
+              "desc": "Everyone's in a good mood \u2014 customers in the aura bite harder"
+            }
+          ]
+        },
+        "onTheHouse": {
+          "name": "On the House",
+          "tiers": [
+            {
+              "cost": 150,
+              "tagPeriod": 4,
+              "tagBonus": 20,
+              "tagDur": 6,
+              "desc": "Every few seconds, flags a dish \u2014 it tips extra when eaten"
+            },
+            {
+              "cost": 300,
+              "supportHaste": 0.75,
+              "desc": "Fresh coffee all round \u2014 the aura speed-up gets stronger"
             }
           ]
         }

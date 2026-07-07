@@ -37,6 +37,9 @@ export function loadEngine() {
        loadMap, MAPS, pointAtDistance, eaterBiteCooldown,
        // Status layer (Roster Growth 2) — the DOT/AMP subsystem + its tick.
        applyDot, applyAmp, maxDotStacks, statusSlowFactor, updateStatuses, STATUS_TICK,
+       // Tower Rework shared systems: zone applicators + proximity support.
+       spawnZone, updateZones, glueOpts, towerStatusOpts,
+       recomputeSupport, towerCooldown, towerDamage, tierCostFor,
        // META accessor for the auto-start test (META is a let binding, so a
        // plain property would capture a stale reference).
        getMeta() { return META; },
