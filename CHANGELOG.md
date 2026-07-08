@@ -150,6 +150,55 @@ Format is deliberately simple and plain-language.
 
 
 ### Fixed
+- **Tower Rework follow-ups — eight fixes from the post-#105 deep review**
+  (Issue #107; engine / art / render / sim-tool, no `data/balance.json` numbers,
+  no audio, no save code). Every fix sits BESIDE the gate — the CI reference
+  build (`arrow,cannon,frost,arrow,zap,cannon,frost,arrow,zap,cannon`) contains
+  none of the affected towers, so `node tools/sim.mjs --check` is **byte-identical
+  to main** (gate 54.0% at seed 1 ×200; all three report boards unchanged), and
+  both seeded smokes (`build = arrow,cannon,frost,arrow`) are byte-identical too.
+  - **The Tip Jar's champion buckle draws again.** `drawCompetitiveEater` keyed
+    its tier-2 art on the retired path id `recordPace`; it now keys on `tipJar`,
+    so the belt buckle is reachable in-game and on the contact sheet.
+  - **The Syrup Slinger honors its targeting mode again** (regression). The kit
+    hardcoded frontmost; it now orders globs by the player's chosen mode
+    (First/Last/Strong/Close, via the shared `targetingKey`), keeping the
+    prefer-unglued spread as a tiebreak LAYER. Multi-glob count stays frozen at 3.
+  - **A Syrup Trail puddle no longer spends its seats on already-glued dishes.**
+    Its capacity now counts distinct NEW passers, so a puddle dropped in a glued
+    pack survives to catch the next dry dish (the crowd case it exists for). The
+    frozen cap of 3 is untouched — only *who counts against it* changed.
+  - **The scripted sim buyer prices upgrades exactly as the game charges**
+    (`tierCostFor`, support discount included, not list `tier.cost`), so
+    Sample-Lady report boards no longer under-report the real spend. Gate
+    unaffected (no sample in the reference); the report boards' seed-1
+    trajectories happened not to move, but the sample slot-9 marginal did
+    (happyHour Δ/100 +5.0 → +4.25 Tips — now the honest number).
+  - **Happy Hour t2 finally reaches DOT payloads** (developer ruling). The aura's
+    damage buff scaled only direct damage — a no-op over the Pitmaster (direct
+    damage 0). The smoke DOT's dps now scales with the provider's `buffDamageMul`
+    through the shared `towerStatusOpts` seam (which the pit's direct baste now
+    also calls, closing the duplicate-literal drift). Syrup carries no dps, so a
+    pure-control tower stays pure control (asserted in a test).
+  - **Frost slow and syrup glue no longer multiply to a near-standstill**
+    (developer ruling, 2026-07-07). Across the legacy thaw-slow and the status
+    slow, the STRONGEST single slow wins (`Math.min`), never 0.62 × 0.25 ≈ 0.16×;
+    freeze still owns the full stop. Recorded in `BALANCE_PHILOSOPHY` §2.
+  - **The "never attacks" Sample Lady is silent on value tags.** A zero-damage
+    tag no longer fires the attack sound or the amp hit sound (engine-side FX
+    gating only; a bespoke tag sound is Issue #64). It keeps its visual (offer
+    sparkle + flag).
+  - **Latent traps closed while cheap:** dot duration refreshes to the strongest
+    clock (`Math.max`, so a weaker applier can't cut a stronger dot — byte-identical
+    today, every same-src duration is equal); the value-tag bonus rides its own
+    timer so a future stronger damage-amp can't truncate its window, and
+    `applyAmp` reports whether it landed so the tag cadence only resets on a real
+    tag; the ambient-aura ring is keyed on `auraSrc` and belt puddles are styled
+    per `kind`, so the next aura/zone kit is visible by default (display-only,
+    current pixels unchanged). Small cleanups rode along in the touched code
+    (single glue payload, hoisted allocations, distance² in `updateZones`, a
+    shared amp-flag predicate). Tests extend the ranch/zones/sample/status suites;
+    every other suite is green and unedited.
 - **Save-migration hardening — five holes in the never-lose-a-run clause**
   (Issue #106; `src/engine.js` save/restore path + save tests only — no balance
   change; the gate and both seeded smokes are byte-identical to main, gate 54.0%

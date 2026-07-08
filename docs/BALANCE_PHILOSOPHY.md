@@ -117,7 +117,10 @@ Bands (rubric §3): cheap **150** · mid **250–350** · premium **400–500**.
   mid-band throughput. Equal-spend probes, not vibes.
 - `ranch` vs `frost`: the long DRAG vs the hard STOP. Frost's freeze is the
   only hard stop; syrup must never fully stop anything (the glue factor stays
-  > 0), and frost must never out-slow syrup across a *crowd*.
+  > 0), and frost must never out-slow syrup across a *crowd*. Slow CHANNELS
+  never multiply either: across the legacy thaw-slow and the status slow, the
+  strongest single slow wins (developer ruling, 2026-07-07 — the 0.16× frost×syrup
+  standstill is vetoed).
 - `pit` vs `cannon`: the ramp vs the burst. Cannon right-sizes a dish NOW;
   pit is cheaper damage into big HP *given time*. If pit ever wins the
   fresh-dish burst probe something is mispriced.

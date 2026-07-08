@@ -791,18 +791,25 @@ function spawnWaveEnemies(step) {
     const hp = Math.round(game.waveHp * et.hpMul);
     // dots/ampMul/ampTimer/ampBonus: the status layer (Roster Growth 2) — plain
     // fields like slowTimer/freezeTimer, empty/neutral until a status tower acts.
-    game.enemies.push({ typeId, dist: 0, speed: game.waveSpeed * et.speedMul, hp, maxHp: hp, radius: et.radius, bounty: et.bounty, hurtFlash: 0, slowTimer: 0, slowFactor: 1, freezeTimer: 0, dots: [], ampMul: 1, ampTimer: 0, ampBonus: 0 });
+    game.enemies.push({ typeId, dist: 0, speed: game.waveSpeed * et.speedMul, hp, maxHp: hp, radius: et.radius, bounty: et.bounty, hurtFlash: 0, slowTimer: 0, slowFactor: 1, freezeTimer: 0, dots: [], ampMul: 1, ampTimer: 0, ampBonus: 0, ampBonusTimer: 0 });
   }
 }
 
 function moveEnemies(step) {
   for (const e of game.enemies) {
     let speed = e.speed;
-    // Frozen dishes are stopped dead; once thawed the slow lingers for the rest of slowTimer.
+    // Frozen dishes are stopped dead (freeze owns the full STOP); once thawed the
+    // slow lingers for the rest of slowTimer.
     if (e.freezeTimer > 0) { e.freezeTimer -= step; speed = 0; }
-    else if (e.slowTimer > 0) { speed *= e.slowFactor; }
+    else {
+      // Slow CHANNELS never multiply (developer ruling 2026-07-07): the legacy
+      // thaw-slow (slowFactor) and the status slow (statusSlowFactor) each cap
+      // the speed independently, and the STRONGEST single slow wins across them —
+      // never 0.62 × 0.25 ≈ 0.16× (the vetoed frost×syrup near-standstill).
+      const legacy = e.slowTimer > 0 ? e.slowFactor : 1;
+      speed *= Math.min(legacy, statusSlowFactor(e));   // status factor is 1 when no dot carries a slow
+    }
     if (e.slowTimer > 0) { e.slowTimer -= step; if (e.slowTimer <= 0) e.slowFactor = 1; }
-    speed *= statusSlowFactor(e);   // stacking status slows (Roster Growth 2) — 1 when no dot carries a slow
     e.dist += speed * step;
     const p = pointAtDistance(e.dist);
     e.x = p.x; e.y = p.y;
@@ -851,7 +858,13 @@ function applyDot(e, src, opts) {
   }
   d.maxStacks = Math.max(d.maxStacks, opts.maxStacks || 1);
   d.stacks = Math.min(d.stacks + 1, d.maxStacks);
-  d.duration = opts.duration;
+  // Refresh to the STRONGEST clock (Math.max), matching every other field's
+  // strongest-wins shape (Issue #107 #8): a weaker applier can never CUT a
+  // stronger dot's remaining time. Byte-identical today — every same-src
+  // applier shares one duration (pit smoke 4.0, ranch syrup 2.5; no tier adds
+  // a *DurationAdd), so Math.max(equal, equal) == the old assignment; the guard
+  // arms the first glueDur/smokeDuration tier.
+  d.duration = Math.max(d.duration, opts.duration);
   d.dps = Math.max(d.dps, opts.dps || 0);
   d.dpsPerStack = Math.max(d.dpsPerStack, opts.dpsPerStack || 0);
   d.slowPerStack = Math.max(d.slowPerStack, opts.slowPerStack || 0);
@@ -871,16 +884,33 @@ function maxDotStacks(e, src) {
   if (d) d.stacks = d.maxStacks;
 }
 
-// Mark a dish as VULNERABLE: takes mul× damage from ALL sources while active.
-// Non-stacking — the strongest mark wins; an equal mark refreshes the clock; a
-// weaker one is ignored. `bonus` is extra Tips paid if the dish dies marked.
+// Mark a dish. TWO independent channels ride this one entry point, each
+// non-stacking with strongest-wins + equal-refreshes (Issue #107 #7):
+//   • damage VULNERABILITY (ampMul / ampTimer) — mul× on ALL damage while live;
+//   • a value BONUS (ampBonus / ampBonusTimer) — extra Tips on a marked death
+//     (the Sample Lady's value tag) — on its OWN clock, so a stronger
+//     damage-amp landing can't silently truncate the tag's remaining window.
+// Returns true iff SOMETHING landed, so the value-tag cadence knows whether to
+// reset its timer + play FX; a mark that couldn't land leaves the caller to
+// retry next tick (no phantom cadence-reset, no phantom FX).
 function applyAmp(e, mul, duration, bonus = 0) {
-  if (mul < (e.ampMul || 1)) return;                        // weaker → ignored
-  if (mul > (e.ampMul || 1)) e.ampTimer = duration;         // stronger → replace
-  else e.ampTimer = Math.max(e.ampTimer || 0, duration);    // equal → refresh
-  e.ampMul = mul;
-  e.ampBonus = Math.max(e.ampBonus || 0, bonus);
-  FX.statusApply("amp");
+  let landed = false;
+  if (mul > 1) {                                              // a real damage amp
+    if (mul > (e.ampMul || 1)) { e.ampMul = mul; e.ampTimer = duration; landed = true; }          // stronger → replace
+    else if (mul === (e.ampMul || 1)) { e.ampTimer = Math.max(e.ampTimer || 0, duration); landed = true; }  // equal → refresh
+    // weaker mul → ignored (leaves the stronger amp untouched)
+  }
+  if (bonus > 0) {                                            // a value tag
+    if (bonus > (e.ampBonus || 0)) { e.ampBonus = bonus; e.ampBonusTimer = duration; landed = true; }              // stronger → replace
+    else if (bonus === (e.ampBonus || 0)) { e.ampBonusTimer = Math.max(e.ampBonusTimer || 0, duration); landed = true; }  // equal → refresh
+    // weaker bonus → ignored
+  }
+  // The hit sound fires ONLY for a real damage amp (mul > 1). A zero-damage
+  // value tag is silent — the Sample Lady never attacks (Issue #107 #5); its
+  // visual is the offer sparkle + the dish's flag, and a bespoke tag sound is
+  // Issue #64's. statusApply → audio.hit() would be a phantom hit here.
+  if (landed && mul > 1) FX.statusApply("amp");
+  return landed;
 }
 
 // The combined speed multiplier the enemy's dot slows impose (1 = none). Each
@@ -899,10 +929,11 @@ function statusSlowFactor(e) {
 // bounties, amp all apply) and amp expiry. Zero Math.random.
 function updateStatuses(step) {
   for (const e of [...game.enemies]) {
-    if (e.ampTimer > 0) {
-      e.ampTimer -= step;
-      if (e.ampTimer <= 0) { e.ampMul = 1; e.ampBonus = 0; }
-    }
+    // Two independent amp clocks (Issue #107 #7): the damage-vulnerability mul
+    // and the value-tag bonus each expire on their own timer, so neither can
+    // cut the other short.
+    if (e.ampTimer > 0) { e.ampTimer -= step; if (e.ampTimer <= 0) e.ampMul = 1; }
+    if (e.ampBonusTimer > 0) { e.ampBonusTimer -= step; if (e.ampBonusTimer <= 0) e.ampBonus = 0; }
     if (!e.dots || e.dots.length === 0) continue;
     // EPS absorbs fixed-timestep float drift so a tick scheduled exactly at the
     // dot's end (duration a multiple of STATUS_TICK) still fires before expiry.
@@ -942,11 +973,16 @@ function updateStatuses(step) {
    resolves (the belt gets wiped between rounds).
    ========================================================================= */
 
-// The status payload a tower's zone (aura or puddle) applies, per source kind.
-// It reads the SAME per-tower stats the tower's direct attack uses, so a tier
-// that deepens the attack deepens the tower's zones with it.
+// The status payload a tower's zone (aura or puddle) AND its direct application
+// share, per source kind — ONE seam, so a support damage-buff and any tier that
+// deepens the attack reach the tower's DOT the same way (Issue #107 #1). The
+// smoke payload scales its dps by the provider's received damage buff
+// (buffDamageMul, Sample Lady's Happy Hour) — the DOT analogue of towerDamage()
+// wrapping t.damage, so "customers in the aura bite harder" is no longer a no-op
+// over a dot tower whose direct damage is 0. Syrup carries no dps → the buff
+// can't touch it (a pure-control tower stays pure control; asserted in a test).
 function towerStatusOpts(t, src) {
-  if (src === "smoke") return { dpsPerStack: t.smokeDps, duration: t.smokeDuration, maxStacks: t.smokeStacks };
+  if (src === "smoke") return { dpsPerStack: t.smokeDps * (t.buffDamageMul || 1), duration: t.smokeDuration, maxStacks: t.smokeStacks };
   if (src === "syrup") return glueOpts(t);
   return null;
 }
@@ -962,20 +998,27 @@ function spawnZone(z) {
 // expire it by lifetime or once spent. Runs before status ticks in update().
 function updateZones(step) {
   if (game.zones.length === 0) return;
+  let anyDead = false;
   for (const z of game.zones) {
     z.life -= step;
-    if (z.life <= 0) { z.dead = true; continue; }
+    if (z.life <= 0) { z.dead = true; anyDead = true; continue; }
     for (const e of game.enemies) {
       if (z.victims.length >= z.cap) break;
       if (z.victims.includes(e)) continue;
-      if (distance(z, e) <= z.radius + e.radius) {
+      // Capacity means "distinct NEW passers": a dish already carrying this
+      // puddle's status must not burn a seat (Issue #107 #4) — otherwise a
+      // puddle dropped in a glued pack dies on its first tick having caught
+      // nobody new, nullifying the t2 signature in exactly its crowd case.
+      if (e.dots && e.dots.some((d) => d.src === z.src && d.duration > 0)) continue;
+      const dx = z.x - e.x, dy = z.y - e.y, rr = z.radius + e.radius;   // dist² — no sqrt on the hot path
+      if (dx * dx + dy * dy <= rr * rr) {
         applyDot(e, z.src, z.opts);
         z.victims.push(e);
       }
     }
-    if (z.victims.length >= z.cap) z.dead = true;   // spent — every seat at the puddle is taken
+    if (z.victims.length >= z.cap) { z.dead = true; anyDead = true; }   // spent — every seat taken
   }
-  game.zones = game.zones.filter((z) => !z.dead);
+  if (anyDead) game.zones = game.zones.filter((z) => !z.dead);   // only rebuild the list when something expired
 }
 
 /* -------------------------------------------------------------------------
@@ -1000,8 +1043,10 @@ function glueOpts(t) {
     slowPerStack: 1 - t.glueFactor, slowFloor: t.glueFactor,
   };
   if (t.trailCap > 0) {
+    // The puddle carries THIS SAME glue payload (a copy, not a re-spelling of
+    // the same four fields), minus the trail so puddles never chain into puddles.
     o.trail = { radius: t.trailRadius, life: t.trailLife, cap: t.trailCap,
-                opts: { duration: t.glueDur, maxStacks: 1, slowPerStack: 1 - t.glueFactor, slowFloor: t.glueFactor } };
+                opts: { duration: o.duration, maxStacks: o.maxStacks, slowPerStack: o.slowPerStack, slowFloor: o.slowFloor } };
   }
   return o;
 }
@@ -1053,17 +1098,24 @@ const TARGETING_MODES = [
   ["first", "First"], ["last", "Last"], ["strong", "Strong"], ["close", "Close"],
 ];
 
+// The priority score for dish `e` under tower `t`'s targeting mode (higher =
+// picked first). ONE source for pickTarget's single-target choice and the
+// multi-target towers' ordering (the Syrup Slinger sorts by this so 'last' /
+// 'strong' / 'close' actually change who it globs — Issue #107 #3).
+function targetingKey(t, e) {
+  switch (t.targeting) {
+    case "last": return -e.dist;          // least far along the path
+    case "strong": return e.hp;           // most current HP
+    case "close": return -distance(t, e); // nearest to the tower
+    default: return e.dist;               // "first": furthest along the path
+  }
+}
+
 function pickTarget(t) {
   let best = null, bestKey = -Infinity;
   for (const e of game.enemies) {
     if (distance(t, e) > t.range) continue;
-    let key;
-    switch (t.targeting) {
-      case "last": key = -e.dist; break;        // least far along the path
-      case "strong": key = e.hp; break;         // most current HP
-      case "close": key = -distance(t, e); break; // nearest to the tower
-      default: key = e.dist;                    // "first": furthest along the path
-    }
+    const key = targetingKey(t, e);
     if (key > bestKey) { bestKey = key; best = e; }
   }
   return best;
@@ -1171,8 +1223,9 @@ function updateTowers(step) {
       if (t.slurpTargets.length === 0) continue;
       t.slurpShow = 0.12;   // keep the smoke stream(s) drawn between bastes
       if (t.cdTimer <= 0) {
+        const opts = towerStatusOpts(t, "smoke");   // ONE payload seam (was an inline literal — drift risk): now buff-aware (Issue #107 #1)
         for (const target of t.slurpTargets) {
-          applyDot(target, "smoke", { dpsPerStack: t.smokeDps, duration: t.smokeDuration, maxStacks: t.smokeStacks });
+          applyDot(target, "smoke", opts);
           spawnSmokePuff(target.x, target.y, target.radius);
         }
         t.cdTimer = towerCooldown(t);
@@ -1190,15 +1243,19 @@ function updateTowers(step) {
     if (t.typeId === "ranch") {
       if (t.cdTimer > 0) continue;
       const globs = t.glueTargets || 1;
-      const inRange = game.enemies.filter((e) => distance(t, e) <= t.range).sort((a, b) => b.dist - a.dist);
+      // Order by the player's TARGETING mode (Issue #107 #3 — the old kit
+      // honored it via pickTarget; the rework hardcoded frontmost). The
+      // prefer-unglued SPREAD rides on top as a tiebreak LAYER: un-glued dishes
+      // first (in the chosen order), topping up with refreshes only when
+      // everything in range is already stuck — a control tower that re-coats
+      // the same dish forever is wasted.
+      const inRange = game.enemies.filter((e) => distance(t, e) <= t.range).sort((a, b) => targetingKey(t, b) - targetingKey(t, a));
       if (!inRange.length) continue;
-      // Spread the syrup: globs go to UN-glued dishes first (frontmost first),
-      // topping up with refreshes only when everything in range is already
-      // stuck — a control tower that re-coats the same dish forever is wasted.
       const unglued = inRange.filter((e) => !e.dots || !e.dots.some((d) => d.src === "syrup" && d.duration > 0));
       const targets = unglued.concat(inRange.filter((e) => !unglued.includes(e))).slice(0, globs);
+      const opts = glueOpts(t);   // one payload for the whole squeeze (hoisted out of the glob loop)
       for (const e of targets) {
-        applyDot(e, "syrup", glueOpts(t));
+        applyDot(e, "syrup", opts);
         spawnSyrupGlob(e.x, e.y, e.radius);
       }
       t.lungeTimer = LUNGE_DUR; t.lungeAngle = Math.atan2(targets[0].y - t.y, targets[0].x - t.x);
@@ -1222,12 +1279,16 @@ function updateTowers(step) {
             if (e.ampBonus > 0 || distance(t, e) > t.range) continue;   // already flagged / out of aura
             if (e.dist > bestKey) { bestKey = e.dist; best = e; }
           }
-          if (best) {
-            applyAmp(best, 1, t.tagDur, t.tagBonus);   // a VALUE tag: worth more on death, no damage amp
+          // A VALUE tag (worth-more-on-death, ZERO damage): reset the cadence,
+          // spend the lunge + offer sparkle, ONLY when the tag actually lands
+          // (Issue #107 #7) — if a future stronger amp blocked it, retry next
+          // tick instead of silently burning the cadence. No FX.shoot: the
+          // Sample Lady never attacks, so a tag is silent (its read is the offer
+          // sparkle + the dish's flag; a bespoke tag sound is Issue #64).
+          if (best && applyAmp(best, 1, t.tagDur, t.tagBonus)) {
             spawnSampleOffer(best.x, best.y, best.radius);
             t.lungeTimer = LUNGE_DUR; t.lungeAngle = Math.atan2(best.y - t.y, best.x - t.x);
-            t.tagTimer = t.tagPeriod;   // the cadence restarts only when a tag actually lands
-            FX.shoot("sample", t.upgradePath);
+            t.tagTimer = t.tagPeriod;
           }
         }
       }

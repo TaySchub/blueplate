@@ -111,4 +111,28 @@ const hpBefore = near.hp;
 for (let i = 0; i < Math.ceil(0.5 / STEP); i++) E.updateStatuses(STEP);
 assert(near.hp < hpBefore, "the aura's smoke ticks damage through the NORMAL status/damage path");
 
+// ---- A puddle spends its seats on NEW passers, not already-glued dishes (Issue #107 #4) ----
+// A cap-1 puddle dropped amid a glued pack must survive to catch the next DRY dish.
+E.reset();
+game.zones = [];
+const preGlued = makeEnemy({ x: 100, y: 100 });   // already carries syrup (listed first)
+E.applyDot(preGlued, "syrup", { ...GLUE });
+const dry = makeEnemy({ x: 104, y: 100 });         // a fresh passer on the same spot
+game.enemies.push(preGlued, dry);
+E.spawnZone({ kind: "syrup", x: 100, y: 100, radius: 30, life: 60, cap: 1, src: "syrup", opts: { ...GLUE } });
+E.updateZones(STEP);
+assert(!!dry.dots.find((d) => d.src === "syrup"), "a cap-1 puddle in a glued pack still catches the DRY dish");
+assert(game.zones.length === 0, "…and is spent on that catch — the already-glued dish never burned the seat");
+
+// ---- Slow CHANNELS never multiply: strongest single slow wins (Issue #107 #10 ruling) ----
+E.reset();
+const bothSlowed = makeEnemy({ x: 0, y: 0, dist: 100, speed: 60 });
+game.enemies.push(bothSlowed);
+bothSlowed.slowTimer = 5; bothSlowed.slowFactor = 0.5;   // legacy thaw-slow (frost after-slow): 0.5×
+E.applyDot(bothSlowed, "syrup", { duration: 5, maxStacks: 1, slowPerStack: 0.75, slowFloor: 0.25 });   // status glue: 0.25×
+const distBefore = bothSlowed.dist;
+E.moveEnemies(STEP);
+assert(Math.abs((bothSlowed.dist - distBefore) - 60 * 0.25 * STEP) < 1e-9,
+  "frost-slow × syrup-glue take the STRONGEST single factor (0.25×), never multiply to 0.125×");
+
 done("zones");

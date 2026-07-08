@@ -37,6 +37,9 @@ export function loadEngine() {
        loadMap, MAPS, pointAtDistance, eaterBiteCooldown,
        // Status layer (Roster Growth 2) — the DOT/AMP subsystem + its tick.
        applyDot, applyAmp, maxDotStacks, statusSlowFactor, updateStatuses, STATUS_TICK,
+       // The side-effect hooks (no-ops headless) — exposed so a test can SPY on
+       // them (e.g. proving a zero-damage value tag fires no attack/hit sound).
+       FX,
        // Tower Rework shared systems: zone applicators + proximity support.
        spawnZone, updateZones, glueOpts, towerStatusOpts,
        recomputeSupport, towerCooldown, towerDamage, tierCostFor,
@@ -50,7 +53,7 @@ export function loadEngine() {
        // review probes). Also give sane currency + a clean wave so update()-driven
        // tests run a live "wave" phase.
        reset() {
-         game.enemies = []; game.projectiles = []; game.particles = [];
+         game.enemies = []; game.projectiles = []; game.particles = []; game.zones = [];
          game.phase = "wave"; game.lives = game.maxLives = 20; game.currency = 500;
          game.waveIndex = 0; game.spawnQueue = []; game.spawnTimer = 0;
        },
@@ -77,7 +80,7 @@ export function done(name) {
 export function makeEnemy({ x = 0, y = 0, dist = 0, hp = 1e6, radius = 12, typeId = "mote", speed = 0, bounty = 5 } = {}) {
   return { typeId, x, y, dist, hp, maxHp: hp, radius, bounty, speed,
            hurtFlash: 0, slowTimer: 0, slowFactor: 1, freezeTimer: 0,
-           dots: [], ampMul: 1, ampTimer: 0, ampBonus: 0 };
+           dots: [], ampMul: 1, ampTimer: 0, ampBonus: 0, ampBonusTimer: 0 };
 }
 
 // A bare placed-tower struct with the fields fireProjectile + updateTowers read;
@@ -86,5 +89,9 @@ export function makeTower(typeId, opts = {}) {
   return { typeId, x: 0, y: 0, damage: 10, cooldown: 1, range: 1000, cdTimer: 0,
            pierce: false, crumbRadius: 0, crumbDamage: 0, knockbackBase: 0, knockbackSizeRef: 0,
            splash: 0, slowDur: 0, slowFactor: 1, freezeDur: 0, lungeTimer: 0, lungeAngle: 0,
+           // Tower Rework fields default to neutral so a bare test tower behaves
+           // like an un-buffed, un-jackpotted seat (Issue #107 cleanup).
+           buffHasteMul: 1, buffDamageMul: 1, buffDiscount: 0, biteFloor: 0,
+           jackpotEvery: 0, jackpotTips: 0, killCount: 0,
            slurpTargets: [], slurpShow: 0, slurpSoundTimer: 0, upgradeFlash: 0, ...opts };
 }

@@ -117,4 +117,31 @@ Math.random = realRandom;
 assert(rngCalls === 0, "status bookkeeping (apply/tick/expiry/slow) consumes ZERO Math.random");
 assert(rngGuard.dots.length === 0 && rngGuard.ampMul === 1, "the guarded lifecycle actually ran to expiry");
 
+// ---- Dot duration REFRESHES TO STRONGEST — a weaker applier can't CUT it (Issue #107 #8) ----
+E.reset();
+const dur = makeEnemy({ hp: 1e6 });
+game.enemies.push(dur);
+E.applyDot(dur, "smoke", { dpsPerStack: 5, duration: 4, maxStacks: 5 });   // a long clock
+const sd = dur.dots.find((d) => d.src === "smoke");
+E.applyDot(dur, "smoke", { dpsPerStack: 5, duration: 1, maxStacks: 5 });   // a SHORTER re-apply
+assert(sd.duration === 4, "a shorter re-apply cannot cut the dot's remaining clock (Math.max, not last-writer-wins)");
+E.applyDot(dur, "smoke", { dpsPerStack: 5, duration: 6, maxStacks: 5 });   // a LONGER re-apply
+assert(sd.duration === 6, "a longer re-apply refreshes the clock upward");
+
+// ---- The value-tag BONUS rides its OWN clock — a stronger damage-amp can't
+//      truncate it, and applyAmp reports whether it landed (Issue #107 #7) ----
+E.reset();
+const tagged = makeEnemy({ hp: 1000 });
+game.enemies.push(tagged);
+const tagOk = E.applyAmp(tagged, 1, 5.0, 30);                 // a value tag (mul 1), long window
+assert(tagOk === true && tagged.ampBonus === 30, "a value tag lands and applyAmp reports success");
+const ampOk = E.applyAmp(tagged, 2.0, 0.5, 0);               // a STRONGER damage-amp, SHORT window
+assert(ampOk === true && tagged.ampMul === 2.0, "a stronger damage-amp lands on the same dish");
+for (let i = 0; i < Math.round(0.6 * 60); i++) E.updateStatuses(STEP);
+assert(tagged.ampMul === 1, "the damage-amp expires on its own short clock");
+assert(tagged.ampBonus === 30, "…but the value tag's bonus SURVIVES — its clock was never truncated");
+tagged.ampMul = 2.0; tagged.ampTimer = 1.0;                   // now a live strong amp
+const weakOk = E.applyAmp(tagged, 1.5, 1.0, 0);              // a WEAKER amp
+assert(weakOk === false && tagged.ampMul === 2.0, "a weaker amp is ignored and reports no-landing (the tag cadence would retry)");
+
 done("status");

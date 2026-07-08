@@ -823,7 +823,7 @@ function drawShortOrderCook(ctx, cx, cy, r, color, opts) {
 // green shirt (signature color) is the read; open, determined mouth mid-bite.
 function drawCompetitiveEater(ctx, cx, cy, r, color, opts) {
   const level = opts.level || 1;
-  const pace = opts.path === "recordPace" ? (opts.tier || 0) : 0;   // Mustard Belt: a belt buckle
+  const pace = opts.path === "tipJar" ? (opts.tier || 0) : 0;   // The Tip Jar t2: a champion's belt buckle
   const dunk = opts.path === "waterDunk" ? (opts.tier || 0) : 0;    // Solomon Method: bigger water cup
   const shirt = color, pants = "#39415a", hy = cy - r * 0.58, headR = r * 0.52, shoulderY = cy - r * 0.02;
   // Seated legs.
@@ -847,7 +847,7 @@ function drawCompetitiveEater(ctx, cx, cy, r, color, opts) {
     ctx.fillStyle = "#f4f7ff"; ctx.strokeStyle = MDARK; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(cx - r * 0.4, cy + r * 0.12); ctx.lineTo(cx + r * 0.4, cy + r * 0.12); ctx.lineTo(cx, cy + r * 0.58); ctx.closePath(); ctx.fill(); ctx.stroke();
   }
-  // Mustard Belt (Record Pace t2): a champion's belt buckle at the waist.
+  // The Tip Jar (t2): a champion's belt buckle at the waist.
   if (pace >= 2) {
     ctx.fillStyle = "#ffcf4a"; ctx.strokeStyle = MDARK; ctx.lineWidth = 1.4;
     roundRect(ctx, cx - r * 0.2, cy + r * 0.62, r * 0.4, r * 0.26, r * 0.06); ctx.fill(); ctx.stroke();
@@ -1525,7 +1525,14 @@ function drawWordmark(ctx, cx, cy, w) {
 //   syrup dot → a maple-amber coating arc + drips sliding down (NOT the cyan
 //               slow ring — that stays the Photographer's after-slow);
 //   tag/amp   → a gold toothpick sample-flag planted on top (a value tag and
-//               a damage amp share the flag — both are ampTimer-driven).
+//               a damage amp share the flag — each on its own live timer).
+// The ONE predicate for "show the amp/tag flag", shared by render.js's cue gate
+// and drawStatusCues below (Issue #107 cleanup): a live damage amp (ampMul > 1)
+// OR a live value tag (ampBonus on its own ampBonusTimer). The ampMul > 1 half
+// is currently unreachable (no mul > 1 applier ships yet) but arms with the
+// first damage-amp kit.
+function ampFlagged(e) { return e.ampMul > 1 || (e.ampBonus > 0 && e.ampBonusTimer > 0); }
+
 function drawStatusCues(ctx, e, elapsed) {
   const r = e.radius || 10;
   ctx.save();
@@ -1558,7 +1565,7 @@ function drawStatusCues(ctx, e, elapsed) {
       ctx.globalAlpha = 1;
     }
   }
-  if (e.ampMul > 1 || (e.ampBonus > 0 && e.ampTimer > 0)) {
+  if (ampFlagged(e)) {
     // The sample flag: a toothpick with a little gold pennant, planted on top.
     const fx = e.x + r * 0.35, fy = e.y - r - 2;
     ctx.strokeStyle = MDARK; ctx.lineWidth = 1.2;

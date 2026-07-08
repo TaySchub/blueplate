@@ -58,6 +58,22 @@ ticks(1);
 assert(!!back.dots.find((d) => d.src === "syrup"),
   "the SECOND glob goes to the still-dry dish (syrup spreads before it refreshes)");
 
+// ---- The player's TARGETING mode is honored again (Issue #107 #3 regression) ----
+// The old ranch obeyed pickTarget; the rework hardcoded frontmost. Now it orders
+// by the chosen mode, with the prefer-unglued spread layered on top.
+t = buildSlinger();
+E.setTargeting(t, "last");
+const farDish = makeEnemy({ x: t.x + 40, y: t.y, dist: 90, hp: 1e6 });   // frontmost
+const nearDish = makeEnemy({ x: t.x - 40, y: t.y, dist: 20, hp: 1e6 });  // least far
+game.enemies.push(farDish, nearDish);
+ticks(1);
+assert(!!nearDish.dots.find((d) => d.src === "syrup"), "a 'last'-targeted slinger globs the LEAST-far dish");
+assert(!farDish.dots.find((d) => d.src === "syrup"), "…not the frontmost (the targeting regression is fixed)");
+t.cdTimer = 0;
+ticks(1);   // the prefer-unglued spread still layers ON TOP of the chosen order
+assert(!!farDish.dots.find((d) => d.src === "syrup"),
+  "the next squeeze spreads to the still-dry dish (prefer-unglued layers over 'last')");
+
 // ---- The Big Bottle t2: one squeeze globs several dishes (the frozen multi-glob) ----
 t = buildSlinger(["bigBottle", "bigBottle"]);
 assert(t.glueTargets === 3, "Big Bottle t2 arms the multi-glob (3 dishes — the FROZEN count)");

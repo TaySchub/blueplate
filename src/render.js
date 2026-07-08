@@ -639,18 +639,28 @@ function drawDishReturn(ctx) {
   ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
 }
 
-// Belt puddles (zone applicators): a syrup puddle is a maple-amber blob lying
-// flat on the belt — same minimal state-language tier as the slow ring. Fades
-// out over its last half-second so expiry never pops.
+// Belt-puddle styling per zone KIND (Issue #107 #9): the next non-syrup puddle
+// gets a color by adding a row here instead of silently drawing as syrup. Syrup
+// keeps its exact maple-amber (fill + lighter sheen) so current pixels are
+// unchanged.
+const ZONE_STYLE = {
+  syrup:   { fill: "#d98a2e", sheen: "#f2c063" },
+  DEFAULT: { fill: "#d98a2e", sheen: "#f2c063" },
+};
+
+// Belt puddles (zone applicators): a puddle is a blob lying flat on the belt —
+// same minimal state-language tier as the slow ring. Fades out over its last
+// half-second so expiry never pops.
 function drawZones(ctx) {
   for (const z of game.zones || []) {
+    const style = ZONE_STYLE[z.kind] || ZONE_STYLE.DEFAULT;
     const fade = Math.min(1, (z.life || 0) / 0.5);
     ctx.save();
     ctx.globalAlpha = 0.75 * fade;
-    ctx.fillStyle = "#d98a2e"; ctx.strokeStyle = "#0b0e14"; ctx.lineWidth = 1.6;
+    ctx.fillStyle = style.fill; ctx.strokeStyle = "#0b0e14"; ctx.lineWidth = 1.6;
     ctx.beginPath(); ctx.ellipse(z.x, z.y + 2, z.radius, z.radius * 0.62, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
     // A lighter sheen streak so it reads glossy-sticky, not flat.
-    ctx.globalAlpha = 0.35 * fade; ctx.fillStyle = "#f2c063";
+    ctx.globalAlpha = 0.35 * fade; ctx.fillStyle = style.sheen;
     ctx.beginPath(); ctx.ellipse(z.x - z.radius * 0.25, z.y - z.radius * 0.08, z.radius * 0.45, z.radius * 0.2, -0.3, 0, Math.PI * 2); ctx.fill();
     ctx.restore();
   }
@@ -663,9 +673,9 @@ function drawEnemies(ctx) {
     // Eaten-down bites: one past 3/4 HP, two past 1/2 HP.
     const frac = e.hp / e.maxHp, bites = frac <= 0.5 ? 2 : frac <= 0.75 ? 1 : 0;
     drawFood(ctx, e.typeId, e.x, e.y, e.radius, et.color, et.edge, e.hurtFlash > 0, bites);
-    // Status cues: smoke curls / syrup coat / the value-tag flag (a flag shows
-    // for a real amp OR a worth-more-on-death tag — both are ampTimer-driven).
-    if ((e.dots && e.dots.length) || e.ampMul > 1 || (e.ampTimer > 0 && e.ampBonus > 0)) drawStatusCues(ctx, e, game.elapsed);
+    // Status cues: smoke curls / syrup coat / the value-tag flag (shared
+    // ampFlagged predicate — see art.js — so render + art never drift).
+    if ((e.dots && e.dots.length) || ampFlagged(e)) drawStatusCues(ctx, e, game.elapsed);
     // Posing for the photo: a slight overexposed tint + camera-viewfinder corner
     // brackets framing the held-still dish (no ice — it's a snapshot, not a
     // freeze). The freeze is the Photographer's alone since the Tower Rework
@@ -762,22 +772,33 @@ function drawEaterBites(ctx) {
   }
 }
 
+// Ambient-aura ring styling per aura SOURCE (Issue #107 #9): the next non-smoke
+// aura kit gets a color by adding a row here instead of being invisible. Smoke
+// keeps its exact gray ring + curls so current pixels are unchanged.
+const AURA_STYLE = {
+  smoke:   { ring: "#9aa2ad", curl: "#c3c9d2" },
+  DEFAULT: { ring: "#9aa2ad", curl: "#c3c9d2" },
+};
+
 // The Pitmaster's on-belt read: a wavering smoke stream from the smoker to its
 // locked dish(es) (the slurp-straw pattern — same lock fields, smokier line).
-// A smoker with the AMBIENT AURA (The Stall t2) also shows a faint hazy ring at
-// the aura's radius with a couple of drifting curls — the same minimal cue tier
-// as the status curls, elapsed-driven (no RNG), so the zone is never invisible.
+// Any tower with the AMBIENT AURA (The Stall t2 today) also shows a faint hazy
+// ring at the aura's radius with a couple of drifting curls — the same minimal
+// cue tier as the status curls, elapsed-driven (no RNG), so the zone is never
+// invisible.
 function drawSmokeStreams(ctx) {
   for (const t of game.towers) {
-    if (t.typeId !== "pit") continue;
-    if (t.auraPeriod > 0 && t.auraRadius > 0) {
+    // The aura RING draws for ANY aura tower, keyed on auraSrc (not a hardcoded
+    // pit check) and styled from AURA_STYLE — so the next aura kit is visible.
+    if (t.auraPeriod > 0 && t.auraRadius > 0 && t.auraSrc) {
+      const st = AURA_STYLE[t.auraSrc] || AURA_STYLE.DEFAULT;
       ctx.save();
-      ctx.strokeStyle = "#9aa2ad"; ctx.globalAlpha = 0.22; ctx.lineWidth = 2;
+      ctx.strokeStyle = st.ring; ctx.globalAlpha = 0.22; ctx.lineWidth = 2;
       ctx.setLineDash([7, 9]); ctx.lineDashOffset = -game.elapsed * 10;
       ctx.beginPath(); ctx.arc(t.x, t.y, t.auraRadius, 0, Math.PI * 2); ctx.stroke();
       ctx.setLineDash([]);
       // Two lazy curls drifting around the ring's inside edge.
-      ctx.globalAlpha = 0.3; ctx.lineWidth = 1.6; ctx.lineCap = "round"; ctx.strokeStyle = "#c3c9d2";
+      ctx.globalAlpha = 0.3; ctx.lineWidth = 1.6; ctx.lineCap = "round"; ctx.strokeStyle = st.curl;
       for (let i = 0; i < 2; i++) {
         const a = game.elapsed * 0.5 + i * Math.PI;
         const cx = t.x + Math.cos(a) * t.auraRadius * 0.8;
@@ -790,6 +811,8 @@ function drawSmokeStreams(ctx) {
       }
       ctx.restore();
     }
+    // The smoke STREAM to the locked dish(es) is the Pitmaster's own read.
+    if (t.typeId !== "pit") continue;
     if (!(t.slurpShow > 0)) continue;
     for (const tgt of (t.slurpTargets || [])) {
       if (!game.enemies.includes(tgt)) continue;

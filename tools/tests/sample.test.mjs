@@ -88,4 +88,40 @@ assert(lady.supportHaste < E.TOWER_BY_ID.sample.supportHaste,
 const hasted = build("arrow", anchors[8]);
 assert(hasted.buffHasteMul === lady.supportHaste, "…and towers in the aura receive the stronger haste");
 
+// ---- Happy Hour REACHES the DOT payloads (Issue #107 #1): the damage buff
+//      scales a dot tower's smoke dps, but cannot touch the zero-dps syrup glue ----
+E.reset(); game.towers = [];
+const smoker = build("pit", anchors[1]);
+smoker.buffDamageMul = 1.5;   // as if standing in a Happy Hour t2 aura
+const buffedSmoke = E.towerStatusOpts(smoker, "smoke");
+assert(Math.abs(buffedSmoke.dpsPerStack - smoker.smokeDps * 1.5) < 1e-9,
+  "a damage buff scales the smoke DOT's dps — no longer a no-op over a dot tower whose direct damage is 0");
+smoker.buffDamageMul = 1;
+assert(E.towerStatusOpts(smoker, "smoke").dpsPerStack === smoker.smokeDps, "un-buffed, the smoke dps is the raw stat");
+E.reset(); game.towers = [];
+const slinger = build("ranch", anchors[1]);
+slinger.buffDamageMul = 2.0;
+const buffedGlue = E.towerStatusOpts(slinger, "syrup");
+assert((buffedGlue.dps === undefined || buffedGlue.dps === 0) && buffedGlue.dpsPerStack === undefined,
+  "syrup carries no dps — a damage buff adds NO damage to it (a pure-control tower stays pure control)");
+assert(buffedGlue.slowFloor === slinger.glueFactor, "…and the glue's slow strength is untouched by the damage buff");
+
+// ---- A value tag is SILENT (Issue #107 #5): engine-side FX gating fires no
+//      attack sound and no amp hit sound for a zero-damage tag ----
+E.reset(); game.towers = []; game.phase = "wave";
+lady = build("sample", anchors[0], ["onTheHouse"]);
+const mark = makeEnemy({ x: lady.x + 30, y: lady.y, dist: 80, hp: 1e6, bounty: 10 });
+game.enemies.push(mark);
+let shootCalls = 0, ampSounds = 0;
+const origShoot = E.FX.shoot, origStatus = E.FX.statusApply;
+E.FX.shoot = () => { shootCalls++; };
+E.FX.statusApply = (k) => { if (k === "amp") ampSounds++; };
+ticks(1);   // the tag lands this tick
+assert(mark.ampBonus === lady.tagBonus, "precondition: the value tag landed");
+assert(shootCalls === 0, "a value tag fires NO attack sound — the Sample Lady never attacks");
+assert(ampSounds === 0, "…and NO amp hit sound (a zero-damage tag is silent)");
+E.applyAmp(mark, 2.0, 1.0, 0);   // a REAL damage amp (mul > 1)
+assert(ampSounds === 1, "a real damage-amp still rings the hit — the gate is mul>1, not silence-all");
+E.FX.shoot = origShoot; E.FX.statusApply = origStatus;
+
 done("sample");

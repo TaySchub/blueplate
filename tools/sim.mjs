@@ -114,7 +114,7 @@ const bundle =
   `
 ;globalThis.ENGINE = {
   game, startRun, startNextWave, tryBuild, tryUpgrade, update, makeWave,
-  TOWER_BY_ID, RULES, WAVES, towerPaths, nextTier, loadMap, MAPS,
+  TOWER_BY_ID, RULES, WAVES, towerPaths, nextTier, tierCostFor, loadMap, MAPS,
   reset() { META = freshMeta(); },
 };`;
 vm.runInThisContext(bundle, { filename: "deckbound-engine-bundle.js" });
@@ -182,7 +182,11 @@ function playGame(seed, build, map) {
           // or a maxed/locked path so a future tower without a mapping won't crash.
           const cands = E.game.towers.filter((t) => { const p = pathFor(t.typeId); return p && E.nextTier(t, p); });
           if (!cands.length) break;
-          const cost = (t) => E.nextTier(t, pathFor(t.typeId)).cost;
+          // Price via tierCostFor — EXACTLY what tryUpgrade charges (support
+          // discount included), so the buyer's affordability + cheapest-first
+          // choice match the real game (Issue #107 #6). No sample → tierCostFor
+          // == list tier.cost, so the reference gate is unaffected.
+          const cost = (t) => E.tierCostFor(t, E.nextTier(t, pathFor(t.typeId)));
           const t = cands.reduce((a, b) => (cost(a) <= cost(b) ? a : b));
           if (E.game.currency < cost(t)) break;
           E.tryUpgrade(t, pathFor(t.typeId));
