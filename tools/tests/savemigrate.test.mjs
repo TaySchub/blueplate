@@ -82,20 +82,116 @@ globalThis.localStorage.setItem(SAVE_KEY, JSON.stringify({
 assert(E.restoreRun() === true, "a v2 save with an unknown path still restores");
 assert(game.currency === 100 + 700, "…refunding exactly what the save says was spent past the base cost");
 
-// ---- THE LAST-RESORT BACKSTOP: garbage saves land in the hub, META intact ----
+// ---- Issue #106 #2: the three unexercised LEGACY_TIER_COSTS rows refund EXACTLY ----
+// A v1 save on each retired path must refund its FROZEN tier prices to the Tip;
+// a per-row price typo would otherwise short-change the player silently. Each
+// row is its own single-tower save so a wrong row fails its own assertion.
+const orphanRows = [
+  { typeId: "ranch",  path: "widerNozzle",    sum: 250 + 600 },   // ranch — cone/coat kit retired
+  { typeId: "sample", path: "hardSell",       sum: 150 + 300 },   // sample — amp kit retired
+  { typeId: "pit",    path: "competitionRub", sum: 250 + 550 },   // pit — replaced by Whole Hog
+];
+for (const r of orphanRows) {
+  globalThis.localStorage.setItem(SAVE_KEY, JSON.stringify({
+    version: 1, mapId: "blueplate", waveIndex: 4, currency: 200, lives: 10,
+    towers: [{ typeId: r.typeId, x: a[0].x, y: a[0].y, upgradePath: r.path, upgradeTier: 2, targeting: "first" }],
+  }));
+  assert(E.restoreRun() === true, "a v1 save on retired " + r.path + " restores");
+  const tw = game.towers.find((t) => t.typeId === r.typeId);
+  assert(tw && tw.upgradePath === null && tw.upgradeTier === 0, r.path + ": the retired seat is kept, cleanly un-committed");
+  assert(game.currency === 200 + r.sum, r.path + " refunds its frozen tiers exactly: 200 + " + r.sum + " = " + game.currency);
+}
+
+// ---- Issue #106 #2: a v1 save on a SURVIVING but REPRICED path books the FROZEN price ----
+// #105 stage 3 repriced theStall t1 250->500. A v1 pit paid 300(base)+250 = 550,
+// NOT the live 300+500 = 800. Booking the live price would MINT Tips through sell.
+globalThis.localStorage.setItem(SAVE_KEY, JSON.stringify({
+  version: 1, mapId: "blueplate", waveIndex: 5, currency: 0, lives: 10,
+  towers: [{ typeId: "pit", x: a[0].x, y: a[0].y, upgradePath: "theStall", upgradeTier: 1, targeting: "strong" }],
+}));
+assert(E.restoreRun() === true, "a v1 pit on the surviving theStall path restores");
+const v1pit = game.towers.find((t) => t.typeId === "pit");
+assert(v1pit.upgradePath === "theStall" && v1pit.upgradeTier === 1, "…the surviving path re-applies (current deltas)");
+assert(v1pit.spent === 550, "…booking the FROZEN v1 price: base 300 + theStall t1 250 = " + v1pit.spent + " (not the live 800)");
+const beforeSell = game.currency;
+E.sellTower(v1pit);
+assert(game.currency - beforeSell === Math.floor(E.RULES.sellRefund * 550),
+  "…so its sell-refund is floor(sellRefund x 550) = " + (game.currency - beforeSell) + " Tips (385, not the inflated 560)");
+
+// ---- Issue #106 #3: a saved seat that no longer PLACES refunds its full value ----
+// (corrupt coords, or a map/obstacle/spacing change invalidating an old seat).
+assert(E.canPlace(-9999, -9999) === false, "precondition: the saved coordinates are unplaceable");
+globalThis.localStorage.setItem(SAVE_KEY, JSON.stringify({
+  version: 2, mapId: "blueplate", waveIndex: 2, currency: 50, lives: 10,
+  towers: [{ typeId: "ranch", x: -9999, y: -9999, upgradePath: "quickPour", upgradeTier: 2, targeting: "first",
+             spent: E.TOWER_BY_ID.ranch.cost + 800, base: E.TOWER_BY_ID.ranch.cost }],
+}));
+assert(E.restoreRun() === true, "a save with an unplaceable seat still restores the run");
+assert(game.towers.length === 0, "…the rejected seat is NOT silently seated at a wrong spot");
+assert(game.currency === 50 + E.TOWER_BY_ID.ranch.cost + 800,
+  "…and its FULL value is refunded, never vanished: " + game.currency);
+
+// ---- Issue #106 #4: the eater's Tip Jar killCount survives save/continue ----
+E.loadMap(E.MAPS[0]); E.startRun(); game.currency = 100000;
+game.selectedType = "eater"; E.tryBuild(a[2].x, a[2].y);
+const jarEater = game.towers[game.towers.length - 1];
+E.tryUpgrade(jarEater, "tipJar"); E.tryUpgrade(jarEater, "tipJar");
+assert(jarEater.jackpotEvery > 0, "the eater's Tip Jar jackpot cadence is armed");
+jarEater.killCount = 4;                 // one kill short of a jackpot at jackpotEvery=5
+game.waveIndex = 8; E.saveCheckpoint();
+game.towers = []; game.phase = "lost";  // wipe live state so restore comes from disk
+assert(E.restoreRun() === true, "the eater-board run restores");
+const rJar = game.towers.find((t) => t.typeId === "eater");
+assert(rJar.killCount === 4, "the eater's jackpot progress (killCount) survives the roundtrip: " + rJar.killCount + " (not reset to 0)");
+
+// ---- Issue #106 #5: a v2 orphan refund is independent of the LIVE base cost ----
+// The save STAMPS `base` at write time; a later base reprice must not skew it.
+const savedRanchBase = E.TOWER_BY_ID.ranch.cost;   // 300
+globalThis.localStorage.setItem(SAVE_KEY, JSON.stringify({
+  version: 2, mapId: "blueplate", waveIndex: 1, currency: 100, lives: 10,
+  towers: [{ typeId: "ranch", x: a[0].x, y: a[0].y, upgradePath: "goneForever", upgradeTier: 2, targeting: "first",
+             spent: savedRanchBase + 700, base: savedRanchBase }],
+}));
+E.TOWER_BY_ID.ranch.cost = savedRanchBase + 999;   // simulate a FUTURE base reprice
+assert(E.restoreRun() === true, "a v2 orphan save restores after a simulated base reprice");
+assert(game.currency === 100 + 700,
+  "…the orphan refund uses the STAMPED base, not the live one: 100 + 700 = " + game.currency + " (a live-base refund would read wrong)");
+E.TOWER_BY_ID.ranch.cost = savedRanchBase;         // RESTORE the live cost — never pollute later assertions
+
+// ---- Issue #106 (NaN isolation): one tower's garbage `spent` can't poison a sibling ----
+globalThis.localStorage.setItem(SAVE_KEY, JSON.stringify({
+  version: 2, mapId: "blueplate", waveIndex: 1, currency: 0, lives: 10,
+  towers: [
+    { typeId: "ranch", x: a[0].x, y: a[0].y, upgradePath: "goneA", upgradeTier: 2, targeting: "first",
+      spent: {},                             base: E.TOWER_BY_ID.ranch.cost },   // garbage spend -> treated as unknown, refund 0
+    { typeId: "pit",   x: a[1].x, y: a[1].y, upgradePath: "goneB", upgradeTier: 2, targeting: "first",
+      spent: E.TOWER_BY_ID.pit.cost + 700,   base: E.TOWER_BY_ID.pit.cost },     // a legit 700-Tip refund
+  ],
+}));
+assert(E.restoreRun() === true, "a save with one garbage-spent tower still restores");
+assert(game.currency === 700, "the sibling's legit 700-Tip refund survives (not NaN-dropped): " + game.currency);
+
+// ---- THE LAST-RESORT BACKSTOP: a type-garbage save is REJECTED — hub, discarded,
+// never re-persisted (Issue #106 #1). This leg used to only prove "no throw"; it
+// now pins the RESULT: the NaN zombie run can no longer restore. ----
 E.getMeta().essence = 9;
+game.phase = "wave";   // start somewhere that is NOT the hub, to prove restore moves us there
 globalThis.localStorage.setItem(SAVE_KEY, JSON.stringify({
   version: 2, mapId: "blueplate", waveIndex: "not-a-number", currency: null, lives: {}, towers: [{}, 42, null],
 }));
 let crashed = false, res;
 try { res = E.restoreRun(); } catch (err) { crashed = true; }
 assert(!crashed, "a deeply malformed save NEVER throws out of restoreRun");
+assert(res === false, "…and restoreRun REJECTS it (returns false — no NaN zombie run, no unlosable lives)");
+assert(game.phase === "menu", "…landing safely in the hub");
+assert(E.readSave() === null && globalThis.localStorage.getItem(SAVE_KEY) === null,
+  "…the garbage checkpoint is DISCARDED, so saveCheckpoint can never re-persist it");
 assert(E.getMeta().essence === 9, "META survives a garbage save unconditionally");
 
 // Unparseable + unknown-version blobs are still discarded quietly.
 globalThis.localStorage.setItem(SAVE_KEY, "{ not valid json");
 assert(E.readSave() === null && E.restoreRun() === false, "an unparseable blob is discarded without crashing");
-globalThis.localStorage.setItem(SAVE_KEY, JSON.stringify({ version: 999, mapId: "blueplate", towers: [] }));
+globalThis.localStorage.setItem(SAVE_KEY, JSON.stringify({ version: 999, mapId: "blueplate", waveIndex: 1, currency: 1, lives: 1, towers: [] }));
 assert(E.readSave() === null, "an unknown FUTURE version is discarded (never half-read)");
 
 done("savemigrate");

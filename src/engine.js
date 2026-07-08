@@ -94,21 +94,58 @@ const SAVE_KEY = "deckbound.save.v1";
 const SAVE_VERSION = 2;
 const SAVE_VERSIONS_READABLE = [1, 2];
 
-// A PLAYER'S SAVE MUST NEVER BREAK (developer-ratified, Issue #103): the Tower
-// Rework deleted/renamed upgrade paths that live inside #83 checkpoints. On
-// restore we MIGRATE rather than discard: a tower whose committed path id no
-// longer exists is kept un-upgraded and the orphaned tiers' spend is REFUNDED
-// into the run at FULL value (not the sell fraction — the change is ours, not
-// the player's). v1 saves don't carry `spent`, so the retired paths' tier
-// prices are FROZEN here at their pre-rework balance.json values.
+// A PLAYER'S SAVE MUST NEVER BREAK — and never lose value (developer-ratified,
+// Issue #103; hardened in #106). The Tower Rework deleted/renamed upgrade paths
+// that live inside #83 checkpoints AND repriced some surviving ones. On restore
+// we MIGRATE rather than discard: a tower whose committed path id no longer
+// exists is kept un-upgraded and the orphaned tiers' spend is REFUNDED into the
+// run at FULL value (not the sell fraction — the change is ours, not the
+// player's). v1 saves carry no per-tower `spent`, so a migrated v1 tower's Tips
+// are reconstructed from THIS frozen table — never from live balance.json,
+// which drifts (Issue #106 #2: #105 stage 3 repriced surviving theStall t1
+// 250->500, so booking the live price would MINT Tips through sell).
+//
+// The table freezes the v1-era (pre-#105) tier prices for EVERY pre-rework
+// upgrade path, orphaned and surviving alike — derived from data/balance.json
+// at 7fd16b1 (the last commit before #105 merged) and frozen forever. Base
+// costs were NOT repriced by #105 (verified against 7fd16b1: every tower's
+// `cost` is unchanged), so a v1 tower's base spend is read live from tryBuild;
+// only the tier prices below need freezing. A path being listed here does NOT
+// mark it orphaned — that is decided live by `!upgrades[path]`; surviving rows
+// only drive v1 spend-booking.
 const LEGACY_TIER_COSTS = {
+  // Orphaned (retired by #105) — refunded at full value on restore.
   competitionRub: [250, 550],   // pit — replaced by Whole Hog
   extraDressing:  [250, 550],   // ranch — the cone/coat kit retired
   widerNozzle:    [250, 600],   // ranch — the cone/coat kit retired
   costcoSaturday: [150, 250],   // sample — path retired (content guardrail)
   hardSell:       [150, 300],   // sample — the amp kit retired
   recordPace:     [300, 550],   // eater — replaced by The Tip Jar
+  // Surviving (still in balance.json) — v1 re-applies book THESE frozen prices.
+  theStall:       [250, 550],   // pit — REPRICED by #105 (t1 250->500 live)
+  forkFrenzy:     [300, 500],   // arrow
+  carvingStation: [250, 450],   // arrow
+  birthdayParty:  [150, 300],   // zap
+  teenageTable:   [150, 200],   // zap
+  seasonedGriddle:[250, 500],   // cook
+  slingingHash:   [250, 550],   // cook
+  oneBigBite:     [300, 600],   // cannon
+  speedEater:     [300, 700],   // cannon
+  longExposure:   [250, 500],   // frost
+  paparazzi:      [300, 600],   // frost
+  extraSlurp:     [300, 550],   // sniper
+  sillyStraw:     [300, 550],   // sniper
+  waterDunk:      [300, 550],   // eater
 };
+// The #105-new paths (wholeHog/tipJar/quickPour/bigBottle/happyHour/onTheHouse)
+// are intentionally ABSENT: no v1 save can carry a path that didn't exist
+// pre-#105, so their v1 price is never consulted. The `|| tier.cost` fallback in
+// the re-apply loop covers any future gap safely.
+
+// Number-or-reject guard for the type-validation in readSave / rebuild
+// (Issue #106 #1). Rejects strings, null, objects, NaN, Infinity — anything a
+// hand-corrupted or bit-rotted blob might smuggle into a numeric field.
+function isFiniteNumber(n) { return typeof n === "number" && Number.isFinite(n); }
 // True only while restoreRun is rebuilding the board: it drives tryBuild through
 // the real path with a bypassed cost, whose checkpointPrep would otherwise write a
 // half-built board (and a temporary Infinity currency) to disk. restoreRun writes
@@ -127,6 +164,9 @@ function serializeRun() {
       typeId: t.typeId, x: t.x, y: t.y,
       upgradePath: t.upgradePath, upgradeTier: t.upgradeTier, targeting: t.targeting,
       spent: t.spent,   // v2: the actual Tips sunk in (discounts included) — exact refunds forever after
+      base: TOWER_BY_ID[t.typeId].cost,   // v2+: the base cost STAMPED at write time, so an orphan
+                                          // refund (spent - base) can't skew if base is repriced later (Issue #106 #5)
+      killCount: t.killCount,   // v2+: Tip Jar jackpot progress — must survive save/continue (Issue #106 #4)
     })),
   };
 }
@@ -145,6 +185,15 @@ function clearSave() { try { localStorage.removeItem(SAVE_KEY); } catch (e) {} }
 // Read + validate the checkpoint. Unparseable JSON, an unknown version, a
 // missing tower list, or an unknown map → null (discard silently, never crash).
 // v1 saves stay readable — restoreRun migrates them (the never-lose-a-run rule).
+//
+// TYPE-VALIDATE the run scalars (Issue #106 #1): a parseable-but-garbage blob
+// whose waveIndex/currency/lives isn't a real number must be DISCARDED here, not
+// restored into a NaN zombie run (e.g. lives:{} -> Math.min({},max) = NaN, which
+// is unlosable, and the closing saveCheckpoint would re-persist the garbage as a
+// clean-looking v2 blob). Number-or-discard. Corrupt TOWER fields (a non-object
+// entry, or a non-numeric per-tower spent) are NOT fatal — they're sanitized
+// per-tower in rebuildTowerFromSave so one bad tower can't cost the player the
+// whole run; that keeps the never-lose-value rule while still healing garbage.
 function readSave() {
   try {
     const raw = localStorage.getItem(SAVE_KEY);
@@ -152,6 +201,7 @@ function readSave() {
     const save = JSON.parse(raw);
     if (!save || !SAVE_VERSIONS_READABLE.includes(save.version) || !Array.isArray(save.towers)) return null;
     if (!MAPS.some((m) => m.id === save.mapId)) return null;
+    if (!isFiniteNumber(save.waveIndex) || !isFiniteNumber(save.currency) || !isFiniteNumber(save.lives)) return null;
     return save;
   } catch (e) { return null; }
 }
@@ -159,19 +209,35 @@ function readSave() {
 // else null.
 function hasSave() { return readSave(); }
 
+// The exact Tips a saved tower is worth — used to refund when its whole SEAT is
+// lost (placement rejection, Issue #106 #3). v2 saves carry `spent` directly; v1
+// saves (and any tower whose `spent` is corrupt) reconstruct it from the base
+// cost plus the FROZEN pre-#105 tier prices. Always returns a finite number, so
+// a single garbage tower can never NaN-poison the run's refund accumulator.
+function savedTowerValue(ts) {
+  const base = (TOWER_BY_ID[ts.typeId] && TOWER_BY_ID[ts.typeId].cost) || 0;
+  if (isFiniteNumber(ts.spent)) return ts.spent;   // v2: exact
+  const legacy = LEGACY_TIER_COSTS[ts.upgradePath] || [];
+  let v = base;
+  const tier = ts.upgradeTier || 0;
+  for (let i = 0; i < tier; i++) v += legacy[i] || 0;
+  return v;
+}
+
 // Rebuild one placed tower from its snapshot through the REAL code paths so
 // `spent` and every signature flag reconstruct identically. Cost is bypassed
 // (currency is already the saved wave-start value). ZERO Math.random: placement
 // is tryBuild (RNG-free) and tiers re-apply via tryUpgrade's exact state
 // mutations MINUS the cosmetic spawnUpgradeSparkles (which would consume RNG).
 //
-// MIGRATION (Tower Rework): returns the Tips to REFUND for tiers that no
-// longer exist — a committed path id the current balance.json doesn't know is
-// an ORPHAN: the tower is kept un-upgraded and the orphaned tiers' spend comes
-// back at FULL value (v2 saves carry the exact `spent`; v1 saves price the
-// retired paths from LEGACY_TIER_COSTS). An unknown tower TYPE is skipped
-// whole (ids are frozen forever, so this is a corrupted-save guard, not a
-// migration path — the boot backstop still keeps the run alive).
+// MIGRATION (Tower Rework): returns the Tips to REFUND into the run. A committed
+// path id the current balance.json doesn't know is an ORPHAN: the tower is kept
+// un-upgraded and the orphaned tiers' spend comes back at FULL value (v2 saves
+// carry the exact `spent`; v1 saves price the retired paths from
+// LEGACY_TIER_COSTS). A rejected placement refunds the WHOLE tower (never
+// vanishes it). An unknown tower TYPE is skipped whole (ids are frozen forever,
+// so this is a corrupted-save guard, not a migration path — the boot backstop
+// still keeps the run alive). Every return is a finite number of Tips.
 function rebuildTowerFromSave(ts) {
   if (!ts || !TOWER_BY_ID[ts.typeId]) return 0;
   const savedType = game.selectedType, savedCurrency = game.currency;
@@ -181,44 +247,68 @@ function rebuildTowerFromSave(ts) {
   game.selectedType = savedType;
   game.currency = savedCurrency;
   const t = game.towers[game.towers.length - 1];
-  if (!t || t.x !== ts.x || t.y !== ts.y) return 0;   // placement rejected — shouldn't happen for a valid save
+  if (!t || t.x !== ts.x || t.y !== ts.y) {
+    // Placement REJECTED — corrupt coords, or a map/obstacle/spacing change
+    // invalidated the saved seat ("maps will change a lot"). The seat is gone,
+    // but never the value: refund the tower's FULL worth (Issue #106 #3), same
+    // philosophy as the orphaned-path branch. No tower was pushed by tryBuild,
+    // so there is nothing on the board to remove.
+    return savedTowerValue(ts);
+  }
   t.targeting = ts.targeting || "first";
+  if (isFiniteNumber(ts.killCount)) t.killCount = ts.killCount;   // Tip Jar jackpot progress survives resume (Issue #106 #4)
   const upgrades = TOWER_BY_ID[ts.typeId].upgrades;
   const savedTier = ts.upgradeTier || 0;
+  const spentKnown = isFiniteNumber(ts.spent);            // a v2 save with a valid spend
+  const legacy = LEGACY_TIER_COSTS[ts.upgradePath] || []; // frozen v1-era tier prices
   if (savedTier > 0 && ts.upgradePath && !upgrades[ts.upgradePath]) {
-    // The committed path was deleted/renamed by a rework — keep the seat,
-    // refund the tiers. Prefer the save's own record of what was paid (v2);
-    // fall back to the frozen legacy prices for v1.
-    if (ts.spent != null) return Math.max(0, ts.spent - TOWER_BY_ID[ts.typeId].cost);
-    const legacy = LEGACY_TIER_COSTS[ts.upgradePath] || [];
+    // The committed path was deleted/renamed by a rework — keep the seat
+    // un-upgraded, refund the orphaned tiers at FULL value.
+    if (spentKnown) {
+      // v2: refund the upgrade spend = spent MINUS the base. Use the base
+      // STAMPED in the save (frozen at write time), NOT the live cost, so a
+      // future base reprice can't skew old-save refunds (Issue #106 #5). Older
+      // v2 saves that predate the stamp fall back to the live base cost.
+      const base = isFiniteNumber(ts.base) ? ts.base : TOWER_BY_ID[ts.typeId].cost;
+      t.spent = base;                       // the kept seat's un-refunded base spend
+      return Math.max(0, ts.spent - base);
+    }
+    // v1 / corrupt-spent: reconstruct the refund from the frozen legacy prices;
+    // the seat keeps the live base spend tryBuild already set.
     let refund = 0;
     for (let i = 0; i < savedTier; i++) refund += legacy[i] || 0;
     return refund;
   }
+  // Surviving path: re-apply each tier (current deltas), booking the spend the
+  // player actually PAID — v1 from the FROZEN pre-#105 price, never the live one
+  // (Issue #106 #2: theStall t1 was repriced 250->500, so the live price would
+  // over-book and mint Tips through sell). v2 gets its exact `spent` below.
   for (let i = 0; i < savedTier; i++) {
     if (!ts.upgradePath || !upgrades[ts.upgradePath]) break;
     const tier = upgrades[ts.upgradePath].tiers[t.upgradeTier];
     if (!tier) break;
-    t.spent += tier.cost;                 // same spend bookkeeping tryUpgrade does
+    t.spent += (legacy[i] != null ? legacy[i] : tier.cost);   // v1: frozen price; v2: overwritten below
     t.upgradePath = ts.upgradePath;       // commit → the other path locks out
     t.upgradeTier++;
     applyUpgradeDeltas(t, tier);          // rebuilds pierce/crumb/…/aura/support flags
   }
   // v2 saves know the EXACT Tips paid (support discounts included) — restore
   // it so sell refunds keep matching reality after a discounted purchase.
-  if (ts.spent != null) t.spent = ts.spent;
+  if (spentKnown) t.spent = ts.spent;
   return 0;
 }
 // Resume the saved run: land in PREP of the saved wave with the board rebuilt.
 // Returns true on success, false if there's no valid save.
 //
-// THE LAST-RESORT BACKSTOP: the whole rebuild runs inside try/catch — if a
-// malformed/unknown save throws ANYWHERE, the checkpoint is discarded and we
-// report false, so the caller lands in the hub with META intact. Bad
-// localStorage must never be able to brick boot or the Continue button.
+// THE LAST-RESORT BACKSTOP: readSave rejects a type-invalid blob up front, and
+// the whole rebuild then runs inside try/catch — if a malformed save throws
+// ANYWHERE, the checkpoint is discarded and we report false, so the caller lands
+// in the hub with META intact. Either way a garbage save is CLEARED (self-heal)
+// and we settle in the menu phase. Bad localStorage must never brick boot or the
+// Continue button, nor resume into a broken run (Issue #106 #1).
 function restoreRun() {
   const save = readSave();
-  if (!save) return false;
+  if (!save) { clearSave(); game.phase = "menu"; return false; }   // no valid save → hub, discard any garbage blob
   try {
     restoring = true;                       // suppress checkpoint writes until the board is whole
     loadMap(save.mapId);                    // rebind the map (consumes no RNG)
@@ -240,10 +330,17 @@ function restoreRun() {
     game.autoStartArmed = false;
     const deck = deckTypes();
     game.selectedType = deck.length ? deck[0].id : "arrow";
-    // Rebuild the board; tiers orphaned by a rework refund at FULL value into
-    // the run, so it resumes with the same total value it had (never-lose-a-run).
+    // Rebuild the board; tiers orphaned by a rework (or a whole seat lost to a
+    // rejected placement) refund at FULL value into the run, so it resumes with
+    // the same total value it had (never-lose-a-run). Each return is a finite
+    // number of Tips; the isFiniteNumber guard is belt-and-braces so one corrupt
+    // tower can never NaN the whole accumulator and silently drop a sibling's
+    // legitimate refund (Issue #106 NaN-isolation).
     let refund = 0;
-    for (const ts of save.towers) refund += rebuildTowerFromSave(ts);
+    for (const ts of save.towers) {
+      const r = rebuildTowerFromSave(ts);
+      if (isFiniteNumber(r)) refund += r;
+    }
     if (refund > 0) game.currency += refund;
     recomputeSupport();   // the manual tier re-apply above bypasses tryUpgrade's recompute
     restoring = false;

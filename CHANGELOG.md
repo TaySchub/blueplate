@@ -150,6 +150,45 @@ Format is deliberately simple and plain-language.
 
 
 ### Fixed
+- **Save-migration hardening — five holes in the never-lose-a-run clause**
+  (Issue #106; `src/engine.js` save/restore path + save tests only — no balance
+  change; the gate and both seeded smokes are byte-identical to main, gate 54.0%
+  at seed 1 ×200). A post-#105 review proved five ways a live checkpoint could
+  break or quietly lose the player value; all are closed:
+  - **A garbage save can no longer restore into a NaN "zombie" run.** `readSave`
+    now type-validates the run scalars (waveIndex / currency / lives must be real
+    numbers); a parseable-but-corrupt blob is discarded, so the player lands
+    safely in the hub with Continue hidden and their Golden Forks (META) intact —
+    and it can no longer re-persist itself as a clean-looking checkpoint. (Before,
+    `lives:{}` became `NaN`, an unlosable run that Continue re-entered forever.)
+  - **v1 saves stop minting (or losing) Tips on a repriced path.** #105 repriced
+    the surviving The Stall t1 (250→500); a pre-rework save now re-applies its
+    tiers at the FROZEN pre-#105 prices, so a migrated v1 Pitmaster restores with
+    the 550 Tips it actually cost (sell-refund 385), not an inflated 800.
+  - **A saved tower that no longer fits refunds instead of vanishing.** If a saved
+    seat fails placement (corrupt coords, or a future map/obstacle/spacing change),
+    its full value is refunded into the run — the same philosophy as an orphaned
+    upgrade path — never silently dropped with its spend.
+  - **The Competitive Eater's Tip Jar progress survives Save & Continue.** The
+    per-tower `killCount` is now serialized, so a jackpot one kill away stays one
+    kill away across a resume (it was resetting to zero).
+  - **Orphan refunds no longer depend on the live base cost.** The checkpoint now
+    stamps each tower's base cost at write time, so a future base reprice can't
+    skew refunds on old saves. Older v2 saves without the stamp fall back to the
+    live base cost (documented).
+  Also hardened: one tower's corrupt `spent` can no longer NaN-poison the run's
+  refund accumulator and silently drop a sibling's legitimate refund. The frozen
+  pre-#105 price table lives beside `LEGACY_TIER_COSTS` (derived from
+  `data/balance.json` at 7fd16b1, the last pre-#105 commit; base costs were
+  verified unchanged, so only tier prices needed freezing). `savemigrate.test.mjs`
+  pins every fix — the backstop leg now asserts the REJECT result (false, hub
+  phase, checkpoint discarded) instead of only "no throw", plus new legs for the
+  three previously unexercised legacy rows, the 550-Tip migration + sell-refund,
+  placement-refund, killCount round-trip, base-reprice invariance, and NaN
+  isolation; every other suite is green and unedited. Verified in-browser: build →
+  wave → hard-close → Continue restored the board with killCount intact; a
+  hand-corrupted localStorage → reload landed in the hub with Continue hidden and
+  META intact, and a fresh run started clean.
 - **Chrome polish for the 10-tower roster** (Issue #94, display-only — zero numeric
   or mechanic changes; the gate and both smokes are byte-identical to main). Four
   real-device (phone landscape) fixes:
